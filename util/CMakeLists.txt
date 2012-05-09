@@ -6,10 +6,10 @@ FIND_PACKAGE( Vigra 1.8.0 REQUIRED )
 FIND_PACKAGE( HDF5 )
 
 
-ADD_EXECUTABLE(sif2hdf5 EXCLUDE_FROM_ALL sif2hdf5.cpp)
+ADD_EXECUTABLE(sif2hdf5  sif2hdf5.cpp)
 ADD_EXECUTABLE(sif2tiff  sif2tiff.cpp)
-ADD_EXECUTABLE(hdf52tiff EXCLUDE_FROM_ALL hdf52tiff.cpp )
-ADD_EXECUTABLE(tiff2hdf5 EXCLUDE_FROM_ALL tiff2hdf5.cpp)
+ADD_EXECUTABLE(hdf52tiff  hdf52tiff.cpp )
+ADD_EXECUTABLE(tiff2hdf5  tiff2hdf5.cpp)
 #ADD_DEPENDENCIES(experiments sif2hdf5 sif2tiff hdf52tiff tiff2hdf5)
 TARGET_LINK_LIBRARIES(sif2hdf5 vigraimpex)
 TARGET_LINK_LIBRARIES(sif2tiff vigraimpex)

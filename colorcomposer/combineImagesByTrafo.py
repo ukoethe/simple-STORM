@@ -8,8 +8,10 @@ def affineMatrix2DFromCorrespondingPoints(s, d):
 	if len(s) < 3:
 		print "at least three points required"
 		return
+	
+		
 	m  = np.zeros((3,3))
-
+	
 	s = np.hstack([s,np.ones((n,1))]) # add third column with ones
 	d = np.hstack([d,np.ones((n,1))]) # add third column with ones
 	rx = np.sum(d[:,0:1]*s,axis=0)
@@ -22,6 +24,8 @@ def affineMatrix2DFromCorrespondingPoints(s, d):
 	solx = solve(m, rx)
 	soly = solve(m, ry)
 	row3 = np.array([0,0,1])
+	
+	
 	return np.vstack([solx,soly,row3])
 
 # if run standalone

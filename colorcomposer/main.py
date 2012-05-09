@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+ #!/usr/bin/env python
 
 import PyQt4
 import sys
@@ -13,7 +13,7 @@ import transformcontroller as tc
 # This class represents a bead Graphics within
 # the visual editor environment.
 class BeadCircle(QtGui.QGraphicsObject):
-	def __init__(self, x , y , color, layerindex, r=2.0):
+	def __init__(self, x , y , color, layerindex, r=5.0):
 		QtGui.QGraphicsObject.__init__(self)
 		self.setFlags(QtGui.QGraphicsItem.ItemIsSelectable)
 		#~ self.setRect( -r , -r , 2.*r, 2.*r )
@@ -32,6 +32,7 @@ class BeadCircle(QtGui.QGraphicsObject):
 
 		self.active = 0
 		self.layerindex = layerindex
+		self.setZValue(layerindex)
 
 	def paint(self,painter,option,pwidget):
 		if self.active:
@@ -49,11 +50,16 @@ class BeadCircle(QtGui.QGraphicsObject):
 		self.emit(QtCore.SIGNAL("beadSelected(float,float,int,bool)"), \
 			self.x(),self.y(),self.layerindex,self.active)
 		self.update() #redraw
+		
+	def BigBeadCircle(self):
+		print 'updated'
+		self.update()
 
 class CursorGraphicsScene(QtGui.QGraphicsScene):
 	'''Add a cursor (ellipseItem) to the QGraphicsView with appropriate 
 	MouseEvent-Handling'''
 	def __init__(self):
+		self.lastCursorPosition=[0,0]
 		QtGui.QGraphicsScene.__init__(self)
 		self.cursorRadius = 10.
 		pen = QtGui.QPen(QtGui.QColor("white"))
@@ -64,6 +70,7 @@ class CursorGraphicsScene(QtGui.QGraphicsScene):
 		QtGui.QGraphicsScene.mouseReleaseEvent(self, event) # forward to individual items
 		self.cursor.setPos(event.scenePos()-QtCore.QPointF(self.cursorRadius,self.cursorRadius)) # move cursor
 		self.emit(QtCore.SIGNAL("cursorMoved(float, float, float)"), event.scenePos().x(), event.scenePos().y(), self.cursorRadius)
+		self.lastCursorPosition=[event.scenePos().x(),event.scenePos().y()]
 		
 	def setCursorRadius(self, radius):
 		self.cursorRadius = radius
@@ -71,7 +78,10 @@ class CursorGraphicsScene(QtGui.QGraphicsScene):
 		rect.setHeight(2.*radius)
 		rect.setWidth(2.*radius)
 		self.cursor.setRect(rect)
-
+	
+	def getCursorPosition(self):
+		return self.lastCursorPosition
+		
 	def cursorRadius(self):
 		return self.cursorRadius
 
@@ -83,7 +93,7 @@ class MyColorcomposerApp(QtCore.QObject):
 		self.ui.setupUi(self.main_window)
 		self.main_window.show()
 		self.transformcontroller = tc.TransformController(self)
-
+		
 		self.m_npimages = []  	# numpy-images
 		self.m_coords = []      # coordinate lists
 		self.m_colors = []    	# list of colors for the images
@@ -95,20 +105,39 @@ class MyColorcomposerApp(QtCore.QObject):
 		self.pixmap.setScale(1/self.m_factor)
 
 		self.connectSignals()
+		
+		self.cutoff=.95
+		self.maxVariance=1
+		self.maxDistance=3
 
 	def connectSignals(self):
 		QtCore.QObject.connect(self.ui.zoomOutButton, QtCore.SIGNAL("clicked()"), self.zoomOutButton_clicked)
 		QtCore.QObject.connect(self.ui.zoomInButton, QtCore.SIGNAL("clicked()"), self.zoomInButton_clicked)
-		QtCore.QObject.connect(self.ui.addFileButton, QtCore.SIGNAL("clicked()"), self.addFileButton_clicked)
+		QtCore.QObject.connect(self.ui.addFileButton, QtCore.SIGNAL("clicked()"	), self.addFileButton_clicked)
 		QtCore.QObject.connect(self.ui.doTransformationButton, QtCore.SIGNAL("clicked()"), self.doTransformationButton_clicked)
 		QtCore.QObject.connect(self.ui.actionAuto_detect_beads, QtCore.SIGNAL("triggered()"), self.autoDetectBeads_triggered)
 		QtCore.QObject.connect(self.ui.actionClear_all, QtCore.SIGNAL("triggered()"), self.clearAll_triggered)
 		QtCore.QObject.connect(self.ui.actionAbout, QtCore.SIGNAL("triggered()"), self.about_triggered)
 		QtCore.QObject.connect(self.ui.actionExport_Composed_image, QtCore.SIGNAL("triggered()"), self.exportComposed_triggered)
 		QtCore.QObject.connect(self.ui.actionExport_transformed_coordinates, QtCore.SIGNAL("triggered()"), self.exportTransformedCoordinates_triggered)
-		QtCore.QObject.connect(self.ui.cursorRadiusSpinBox, QtCore.SIGNAL("valueChanged(double)"), self.scene.setCursorRadius)
+		#QtCore.QObject.connect(self.ui.cursorRadiusSpinBox, QtCore.SIGNAL("valueChanged(double)"), self.scene.setCursorRadius)
+		#QtCore.QObject.connect(self.ui.cursorRadiusSlider, QtCore.SIGNAL("valueChanged(int)"), self.SliderChanged)
 		QtCore.QObject.connect(self.scene, QtCore.SIGNAL("cursorMoved(float, float, float)"), self.displayStats)
+		
+		self.ui.deleteBeadButton.clicked.connect(self.deleteBead)
+		self.ui.addRedBeadButton.clicked.connect(self.addRedBead)
+		self.ui.addGreenBeadButton.clicked.connect(self.addGreenBead)
+		
+		self.ui.cursorRadiusSlider.valueChanged.connect(self.RadiusSliderChanged)
+		self.ui.cursorRadiusSpinBox.valueChanged.connect(self.RadiusSpinBoxChanged)
+		self.ui.PercentOfOccurrencySlider.valueChanged.connect(self.PercentOfOccurrencySliderChanged)
+		self.ui.PercentOfOccurrencySpinBox.valueChanged.connect(self.PercentOfOccurrencySpinBoxChanged)
+		self.ui.maximalVarianceSlider.valueChanged.connect(self.maximalVarianceSliderChanged)
+		self.ui.maximalVarianceSpinBox.valueChanged.connect(self.maximalVarianceSpinBoxChanged)
+		self.ui.maximalDistanceSlider.valueChanged.connect(self.maximalDistanceSliderChanged)
+		self.ui.maximalDistanceSpinBox.valueChanged.connect(self.maximalDistanceSpinBoxChanged)
 
+		
 	def zoomGraphicsView(self, factor):
 		self.ui.graphicsView.scale(factor,factor)
 
@@ -142,7 +171,7 @@ class MyColorcomposerApp(QtCore.QObject):
 		for i in xrange(self.ui.fileWidget.count()):
 			listItem = self.ui.fileWidget.item(i)
 			filename = listItem.data(QtCore.Qt.DisplayRole).toString()
-			beadPositions = beadLocalisation.detectBeadsFromFile(filename)
+			beadPositions = beadLocalisation.detectBeadsFromFile(filename,self.cutoff,self.maxDistance,self.maxVariance)	
 			for b in beadPositions:
 				color = QtGui.QColor.fromRgbF(*self.m_colors[i])
 				bead = BeadCircle(b[0],b[1],color,i)
@@ -151,6 +180,27 @@ class MyColorcomposerApp(QtCore.QObject):
 				self.scene.addItem(bead)
 			self.emit(QtCore.SIGNAL("unselectAllBeads()"))
 
+	def getCircledBead(self, layer):						#returns the bead (layer=0 for red, layer=1 for green) in the rectangular selected by single mouseclick
+		listItem = self.ui.fileWidget.item(layer)
+		filename = listItem.data(QtCore.Qt.DisplayRole).toString()
+		dims, cc = coords.readfile(filename)
+		rect=CursorGraphicsScene.getCursorPosition(self.scene)
+		maxDist=CursorGraphicsScene.cursorRadius(self.scene)
+		roi=[rect[0]-maxDist, rect[0]+maxDist, rect[1]-maxDist, rect[1]+maxDist]
+		candidate = coords.cropROI(cc, roi)[:,:4]
+
+		if len(candidate) < self.cutoff*dims[2]:
+			print 'Number of points below percentage of occurrency 2'
+			bead='false'
+		else:
+			mm,stddev,intensitiy = beadLocalisation.beadVariance(candidate)		
+			color = QtGui.QColor.fromRgbF(*self.m_colors[layer])
+			bead = BeadCircle(mm[0],mm[1],color,layer)
+		if len(candidate) > dims[2]: 
+			print ' WARNING: Number of points below percentage of occurrency because len(candidate) =%d > dims[2] = %d'%(len(candidate),dims[2])
+			#bead='false'
+		return bead
+	
 	def saveImage(self, filename):
 		if not self.m_qimage.save(filename):
 			QtGui.QMessageBox.critical(self.main_window, "Error saving file", "Could not save image as %s" %filename)
@@ -190,9 +240,10 @@ class MyColorcomposerApp(QtCore.QObject):
 		self.m_coords = []
 		self.ui.fileWidget.clear()
 		self.recalculateResult()
-
+		
+	
 	def about_triggered(self):
-		version = "0.1 beta"
+		version = "0.1 betacoord2im"
 		copyright = "(c) Joachim Schleicher <J.Schleicher@stud.uni-heidelberg.de>"
 		license = "This is free software; There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE"
 		QtGui.QMessageBox.about(self.main_window, "About Colorcomposer", 
@@ -227,7 +278,74 @@ class MyColorcomposerApp(QtCore.QObject):
 			intensity += " %3.0f" % ii
 		self.ui.statsIntensity.setText(intensity)
 		self.ui.statsNumber.setText(number)
+		
+	def deleteBead(self):			
+		deltax=1.5
+		deltay=1.5
+		for obj in self.scene.items():		
+			lay=int(obj.zValue())				#lay is the value of the zValue 0=red, 1=green
+			try:								#if the x and y means of the object are the same as the means of the new created bead, that is returned from getCirceldBead, obj will be removed
+				#if obj.pos().x()==self.getCircledBead(lay).pos().x() and obj.pos().y()==self.getCircledBead(lay).pos().y():
+				if self.getCircledBead(lay).pos().x()-deltax<obj.pos().x()<self.getCircledBead(lay).pos().x()+deltax and self.getCircledBead(lay).pos().y()-deltay<obj.pos().y()<self.getCircledBead(lay).pos().y()+deltay:
+					self.scene.removeItem(obj)
+			except AttributeError:
+				print ' '
+	
+	
+	def addRedBead(self):
+		bead=self.getCircledBead(0) #returns a BeadCircle Object or the string 'false' if no bead could be found at the given location
+		if bead!='false':
+			bead.connect(bead, QtCore.SIGNAL("beadSelected(float,float,int,bool)"), self, QtCore.SIGNAL("setBeadSelected(float,float,int,bool)"))
+			bead.connect(self, QtCore.SIGNAL("hideBeads()"), bead.hide)
+			self.scene.addItem(bead)
+			self.emit(QtCore.SIGNAL("unselectAllBeads()"))
 
+	def addGreenBead(self):		
+		bead=self.getCircledBead(1) #returns a BeadCircle Object or the string 'false' if no bead could be found at the given location
+		if bead!='false':
+			bead.connect(bead, QtCore.SIGNAL("beadSelected(float,float,int,bool)"), self, QtCore.SIGNAL("setBeadSelected(float,float,int,bool)"))
+			bead.connect(self, QtCore.SIGNAL("hideBeads()"), bead.hide)
+			self.scene.addItem(bead)
+			self.emit(QtCore.SIGNAL("unselectAllBeads()"))
+	
+	def RadiusSliderChanged(self,value):
+		self.scene.setCursorRadius(value/10)
+		self.ui.cursorRadiusSpinBox.setValue(value/10)
+		
+		
+	def RadiusSpinBoxChanged(self,value):
+		self.ui.cursorRadiusSlider.setValue(value*10)
+		self.scene.setCursorRadius(value)
+		
+	def PercentOfOccurrencySliderChanged(self,value):
+		self.ui.PercentOfOccurrencySpinBox.setValue(value/10.)	
+		self.cutoff=value/10/100.	#/10 is the correction needed because of the slider /100 is because cutoff needs to be between 0 and 1
+	
+		
+	def PercentOfOccurrencySpinBoxChanged(self,value):
+		self.ui.PercentOfOccurrencySlider.setValue(value*10)
+		self.cutoff=value/100.		#cutoff needs to be between 0 and 1
+		
+	def maximalVarianceSliderChanged(self,value):
+		self.ui.maximalVarianceSpinBox.setValue(value/10.)	
+		self.maxVariance=value/10.	
+	
+		
+	def maximalVarianceSpinBoxChanged(self,value):
+		self.ui.maximalVarianceSlider.setValue(value*10)
+		self.maxVariance=value		
+		
+	def maximalDistanceSliderChanged(self,value):
+		self.ui.maximalDistanceSpinBox.setValue(value/10.)	
+		self.maxDistance=value/10.	
+	
+		
+	def maximalDistanceSpinBoxChanged(self,value):
+		self.ui.maximalDistanceSlider.setValue(value*10)
+		self.maxDistance=value		
+	
+	
+		
 if __name__ == "__main__":
 	app = QtGui.QApplication(sys.argv)
 	m_app = MyColorcomposerApp()

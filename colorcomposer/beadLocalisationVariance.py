@@ -2,6 +2,9 @@ import numpy as np
 
 import coords as coord2im
 import sys
+import time
+
+cutoff=95
 
 def dist(a, b):
 	a1 = np.array(a)
@@ -21,6 +24,7 @@ def nearestNeighbor(p, beads, maxDist):
 		if dist(beads[i], p)<nearestDist:
 			nearestIdx = i
 			nearestDist = dist(beads[i], p)
+		
 	return nearestDist, nearestIdx
 
 def beadVariance(positions, mean=None):
@@ -33,9 +37,9 @@ def beadVariance(positions, mean=None):
 	intensity = np.mean(intensities)
 	return mean, stddev, intensity
 
-def detectBeads(dims, cc, maxDist=2, maxStdDev=0.3):
-	numFrames = cc[-1,2]+1
 
+def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=0.3):
+	numFrames = cc[-1,2]+1
 	beads = []
 	singleConsidered=0
 	skipped = 0 #counter
@@ -45,10 +49,13 @@ def detectBeads(dims, cc, maxDist=2, maxStdDev=0.3):
 	intensities = cc[:,3]
 	#~ allCandidates = cc[intensities > 2*np.mean(intensities)] # only high intensities
 	allCandidates = cc # all spots
-	initialCandiates = allCandidates[allCandidates[:,2]==0] # from frame 0
+	initialCandiates = allCandidates[allCandidates[:,2]<50] # from frame 0 to 49
+	counter=0
 	for x, y, frame, intensity in initialCandiates[:,0:4]:
+		counter=counter+1
+		print counter
 		nearestDist, nearestIdx = nearestNeighbor((x,y,intensity), beads, maxDist)
-		if nearestDist > maxDist:
+		if nearestDist > 2*maxDist:
 			beads.append([x,y,intensity])
 		else:
 			print "removing beads too close together: ", (x,y,intensity), beads[nearestIdx]
@@ -59,7 +66,8 @@ def detectBeads(dims, cc, maxDist=2, maxStdDev=0.3):
 		roi = [x-maxDist, x+maxDist, y-maxDist, y+maxDist]
 		candidate = coord2im.cropROI(cc, roi)[:,:4]
 		singleConsidered+=len(candidate)
-		if len(candidate) > numFrames or len(candidate) < 0.950*numFrames: # allowing few percent not detected
+		#if len(candidate) > numFrames or len(candidate) < cutoff*numFrames: # allowing few percent not detected
+		if len(candidate) < cutoff*numFrames: # allowing few percent not detected
 			skipped += 1
 			continue
 		mm,stddev,intensitiy = beadVariance(candidate)
@@ -73,11 +81,11 @@ def detectBeads(dims, cc, maxDist=2, maxStdDev=0.3):
 	print skipped, "initial candidates skipped."
 	return meanData, scatterplotData
 
-def detectBeadsFromFile(filename, maxDist=2, maxStdDev=0.3):
+def detectBeadsFromFile(filename, cutoff,  maxDist=2,maxStdDev=1.1):
 	dims, cc = coord2im.readfile(filename)
 	import time
 	start = time.time()
-	beadMeans, beadScatter = detectBeads(dims, cc, maxDist, maxStdDev)
+	beadMeans, beadScatter = detectBeads(dims, cc, cutoff,maxDist, maxStdDev)
 	print "calculated in %f seconds" % (time.time()-start)
 	return beadMeans
 
