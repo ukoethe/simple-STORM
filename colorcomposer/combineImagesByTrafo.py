@@ -25,6 +25,18 @@ def affineMatrix2DFromCorrespondingPoints(s, d):
 	soly = solve(m, ry)
 	row3 = np.array([0,0,1])
 	
+	print [solx,soly,row3]
+	a=np.vstack([solx,soly])
+	error=(d[:,0:2]).T-np.dot(a,s.T)
+	
+	print error
+	s[:,0]=s[:,0]-sum(s[:,0])/len(s)
+	s[:,1]=s[:,1]-sum(s[:,1])/len(s)
+	#dA=-np.dot(error,(np.dot(s,np.linalg.pinv(np.dot(s.T,s)))))
+	dA=-np.dot(error,(np.dot(s,np.linalg.pinv(np.dot(s.T,s)))))
+	
+	print dA
+	print np.dot(dA,s.T)
 	
 	return np.vstack([solx,soly,row3])
 

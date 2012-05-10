@@ -38,7 +38,7 @@ def beadVariance(positions, mean=None):
 	return mean, stddev, intensity
 
 
-def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=0.3):
+def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 	numFrames = cc[-1,2]+1
 	beads = []
 	singleConsidered=0
