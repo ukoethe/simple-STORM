@@ -6,16 +6,19 @@ import numpy as np
 import scipy.stats
 #import matplotlib.pyplot as plt
 
+dimensions=[]
+
 def readfile(filename):
 	''' read file with coordinates of found spots and 
 	convert it into a numpy-array'''
-	
+	global dimensions
 	try:	# try to load cached numpy file format (faster)
 		npzfilename = str(filename)
 		if npzfilename[-4:] != '.npz':
 			npzfilename += '.npz'
 		data = np.load(npzfilename)
 		dims = data['dims']
+		dimensions = dims
 		coords = data['coords']
 		print "I read the cached file instead of parsing a .txt file"
 		return dims, coords
@@ -41,6 +44,7 @@ def readfile(filename):
 
 	npcoords = np.asarray(coords, dtype='float') #numpy-array
 	npdims = np.asarray(dimline[0:3])
+	dimensions = npdims
 	np.savez(str(filename), dims=npdims, coords=npcoords)
 	return npdims, npcoords
 
@@ -89,6 +93,7 @@ def coords2Image(dimension, coords, factor=8):
 	for i in xrange(len(coords)):
 		intensity = coords[i,3]
 		im[cc[i,1],cc[i,0]] += intensity
+		
 	#limit maximum value
 	mmx = scipy.stats.scoreatpercentile(im.flat, 99.6)
 	if mmx > 0:
@@ -106,3 +111,15 @@ if __name__ == "__main__":
 	im = coords2Image(dims, coords, factor=10)
 	plt.gray()
 	plt.imsave(sys.argv[2], im)
+	
+def ImgCord2CenteredCord(x,y):
+	x = x - dimensions[0]/2.
+	y = y - dimensions[0]/2.
+	returnArray=np.asarray([x,y])
+	return returnArray.T
+
+def CenteredCord2ImgCord(x,y):
+	x = x + dimensions[0]/2.
+	y = y + dimensions[0]/2.
+	returnArray=np.asarray([x,y])
+	return returnArray.T

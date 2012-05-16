@@ -5,8 +5,7 @@ import numpy as np
 def loadImage(filename, color=(1.,1.,0.), factor=4):
 	print "reading file %s" % filename
 	dims, cc = coords.readfile(filename)
-	cc[:,0]=cc[:,0]#-dims[0]
-	cc[:,1]=cc[:,1]#-dims[1]
+
 	img = coords.coords2Image(dims, cc, factor=factor)
 	colorimg = np.zeros((img.shape[0],img.shape[1],4),dtype=np.uint8)
 	mx = np.max(img)
@@ -14,7 +13,7 @@ def loadImage(filename, color=(1.,1.,0.), factor=4):
 	colorimg[:,:,1] = color[1]*img*(255./mx) # green
 	colorimg[:,:,2] = color[0]*img*(255./mx) # red
 
-	return colorimg, cc
+	return colorimg, cc, dims
 
 def countDetections(cc,x,y,radius):
 	roi = x-radius, x+radius, y-radius, y+radius

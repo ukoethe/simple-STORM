@@ -1,6 +1,7 @@
 import numpy as np
 from PyQt4 import QtGui, QtCore
 import combineImagesByTrafo as calcTrafo
+import coords
 
 class Landmark:
 	'''model class that holds the data of a single bead'''
@@ -42,14 +43,17 @@ class TransformController(QtCore.QObject):
 		newlandmark = Landmark([x,y],layerindex)
 		if active:
 			self.m_landmarksList.append(newlandmark)
+			print "bead added"
 		else:
 			self.m_landmarksList.remove(newlandmark)
+			print "bead removed"
 		return
 
 	def unselectAllBeads(self):
 		self.m_landmarksList = []
+		print "all bead unselected"
 
-	def calculateTransform(self):
+	def calculateTransform(self,dims):
 		'''Calculates the transformation matrix based on the active beads
 		and updates the color image accordingly'''
 		print "doTransform executed."
@@ -65,7 +69,7 @@ class TransformController(QtCore.QObject):
 				print "Different number of foreground points in layer %i and background points in layer 0" % layer
 				continue
 			print "transforming layer %i using %i beads as landmarks" % (layer, len(fg))
-			self.m_transform[layer] = calcTrafo.affineMatrix2DFromCorrespondingPoints(fg, bg)
+			self.m_transform[layer] = calcTrafo.affineMatrix2DFromCorrespondingPoints(fg, bg, dims)
 			tt = np.dot(self.m_transform[layer], np.vstack([fg.T,np.ones(len(fg))])).T[:,:2] # fg transformed in bg coords
 			rss = np.sum((tt-bg)**2)
 			rms = np.sqrt(rss/len(fg))
@@ -88,6 +92,7 @@ class TransformController(QtCore.QObject):
 			trafo = np.diag([1,1,1]) # identity
 		# convert to QMatrix
 		matrix = QtGui.QMatrix(trafo[0,0], trafo[1,0], trafo[0,1], trafo[1,1], trafo[0,2], trafo[1,2])
+		
 		return matrix
 
 	def doTransform(self, points, layer):

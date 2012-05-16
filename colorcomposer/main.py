@@ -98,6 +98,7 @@ class MyColorcomposerApp(QtCore.QObject):
 		self.m_coords = []      # coordinate lists
 		self.m_colors = []    	# list of colors for the images
 		self.m_factor = 8.   	# factor for scaling coordinates to an image
+		self.m_dims   = []
 		self.m_qimage = QtGui.QImage()
 		self.scene = CursorGraphicsScene()
 		self.ui.graphicsView.setScene(self.scene)
@@ -143,10 +144,11 @@ class MyColorcomposerApp(QtCore.QObject):
 
 	def addImage(self, filename, color=(1,1,0)):
 		'''load a file and add it to the list of QImages'''
-		npimg, cc = worker.loadImage(filename, color, self.m_factor)
+		npimg, cc, dims = worker.loadImage(filename, color, self.m_factor)
 		self.m_npimages.append(npimg)
 		self.m_coords.append(cc)
 		self.m_colors.append(color)
+		self.m_dims.append(dims)
 		
 	def recalculateResult(self):
 		if len(self.m_npimages) == 0:
@@ -225,7 +227,7 @@ class MyColorcomposerApp(QtCore.QObject):
 			self.recalculateResult()
 
 	def doTransformationButton_clicked(self):
-		self.transformcontroller.calculateTransform()
+		self.transformcontroller.calculateTransform([self.m_npimages[0].shape[0]/self.m_factor, self.m_npimages[0].shape[1]/self.m_factor])
 		self.emit(QtCore.SIGNAL("hideBeads()"))
 		self.recalculateResult()
 
@@ -272,12 +274,15 @@ class MyColorcomposerApp(QtCore.QObject):
 	def displayStats(self, x, y, radius):
 		number = "number:   "
 		intensity = "intensity: "
+		numberFrame = ""
 		for i in range(len(self.m_coords)):
 			num, ii = worker.countDetections(self.m_coords[i],x,y,radius)
 			number += " %3.0f" % num
 			intensity += " %3.0f" % ii
+			numberFrame += "  %i" % self.m_dims[i][2]
 		self.ui.statsIntensity.setText(intensity)
 		self.ui.statsNumber.setText(number)
+		self.ui.statsNumberOfFrames.setText(numberFrame)
 		
 	def deleteBead(self):			
 		deltax=1.5
@@ -298,7 +303,6 @@ class MyColorcomposerApp(QtCore.QObject):
 			bead.connect(bead, QtCore.SIGNAL("beadSelected(float,float,int,bool)"), self, QtCore.SIGNAL("setBeadSelected(float,float,int,bool)"))
 			bead.connect(self, QtCore.SIGNAL("hideBeads()"), bead.hide)
 			self.scene.addItem(bead)
-			self.emit(QtCore.SIGNAL("unselectAllBeads()"))
 
 	def addGreenBead(self):		
 		bead=self.getCircledBead(1) #returns a BeadCircle Object or the string 'false' if no bead could be found at the given location
@@ -306,7 +310,6 @@ class MyColorcomposerApp(QtCore.QObject):
 			bead.connect(bead, QtCore.SIGNAL("beadSelected(float,float,int,bool)"), self, QtCore.SIGNAL("setBeadSelected(float,float,int,bool)"))
 			bead.connect(self, QtCore.SIGNAL("hideBeads()"), bead.hide)
 			self.scene.addItem(bead)
-			self.emit(QtCore.SIGNAL("unselectAllBeads()"))
 	
 	def RadiusSliderChanged(self,value):
 		self.scene.setCursorRadius(value/10)

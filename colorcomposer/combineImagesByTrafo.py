@@ -2,14 +2,18 @@ import numpy as np
 from numpy.linalg import solve
 from scipy.misc import imsave
 
-def affineMatrix2DFromCorrespondingPoints(s, d):
+def affineMatrix2DFromCorrespondingPoints(s, d, dims):
 	n = len(s)
 	assert len(s) == len(d) and s.shape[1]==2 and d.shape[1]==2
 	if len(s) < 3:
 		print "at least three points required"
 		return
 	
-		
+	s[:,0]=s[:,0]-100#-dims[0]
+	s[:,1]=s[:,1]-100#-dims[1]
+	d[:,0]=d[:,0]-100#-dims[0]
+	d[:,1]=d[:,1]-100#-dims[1]
+	
 	m  = np.zeros((3,3))
 	
 	s = np.hstack([s,np.ones((n,1))]) # add third column with ones
@@ -25,21 +29,28 @@ def affineMatrix2DFromCorrespondingPoints(s, d):
 	soly = solve(m, ry)
 	row3 = np.array([0,0,1])
 	
-	print [solx,soly,row3]
+	A = np.vstack([solx,soly,row3])
+	R=np.matrix([[1, 0, 100],[0, 1, 100],[0, 0, 1]])
+	Ap = np.dot(R,np.dot(A,R.I))
+	
+	print "matrix:",[solx,soly,row3]
 	a=np.vstack([solx,soly])
 	error=(d[:,0:2]).T-np.dot(a,s.T)
+	#print error,"=",(d[:,0:2]).T,"-",np.dot(a,s.T)
+	print "error",error
+	s[:,0]=s[:,0]
+	s[:,1]=s[:,1]
 	
-	print error
-	s[:,0]=s[:,0]-sum(s[:,0])/len(s)
-	s[:,1]=s[:,1]-sum(s[:,1])/len(s)
 	#dA=-np.dot(error,(np.dot(s,np.linalg.pinv(np.dot(s.T,s)))))
-	dA=-np.dot(error,(np.dot(s,np.linalg.pinv(np.dot(s.T,s)))))
+	#print np.linalg.pinv(s).shape, error.shape
+	dA=-np.dot(error,np.linalg.pinv(s).T)
 	
-	print dA
-	print np.dot(dA,s.T)
+	#print dA
+	print np.dot([solx,soly,row3],s.T)
 	
-	return np.vstack([solx,soly,row3])
-
+	#return np.vstack([solx,soly,row3])
+	return np.array([[Ap[0,0],Ap[0,1],Ap[0,2]],[Ap[1,0],Ap[1,1],Ap[1,2]],[Ap[2,0],Ap[2,1],Ap[2,2]]])
+	
 # if run standalone
 if __name__ == "__main__":
 	import matplotlib.pyplot as plt

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Wed May  9 12:04:12 2012
+# Created: Fri May 11 14:10:03 2012
 #      by: PyQt4 UI code generator 4.8.5
 #
 # WARNING! All changes made in this file will be lost!
@@ -152,14 +152,35 @@ class Ui_MainWindow(object):
         self.maximalDistanceSpinBox.setObjectName(_fromUtf8("maximalDistanceSpinBox"))
         self.horizontalLayout_2.addWidget(self.maximalDistanceSpinBox)
         self.verticalLayout_3.addLayout(self.horizontalLayout_2)
+        self.horizontalLayout_5 = QtGui.QHBoxLayout()
+        self.horizontalLayout_5.setContentsMargins(-1, 0, -1, -1)
+        self.horizontalLayout_5.setObjectName(_fromUtf8("horizontalLayout_5"))
+        self.verticalLayout = QtGui.QVBoxLayout()
+        self.verticalLayout.setContentsMargins(-1, 0, -1, -1)
+        self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
         self.statsNumber = QtGui.QLabel(self.centralwidget)
         self.statsNumber.setText(QtGui.QApplication.translate("MainWindow", "Statistics: no beads", None, QtGui.QApplication.UnicodeUTF8))
         self.statsNumber.setObjectName(_fromUtf8("statsNumber"))
-        self.verticalLayout_3.addWidget(self.statsNumber)
+        self.verticalLayout.addWidget(self.statsNumber)
         self.statsIntensity = QtGui.QLabel(self.centralwidget)
         self.statsIntensity.setText(_fromUtf8(""))
         self.statsIntensity.setObjectName(_fromUtf8("statsIntensity"))
-        self.verticalLayout_3.addWidget(self.statsIntensity)
+        self.verticalLayout.addWidget(self.statsIntensity)
+        self.horizontalLayout_5.addLayout(self.verticalLayout)
+        self.verticalLayout_4 = QtGui.QVBoxLayout()
+        self.verticalLayout_4.setSpacing(6)
+        self.verticalLayout_4.setSizeConstraint(QtGui.QLayout.SetDefaultConstraint)
+        self.verticalLayout_4.setObjectName(_fromUtf8("verticalLayout_4"))
+        self.label_6 = QtGui.QLabel(self.centralwidget)
+        self.label_6.setText(QtGui.QApplication.translate("MainWindow", "Frames:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_6.setObjectName(_fromUtf8("label_6"))
+        self.verticalLayout_4.addWidget(self.label_6)
+        self.statsNumberOfFrames = QtGui.QLabel(self.centralwidget)
+        self.statsNumberOfFrames.setText(_fromUtf8(""))
+        self.statsNumberOfFrames.setObjectName(_fromUtf8("statsNumberOfFrames"))
+        self.verticalLayout_4.addWidget(self.statsNumberOfFrames)
+        self.horizontalLayout_5.addLayout(self.verticalLayout_4)
+        self.verticalLayout_3.addLayout(self.horizontalLayout_5)
         spacerItem3 = QtGui.QSpacerItem(253, 13, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem3)
         self.zoomOutButton = QtGui.QPushButton(self.centralwidget)
