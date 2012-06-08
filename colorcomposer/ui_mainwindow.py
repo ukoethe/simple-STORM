@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Fri May 11 14:10:03 2012
+# Created: Tue Jun  5 18:14:32 2012
 #      by: PyQt4 UI code generator 4.8.5
 #
 # WARNING! All changes made in this file will be lost!
@@ -17,7 +17,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(776, 635)
+        MainWindow.resize(776, 639)
         MainWindow.setWindowTitle(QtGui.QApplication.translate("MainWindow", "ColorComposer", None, QtGui.QApplication.UnicodeUTF8))
         self.centralwidget = QtGui.QWidget(MainWindow)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
@@ -237,12 +237,16 @@ class Ui_MainWindow(object):
         self.actionBig_bead_circles = QtGui.QAction(MainWindow)
         self.actionBig_bead_circles.setText(QtGui.QApplication.translate("MainWindow", "Big bead circles", None, QtGui.QApplication.UnicodeUTF8))
         self.actionBig_bead_circles.setObjectName(_fromUtf8("actionBig_bead_circles"))
+        self.actionColocalization = QtGui.QAction(MainWindow)
+        self.actionColocalization.setText(QtGui.QApplication.translate("MainWindow", "Colocalization", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionColocalization.setObjectName(_fromUtf8("actionColocalization"))
         self.menuFile.addAction(self.actionExport_Composed_image)
         self.menuFile.addAction(self.actionExport_as_stack_of_images)
         self.menuFile.addAction(self.actionExport_transformed_coordinates)
         self.menuView.addAction(self.actionTransformation_Matrix)
         self.menuExtras.addAction(self.actionAuto_detect_beads)
         self.menuExtras.addAction(self.actionClear_all)
+        self.menuExtras.addAction(self.actionColocalization)
         self.menuHelp.addAction(self.actionAbout)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuView.menuAction())

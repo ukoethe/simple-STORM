@@ -9,6 +9,7 @@ import coords
 import numpy as np
 import beadLocalisationVariance as beadLocalisation
 import transformcontroller as tc
+import colocalizationDetection
 
 # This class represents a bead Graphics within
 # the visual editor environment.
@@ -97,7 +98,7 @@ class MyColorcomposerApp(QtCore.QObject):
 		self.m_npimages = []  	# numpy-images
 		self.m_coords = []      # coordinate lists
 		self.m_colors = []    	# list of colors for the images
-		self.m_factor = 8.   	# factor for scaling coordinates to an image
+		self.m_factor = 4.   	# factor for scaling coordinates to an image
 		self.m_dims   = []
 		self.m_qimage = QtGui.QImage()
 		self.scene = CursorGraphicsScene()
@@ -118,6 +119,7 @@ class MyColorcomposerApp(QtCore.QObject):
 		QtCore.QObject.connect(self.ui.doTransformationButton, QtCore.SIGNAL("clicked()"), self.doTransformationButton_clicked)
 		QtCore.QObject.connect(self.ui.actionAuto_detect_beads, QtCore.SIGNAL("triggered()"), self.autoDetectBeads_triggered)
 		QtCore.QObject.connect(self.ui.actionClear_all, QtCore.SIGNAL("triggered()"), self.clearAll_triggered)
+		QtCore.QObject.connect(self.ui.actionColocalization, QtCore.SIGNAL("triggered()"), self.Colocalization)
 		QtCore.QObject.connect(self.ui.actionAbout, QtCore.SIGNAL("triggered()"), self.about_triggered)
 		QtCore.QObject.connect(self.ui.actionExport_Composed_image, QtCore.SIGNAL("triggered()"), self.exportComposed_triggered)
 		QtCore.QObject.connect(self.ui.actionExport_transformed_coordinates, QtCore.SIGNAL("triggered()"), self.exportTransformedCoordinates_triggered)
@@ -149,6 +151,17 @@ class MyColorcomposerApp(QtCore.QObject):
 		self.m_coords.append(cc)
 		self.m_colors.append(color)
 		self.m_dims.append(dims)
+		if len(self.m_colors)==2:
+			imgR = self.m_npimages[0]
+			imgG = self.m_npimages[1]
+			#Histogram = colocalizationDetection.getAngleHistogram(self.m_coords[0], self.m_coords[1], self.m_dims)
+			pearsonCoeff = colocalizationDetection.calcPearsonCorrelationCoeff(imgR, imgG)
+			MR, MG = colocalizationDetection.calcMandersColocalizationCoeffs(imgR, imgG)
+			overlap = colocalizationDetection.calcOverlapCoeff(imgR, imgG)
+		
+			message='Pearson = %.3f '%pearsonCoeff+' Manders Green = %.3f '%MG+' Manders Red = %.3f '%MR+' overalp coef= %.3f '%overlap
+			self.main_window.statusBar().showMessage(message)
+		
 		
 	def recalculateResult(self):
 		if len(self.m_npimages) == 0:
@@ -168,7 +181,21 @@ class MyColorcomposerApp(QtCore.QObject):
 			painter.drawImage(f*trafo.dx()-trueMatrix.dx(),f*trafo.dy()-trueMatrix.dy(), qimg_i)
 		self.pixmap.setPixmap(QtGui.QPixmap.fromImage(self.m_qimage))
 		self.ui.graphicsView.fitInView(self.pixmap, QtCore.Qt.KeepAspectRatio)
-
+	
+	def Colocalization(self):
+		imgR = self.m_npimages[0]
+		imgG = self.m_npimages[1]
+		#Histogram = colocalizationDetection.getAngleHistogram(self.m_coords[0], self.m_coords[1], self.m_dims)
+		pearsonCoeff = colocalizationDetection.calcPearsonCorrelationCoeff(imgR, imgG)
+		print 'Pearson Coefficient: ',pearsonCoeff
+		overlap = colocalizationDetection.calcOverlapCoeff(imgR, imgG)
+		print 'Overlap coefficient: ',overlap
+		MR, MG = colocalizationDetection.calcMandersColocalizationCoeffs(imgR, imgG)
+		print MR, MG
+		
+		Histogram = colocalizationDetection.getAngleHistogram(imgR, imgG, self.m_dims)
+		
+		
 	def autoMarkBeads(self):
 		for i in xrange(self.ui.fileWidget.count()):
 			listItem = self.ui.fileWidget.item(i)

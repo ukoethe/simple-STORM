@@ -1,11 +1,11 @@
 import coords
 import numpy as np
-
+import os.path
 
 def loadImage(filename, color=(1.,1.,0.), factor=4):
 	print "reading file %s" % filename
+	
 	dims, cc = coords.readfile(filename)
-
 	img = coords.coords2Image(dims, cc, factor=factor)
 	colorimg = np.zeros((img.shape[0],img.shape[1],4),dtype=np.uint8)
 	mx = np.max(img)

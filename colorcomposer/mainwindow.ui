@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>776</width>
-    <height>635</height>
+    <height>639</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -399,6 +399,7 @@
     </property>
     <addaction name="actionAuto_detect_beads"/>
     <addaction name="actionClear_all"/>
+    <addaction name="actionColocalization"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -450,6 +451,11 @@
   <action name="actionBig_bead_circles">
    <property name="text">
     <string>Big bead circles</string>
+   </property>
+  </action>
+  <action name="actionColocalization">
+   <property name="text">
+    <string>Colocalization</string>
    </property>
   </action>
  </widget>
