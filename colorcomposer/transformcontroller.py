@@ -2,6 +2,7 @@ import numpy as np
 from PyQt4 import QtGui, QtCore
 import combineImagesByTrafo as calcTrafo
 import coords
+import copy
 
 class Landmark:
 	'''model class that holds the data of a single bead'''
@@ -60,22 +61,74 @@ class TransformController(QtCore.QObject):
 		print self.m_landmarksList
 		bg = self.getCoordinates(layer=0)
 		layer = 0
+		heatMatrix = []
 		while True: # for all layers
 			layer += 1
 			fg = self.getCoordinates(layer)
 			if len(fg) == 0:
 				break # probably last layer reached
-			if len(fg) != len(bg):
-				print "Different number of foreground points in layer %i and background points in layer 0" % layer
-				continue
-			print "transforming layer %i using %i beads as landmarks" % (layer, len(fg))
-			self.m_transform[layer] = calcTrafo.affineMatrix2DFromCorrespondingPoints(fg, bg, dims)
+			#fg,bg = calcTrafo.distanceMatrix(fg,bg,dims)
+			#if len(fg) != len(bg):
+			#	print "Different number of foreground points in layer %i and background points in layer 0" % layer
+			#	continue
+			
+			#print "transforming layer %i using %i beads as landmarks" % (layer, len(fg))
+			#tf=np.array(fg)
+			#tb=np.array(bg)
+			fgc = copy.deepcopy(fg)
+			bgc = copy.deepcopy(bg)
+			self.m_transform[layer], fg, bg = calcTrafo.doRansac(fgc, bgc, dims)
+			#self.m_transform[layer] = calcTrafo.affineMatrix2DFromCorrespondingPoints(fg, bg, dims)
 			tt = np.dot(self.m_transform[layer], np.vstack([fg.T,np.ones(len(fg))])).T[:,:2] # fg transformed in bg coords
 			rss = np.sum((tt-bg)**2)
 			rms = np.sqrt(rss/len(fg))
 			print "Residual sum of squares (RSS): %fpx^2,     RMS: %fpx" % (rss, rms)
-		return
-
+			
+			heatMatrix.append(self.getHeatmatrix(dims, fg, bg))
+			
+		return heatMatrix
+	
+	def getHeatmatrix(self, dims, fg, bg):
+		dims=[int(dims[1]),int(dims[0])]	#now the first dimension is assosiated with right
+		
+		deltaX=np.mean(bg[:,0])
+		deltaY=np.mean(bg[:,1])
+		
+		fg[:,0]=fg[:,0]-deltaX
+		fg[:,1]=fg[:,1]-deltaY
+		bg[:,0]=bg[:,0]-deltaX
+		bg[:,1]=bg[:,1]-deltaY
+		
+		paramX,paramY = calcTrafo.calculateRegression(fg, bg)
+		Heatmatrix = np.zeros((dims[1],dims[0],4))
+		contributionX = np.zeros(dims[0])
+		contributionY = np.zeros(dims[1])
+		constantX = 4.3*paramX
+		constantY = 4.3*paramY
+		#The error for x and y direction is calculated independently, (confidence intervall)
+		for i in range(int(dims[0])):
+			contributionX[i] = constantX * np.sqrt(1/len(bg)+((i-deltaY)-np.mean(bg[:,0]))**2/np.sum((bg[:,0]-np.mean(bg[:,0]))**2))
+			#contributionX[i] = constantX * np.sqrt(1/len(bg)+((i-dims[0]/2)-np.mean(bg[:,0]))**2/np.sum((bg[:,0]-np.mean(bg[:,0]))**2))			
+		
+		for j in range(int(dims[1])):
+			contributionY[j] = constantY * np.sqrt(1/len(bg)+((j-deltaX)-np.mean(bg[:,1]))**2/np.sum((bg[:,1]-np.mean(bg[:,1]))**2))
+			#contributionY[j] = constantY * np.sqrt(1/len(bg)+((j-dims[1]/2)-np.mean(bg[:,1]))**2/np.sum((bg[:,1]-np.mean(bg[:,1]))**2))
+	
+		'''contribMatX=np.ones((dims[1],dims[0]))*contributionX
+		contribMatY=np.tile(contributionY,(int(dims[0]),1)).T'''
+		contribMatX=np.ones((dims[1],dims[0]))*contributionX**2
+		contribMatY=np.tile(contributionY**2,(int(dims[0]),1)).T
+		Heatmatrix[:,:,0] = np.sqrt(contribMatX+contribMatY).T
+		from matplotlib import pyplot
+		import matplotlib
+		
+		pyplot.matshow(Heatmatrix[:,:,0])
+		pyplot.colorbar()
+		matplotlib.pyplot.gray()
+		pyplot.show()
+		Heatmatrix=Heatmatrix.T
+		return Heatmatrix
+		
 	def getCoordinates(self, layer):
 		cc = []
 		for l in self.m_landmarksList:
@@ -84,7 +137,7 @@ class TransformController(QtCore.QObject):
 		return np.asarray(cc)
 
 	def getTransform(self, i):
-		'''return the transformation matrix for homogenous coordinates that
+		'''return the transformation matrix for homogeneous coordinates that
 		transforms layer i into coordinates of layer 0'''
 		if self.m_transform.has_key(i):
 			trafo = self.m_transform[i]
@@ -92,12 +145,13 @@ class TransformController(QtCore.QObject):
 			trafo = np.diag([1,1,1]) # identity
 		# convert to QMatrix
 		matrix = QtGui.QMatrix(trafo[0,0], trafo[1,0], trafo[0,1], trafo[1,1], trafo[0,2], trafo[1,2])
-		
+		maximalMatchedPoints
 		return matrix
 
 	def doTransform(self, points, layer):
 		'''transform the points with the previously calculated transform
 		from the coordinates at layer l to the coordinate system of the
 		background layer (layer 0)'''
+		
 		return np.dot(self.m_transform[layer], np.vstack([points.T,np.ones(len(points))])).T[:,:2] # fg transformed in bg coords
 

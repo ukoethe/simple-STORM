@@ -405,6 +405,7 @@
     </property>
     <addaction name="actionShow_covariance_matrix"/>
     <addaction name="actionCalculate_distance_matrix"/>
+    <addaction name="actionShow_Heatmatrix"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuReset"/>
@@ -444,6 +445,11 @@
   <action name="actionSave_Features">
    <property name="text">
     <string>Save Features</string>
+   </property>
+  </action>
+  <action name="actionShow_Heatmatrix">
+   <property name="text">
+    <string>show Heatmatrix</string>
    </property>
   </action>
  </widget>

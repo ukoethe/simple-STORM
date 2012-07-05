@@ -95,7 +95,7 @@ def coords2Image(dimension, coords, factor=8):
 		im[cc[i,1],cc[i,0]] += intensity
 	
 	#limit maximum value
-	mmx = scipy.stats.scoreatpercentile(im.flat, 99.6)
+	mmx = scipy.stats.scoreatpercentile(im.flat, 99.8)
 	if mmx > 0:
 		im[im>mmx] = mmx # crop maximum at above percentile
 	return im
@@ -106,6 +106,7 @@ def Image2coords(image, color):
 	
 	if color == (0,1,0):
 		index = 1
+		
 	maxInt = np.max(image)
 	retMatrix = [[image.shape[0],image.shape[1],1]]
 	imagecol = np.zeros((image.shape[0],image.shape[1],4),dtype=np.uint8)
@@ -123,6 +124,8 @@ def Image2coords(image, color):
 				if image[i,j,index] != 0:
 					retMatrix.append([i,j,0,image[i,j,index],1])
 					imagecol[i,j,index] = int(image[i,j,index] * 255/float(maxInt))
+	
+	
 	
 	return imagecol, retMatrix, retMatrix[0]
 				

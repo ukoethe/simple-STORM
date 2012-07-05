@@ -399,7 +399,9 @@
     </property>
     <addaction name="actionAuto_detect_beads"/>
     <addaction name="actionClear_all"/>
+    <addaction name="actionDiscard_selected_beads"/>
     <addaction name="actionColocalization"/>
+    <addaction name="actionAuto_align_images"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -456,6 +458,16 @@
   <action name="actionColocalization">
    <property name="text">
     <string>Colocalization</string>
+   </property>
+  </action>
+  <action name="actionDiscard_selected_beads">
+   <property name="text">
+    <string>Discard selected beads</string>
+   </property>
+  </action>
+  <action name="actionAuto_align_images">
+   <property name="text">
+    <string>Auto-align images</string>
    </property>
   </action>
  </widget>

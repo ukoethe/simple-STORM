@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Tue Jun  5 18:14:32 2012
+# Created: Thu Jun 28 17:01:21 2012
 #      by: PyQt4 UI code generator 4.8.5
 #
 # WARNING! All changes made in this file will be lost!
@@ -240,13 +240,21 @@ class Ui_MainWindow(object):
         self.actionColocalization = QtGui.QAction(MainWindow)
         self.actionColocalization.setText(QtGui.QApplication.translate("MainWindow", "Colocalization", None, QtGui.QApplication.UnicodeUTF8))
         self.actionColocalization.setObjectName(_fromUtf8("actionColocalization"))
+        self.actionDiscard_selected_beads = QtGui.QAction(MainWindow)
+        self.actionDiscard_selected_beads.setText(QtGui.QApplication.translate("MainWindow", "Discard selected beads", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionDiscard_selected_beads.setObjectName(_fromUtf8("actionDiscard_selected_beads"))
+        self.actionAuto_align_images = QtGui.QAction(MainWindow)
+        self.actionAuto_align_images.setText(QtGui.QApplication.translate("MainWindow", "Auto-align images", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionAuto_align_images.setObjectName(_fromUtf8("actionAuto_align_images"))
         self.menuFile.addAction(self.actionExport_Composed_image)
         self.menuFile.addAction(self.actionExport_as_stack_of_images)
         self.menuFile.addAction(self.actionExport_transformed_coordinates)
         self.menuView.addAction(self.actionTransformation_Matrix)
         self.menuExtras.addAction(self.actionAuto_detect_beads)
         self.menuExtras.addAction(self.actionClear_all)
+        self.menuExtras.addAction(self.actionDiscard_selected_beads)
         self.menuExtras.addAction(self.actionColocalization)
+        self.menuExtras.addAction(self.actionAuto_align_images)
         self.menuHelp.addAction(self.actionAbout)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuView.menuAction())
