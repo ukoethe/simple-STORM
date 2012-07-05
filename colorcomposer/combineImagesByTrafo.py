@@ -52,12 +52,13 @@ def performRansac(s,d,dims,pointsNeeded, numberIterations, distanceTolerated):
 		row, col =np.where(distanceMatrix < distanceTolerated)
 		additionalCandidatesD.append(row)
 		additionalCandidatesS.append(col)
-		if i%500 == 0:
-			print '(%i/%i)'%(i,numberIterations)
+		#if i%500 == 0:
+		#	print '(%i/%i)'%(i,numberIterations)
 		
 	return matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection, trafoCollection
 
 def preselectPoints(s,d,maxDist):
+	# If points are far away from any other point of the opposite color, they are not considered
 	snew = []
 	dnew = []
 	for i in range(len(s)):
@@ -95,39 +96,34 @@ def doRansac(s,d,dims):
 	if len(s) < pointsNeeded or len(d)< pointsNeeded:
 		print 'To few points found'
 		return
+	
 	print 'begin Ransac'
 	for i in range(numberRestarts):
 		matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection, trafo = performRansac(sc,dc,dims,pointsNeeded, numberIterations, distanceTolerated)
 		maximalMatchedPoints = np.max(matchedPoints)
-		print maximalMatchedPoints
+		#print maximalMatchedPoints
 		if maximalMatchedPoints > np.min(matchedPoints):	
 			indexWithMaximalAlignment = np.where(matchedPoints==maximalMatchedPoints)[0][0]
 			#breaks if the trafo has no shear
 			print trafo[indexWithMaximalAlignment]
-			if (1 + toleranceForShearing>(trafo[indexWithMaximalAlignment][0,0]**2+trafo[indexWithMaximalAlignment][0,1]**2) and (trafo[indexWithMaximalAlignment][0,0]**2+trafo[indexWithMaximalAlignment][0,1]**2)>.1 - toleranceForShearing and 1 + toleranceForShearing>(trafo[indexWithMaximalAlignment][1,0]**2+trafo[indexWithMaximalAlignment][1,1]**2) and (trafo[indexWithMaximalAlignment][1,0]**2+trafo[indexWithMaximalAlignment][1,1]**2)>0.1 - toleranceForShearing):
+			#if there is just translation and rotation trafo[0,0] should be cos(phi), trafo[0,1] - sin(phi)..., therefore on can check if there is shearing
+			if (1 + toleranceForShearing > (trafo[indexWithMaximalAlignment][0,0]**2+trafo[indexWithMaximalAlignment][0,1]**2) and (trafo[indexWithMaximalAlignment][0,0]**2+trafo[indexWithMaximalAlignment][0,1]**2) > 1 - toleranceForShearing and 1 + toleranceForShearing>(trafo[indexWithMaximalAlignment][1,0]**2+trafo[indexWithMaximalAlignment][1,1]**2) and (trafo[indexWithMaximalAlignment][1,0]**2+trafo[indexWithMaximalAlignment][1,1]**2) > 1 - toleranceForShearing):
 				break
-			print 'not enough loops in Ransac min=max . Start Iteration again (%i/%i)' %(i, numberRestarts)
+			print 'Start Iteration again (%i/%i), reason: minimum = maximum' %(i, numberRestarts)
 		else:
 			doBreak = False
 			for j in range(len(trafo)):				
-				if (1 + toleranceForShearing>(trafo[j][0,0]**2+trafo[j][0,1]**2) and (trafo[j][0,0]**2+trafo[j][0,1]**2)>.1 - toleranceForShearing and 1 + toleranceForShearing>(trafo[j][1,0]**2+trafo[j][1,1]**2) and (trafo[j][1,0]**2+trafo[j][1,1]**2)>0.1 - toleranceForShearing):
+				if (1 + toleranceForShearing > (trafo[j][0,0]**2+trafo[j][0,1]**2) and (trafo[j][0,0]**2+trafo[j][0,1]**2) > 1 - toleranceForShearing and 1 + toleranceForShearing>(trafo[j][1,0]**2+trafo[j][1,1]**2) and (trafo[j][1,0]**2+trafo[j][1,1]**2) > 1 - toleranceForShearing):
 					indexWithMaximalAlignment = j
 					doBreak = True
 					break
 			if doBreak:
 				break
-			print 'not enough loops in Ransac shear. Start Iteration again (%i/%i)' %(i, numberRestarts)
-				#print 'For the next try correlation between near beads will be considered'
-				#matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection = tryHungarianApproach(sc,dc, dims)
+			print 'Start Iteration again (%i/%i), reason: shearing' %(i, numberRestarts)
+			
 	print maximalMatchedPoints
 	finalIndicesS = []
 	finalIndicesD = []
-	'''for i in range(len(matchedPoints)):
-		if matchedPoints[i] == maximalMatchedPoints:
-			#finalIndicesS.append(indicesSCollection[i])
-			#finalIndicesD.append(indicesDCollection[i])
-			finalIndicesS.append(additionalCandidatesS[i])
-			finalIndicesD.append(additionalCandidatesD[i])'''
 	
 	indexWithMaximalAlignment = np.where(matchedPoints==maximalMatchedPoints)[0][0]
 	
@@ -147,7 +143,8 @@ def doRansac(s,d,dims):
 def getDistanceMatrix(s,d):
 	numberBeadsRed = d.shape[0]
 	numberBeadsGreen = s.shape[0]
-	matrix = np.zeros((numberBeadsRed, numberBeadsGreen))		#matrix is the Distance matrix between all red and green points
+	#matrix is the distance matrix between all red and green points
+	matrix = np.zeros((numberBeadsRed, numberBeadsGreen))		
 	for i in range(numberBeadsRed):
 		for j in range(numberBeadsGreen):
 			matrix[i,j] = np.sqrt((d[i,0]-s[j,0])**2+(d[i,1]-s[j,1])**2)
@@ -172,10 +169,7 @@ def alignCandidates(s,d):
 
 	    alignedd.append(d[row])
 	    aligneds.append(s[column])
-	    indicesDCollection = row
-	    indicesSCollection = column
 	   
-	#trafo = affineMatrix2DFromCorrespondingPoints(s[indicesSCollection], d[indicesDCollection], dims)
 	return np.array(aligneds), np.array(alignedd)
 
 def tryHungarianApproach(s,d,dims):
@@ -188,7 +182,7 @@ def tryHungarianApproach(s,d,dims):
 	#There are problems if there are for example 2 green but just one red point near each other
 	#This is a very rough ansatz
 	minimumRow = np.min(matrix, 1)
-	meanMinRow = np.mean(minimumRow)	#gets the mean of the smalles values of each row, this is used to detect points far away from any partner
+	meanMinRow = np.mean(minimumRow)	#gets the mean of the smallest values of each row, this is used to detect points far away from any partner
 	
 	minimumCol = np.min(matrix, 0)		
 	meanMinCol = np.mean(minimumCol)	#same but for the green points

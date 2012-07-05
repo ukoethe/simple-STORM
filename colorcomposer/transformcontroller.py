@@ -73,8 +73,7 @@ class TransformController(QtCore.QObject):
 			#	continue
 			
 			#print "transforming layer %i using %i beads as landmarks" % (layer, len(fg))
-			#tf=np.array(fg)
-			#tb=np.array(bg)
+
 			fgc = copy.deepcopy(fg)
 			bgc = copy.deepcopy(bg)
 			self.m_transform[layer], fg, bg = calcTrafo.doRansac(fgc, bgc, dims)
@@ -108,12 +107,10 @@ class TransformController(QtCore.QObject):
 		#The error for x and y direction is calculated independently, (confidence intervall)
 		for i in range(int(dims[0])):
 			contributionX[i] = constantX * np.sqrt(1/len(bg)+((i-deltaY)-np.mean(bg[:,0]))**2/np.sum((bg[:,0]-np.mean(bg[:,0]))**2))
-			#contributionX[i] = constantX * np.sqrt(1/len(bg)+((i-dims[0]/2)-np.mean(bg[:,0]))**2/np.sum((bg[:,0]-np.mean(bg[:,0]))**2))			
-		
+			
 		for j in range(int(dims[1])):
 			contributionY[j] = constantY * np.sqrt(1/len(bg)+((j-deltaX)-np.mean(bg[:,1]))**2/np.sum((bg[:,1]-np.mean(bg[:,1]))**2))
-			#contributionY[j] = constantY * np.sqrt(1/len(bg)+((j-dims[1]/2)-np.mean(bg[:,1]))**2/np.sum((bg[:,1]-np.mean(bg[:,1]))**2))
-	
+			
 		'''contribMatX=np.ones((dims[1],dims[0]))*contributionX
 		contribMatY=np.tile(contributionY,(int(dims[0]),1)).T'''
 		contribMatX=np.ones((dims[1],dims[0]))*contributionX**2
