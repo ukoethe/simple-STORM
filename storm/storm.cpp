@@ -14,8 +14,12 @@
 #include <iomanip>
 #include <fstream>
 #include <map>
+
+#define R_INTERFACE_PTRS
+#define R_NO_REMAP
 #include <Rembedded.h>
 #include <Rinterface.h>
+
 #include "program_options_getopt.h"
 #include "wienerStorm.hxx"
 #include "configVersion.hxx"
@@ -28,6 +32,8 @@
 
 #include <vigra/timing.hxx>
 
+void preventRConsoleWrite(const char* buf, int buflen)
+{}
 
 // MAIN
 int main(int argc, char** argv) {
@@ -157,5 +163,15 @@ int main(int argc, char** argv) {
         std::cout << e.what() << std::endl;
         return 1;
     }
+
+    // prevent printing of R warnings
+    void (*ptr_R_WriteConsole_old)(const char *, int) = ptr_R_WriteConsole;
+    FILE *R_Consolefile_old = R_Consolefile;
+    ptr_R_WriteConsole = preventRConsoleWrite;
+    R_Consolefile = NULL;
     Rf_endEmbeddedR(0);
+    ptr_R_WriteConsole = ptr_R_WriteConsole_old;
+    R_Consolefile = R_Consolefile_old;
+
+    return 0;
 }

@@ -472,7 +472,7 @@ void findCorrectionCoefficients(const MyImportInfo& info, std::vector<T>& parame
     std::ofstream selectedPoints;
 
 	char filename[1000];
-	sprintf(filename, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/selectedPoints.txt");
+	sprintf(filename, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/selectedPoints.txt");
 	selectedPoints.open(filename);
 
 	std::cout<<"[";
@@ -511,30 +511,30 @@ void findBestFit(const MyImportInfo& info,T meanValues[],T skellamParameters[],i
     }
 
     SEXP fun, t, tmp, tmp2;
-    PROTECT(tmp = ScalarInteger(42));
+    PROTECT(tmp = Rf_ScalarInteger(42));
 
-    PROTECT(fun = t = allocList(2));
+    PROTECT(fun = t = Rf_allocList(2));
     SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, install("set.seed"));
+    SETCAR(t, Rf_install("set.seed"));
     t = CDR(t);
     SETCAR(t, tmp);
-    eval(fun, R_GlobalEnv);
+    Rf_eval(fun, R_GlobalEnv);
     UNPROTECT(2);
 
-    PROTECT(tmp = mkString(rScript.c_str()));
-    PROTECT(fun = t = allocList(2));
+    PROTECT(tmp = Rf_mkString(rScript.c_str()));
+    PROTECT(fun = t = Rf_allocList(2));
     SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, install("parse"));
+    SETCAR(t, Rf_install("parse"));
     t = CDR(t);
     SETCAR(t, tmp);
-    SET_TAG(t, install("file"));
-    PROTECT(tmp2 = eval(fun, R_GlobalEnv));
-    for (R_len_t i = 0; i < length(tmp2); ++i) {
-        eval(VECTOR_ELT(tmp2, i), R_GlobalEnv);
+    SET_TAG(t, Rf_install("file"));
+    PROTECT(tmp2 = Rf_eval(fun, R_GlobalEnv));
+    for (R_len_t i = 0; i < Rf_length(tmp2); ++i) {
+        Rf_eval(VECTOR_ELT(tmp2, i), R_GlobalEnv);
     }
     UNPROTECT(3);
 
-    PROTECT(tmp = allocMatrix(REALSXP, numberPoints, 2));
+    PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
     double *mat = REAL(tmp);
     for (int row = 0; row < numberPoints; ++row) {
         mat[row] = meanValues[row];
@@ -544,15 +544,15 @@ void findBestFit(const MyImportInfo& info,T meanValues[],T skellamParameters[],i
     }
 
     SEXP bins;
-    PROTECT(bins = ScalarInteger(nbins));
-    PROTECT(fun = t = allocList(3));
+    PROTECT(bins = Rf_ScalarInteger(nbins));
+    PROTECT(fun = t = Rf_allocList(3));
     SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, install("fit.storm.points"));
+    SETCAR(t, Rf_install("fit.storm.points"));
     t = CDR(t);
     SETCAR(t, tmp);
     t = CDR(t);
     SETCAR(t, bins);
-    PROTECT(tmp = eval(fun, R_GlobalEnv));
+    PROTECT(tmp = Rf_eval(fun, R_GlobalEnv));
 
     if (tmp == R_NilValue) {
         std::cerr << "Fit could not be performed, exiting..." << std::endl;
@@ -758,7 +758,7 @@ void printIntensities(const MyImportInfo& info, int* vecw, int* vech, int nbrPoi
 
 	char temp[1000];
 	for(int i = 0;i < nbrPoints; i++){
-		sprintf(temp, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/outputPoisTest/pos0_%d_pos1%d.txt", vecw[i], vech[i]);
+		sprintf(temp, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/outputPoisTest/pos0_%d_pos1%d.txt", vecw[i], vech[i]);
 		origimg[i].open(temp);
 		std::cout<<"vecw["<<i<<"]="<<vecw[i]<<" vech["<<i<<"]="<<vech[i]<<std::endl;
 		std::cout<<"a:"<< a<<" b" <<b<<std::endl;
@@ -786,8 +786,8 @@ void getMask2(BasicImage<T>& data, unsigned int w,unsigned int h, MultiArray<2, 
 	std::ofstream origimg, filter;
 
 	char filtername[1000], origname[1000];
-	sprintf(filtername, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/filterGauss%d.txt", framenumber);
-	sprintf(origname, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/origBild%d.txt", framenumber);
+	sprintf(filtername, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/filterGauss%d.txt", framenumber);
+	sprintf(origname, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/origBild%d.txt", framenumber);
 	filter.open (filtername);
 	origimg.open(origname);
 
@@ -812,8 +812,8 @@ void getMask2(BasicImageView<T>& data, unsigned int w,unsigned int h, MultiArray
 	std::ofstream origimg, filter;
 
 	char filtername[1000], origname[1000];
-	sprintf(filtername, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/filterGauss2%d.txt", framenumber);
-	sprintf(origname, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/origBild2%d.txt", framenumber);
+	sprintf(filtername, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/filterGauss2%d.txt", framenumber);
+	sprintf(origname, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/origBild2%d.txt", framenumber);
 	filter.open (filtername);
 	origimg.open(origname);
 
@@ -904,17 +904,17 @@ void showPoisson(const MyImportInfo& info, std::vector<T>& parameterTrafo){
 	std::ofstream bf1,bf2,bf3,bf4,bf5;
 	char nf1[1000],nf2[1000],nf3[1000],nf4[1000],nf5[1000];
 	char bnf1[1000],bnf2[1000],bnf3[1000],bnf4[1000],bnf5[1000];
-	sprintf(nf1, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/f1.txt");
-	sprintf(nf2, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/f2.txt");
-	sprintf(nf3, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/f3.txt");
-	sprintf(nf4, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/f4.txt");
-	sprintf(nf5, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/f5.txt");
+	sprintf(nf1, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/f1.txt");
+	sprintf(nf2, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/f2.txt");
+	sprintf(nf3, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/f3.txt");
+	sprintf(nf4, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/f4.txt");
+	sprintf(nf5, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/f5.txt");
 
-	sprintf(bnf1, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/beforef1.txt");
-	sprintf(bnf2, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/beforef2.txt");
-	sprintf(bnf3, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/beforef3.txt");
-	sprintf(bnf4, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/beforef4.txt");
-	sprintf(bnf5, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/beforef5.txt");
+	sprintf(bnf1, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/beforef1.txt");
+	sprintf(bnf2, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/beforef2.txt");
+	sprintf(bnf3, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/beforef3.txt");
+	sprintf(bnf4, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/beforef4.txt");
+	sprintf(bnf5, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/beforef5.txt");
 
 	f1.open(nf1);
 	f2.open(nf2);
@@ -1024,8 +1024,8 @@ void getMask(MultiArrayView<2,T >& array, const MyImportInfo& info, MultiArray<3
 	if(writeMatrices){
 	char origimgname[1000];
 	char maskname[1000];
-	sprintf(origimgname, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/origimgbeforefilter%d.txt", framenumber);
-	sprintf(maskname, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/maskPoiss%d.txt", framenumber);
+	sprintf(origimgname, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/origimgbeforefilter%d.txt", framenumber);
+	sprintf(maskname, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/maskPoiss%d.txt", framenumber);
 	origimg.open (origimgname);
 	maski.open (maskname);
 	}
@@ -1073,7 +1073,7 @@ void getMask(MultiArrayView<2,T >& array, const MyImportInfo& info, MultiArray<3
 	bool writeMatrices2 = false;
 	if(writeMatrices2){
 		char maskaftername[1000];
-		sprintf(maskaftername, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/maskafterGraphcutPoiss%d.txt", framenumber);
+		sprintf(maskaftername, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/maskafterGraphcutPoiss%d.txt", framenumber);
 		maskafter.open (maskaftername);
 
 	for(int i = 0; i< w; i++){
@@ -1378,8 +1378,8 @@ void applyMask(BasicImage<T>& img, MultiArrayView<2, T>& mask, int frnr){
 
 		char imgAfterMask[1000];
 		char imgBeforeMask[1000];
-		sprintf(imgAfterMask, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/filterdImgAfterMask%d.txt", frnr);
-		sprintf(imgBeforeMask, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/filterdImgBeforeMask%d.txt", frnr);
+		sprintf(imgAfterMask, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/filterdImgAfterMask%d.txt", frnr);
+		sprintf(imgBeforeMask, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/filterdImgBeforeMask%d.txt", frnr);
 		imgAfterMaskFile.open(imgAfterMask);
 		imgBeforeMaskFile.open(imgBeforeMask);}
 
@@ -1593,7 +1593,7 @@ void constructWienerFilter(StormData& im,
 	bool writeMatrices = false;
 	if(writeMatrices){
 		char fnamePS[1000];
-		sprintf(fnamePS, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/meanPS.txt");
+		sprintf(fnamePS, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/meanPS.txt");
 		ostreamPS.open(fnamePS);}
 	for(int i=0;i<w;i++){
 		for(int j=0;j<h;j++){
@@ -1604,7 +1604,7 @@ void constructWienerFilter(StormData& im,
 	ostreamPS.close();
 
 	std::cout<<std::endl;
-	vigra::exportImage(srcImageRange(ps), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/meanPS.png");
+	vigra::exportImage(srcImageRange(ps), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/meanPS.png");
 
 
     T noise = estimateNoisePower(w,h,srcImageRange(ps));
@@ -1794,7 +1794,7 @@ void constructWienerFilter(StormData& im,
 //	temp = 0;
 //	transformImage(srcImageRange(ps3, FFTWMagnitudeAccessor<double>()),
 //					destImage(temp), Arg1());
-//	vigra::exportImage(srcImageRange(temp), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/Wienerps2.png");
+//	vigra::exportImage(srcImageRange(temp), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/Wienerps2.png");
 //	temp = 0;
 //
 //	i=0;
@@ -1810,19 +1810,19 @@ void constructWienerFilter(StormData& im,
 //	temp = 0;
 //	transformImage(srcImageRange(spatial, FFTWMagnitudeAccessor<double>()),
 //						destImage(temp2), Arg1());
-//	vigra::exportImage(srcImageRange(temp2), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/wienerFilterSpatial.png");
+//	vigra::exportImage(srcImageRange(temp2), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/wienerFilterSpatial.png");
 //	temp = 0;
 //
 //    //vigra::FFTWComplexImage realSpace(w, h);
 //    //vigra::fourierTransformInverse(srcImageRange(dest).first,srcImageRange(dest).second, srcImageRange(dest).third, destImage(realSpace).first, destImage(realSpace).second);
-//    //vigra::exportImage(srcImageRange(realSpace), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/imgRealWienerFilter.png");
+//    //vigra::exportImage(srcImageRange(realSpace), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/imgRealWienerFilter.png");
 //	double norm_factor = 1./(w*h);
 //
 //
 //    transformImage(srcImageRange(spatial, FFTWMagnitudeAccessor<double>()), destImage(spatialSq), Arg1()*Arg1());
 //    transformImage(srcImageRange(spatialSq, FFTWMagnitudeAccessor<double>()),
 //    					destImage(temp), Arg1());
-//	vigra::exportImage(srcImageRange(temp), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/wienerFilterSpatialSq.png");
+//	vigra::exportImage(srcImageRange(temp), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/wienerFilterSpatialSq.png");
 //
 //    i=0;
 ////    for(it2 = spatialSq.begin(); i<w*h; it2++){
@@ -1849,7 +1849,7 @@ void constructWienerFilter(StormData& im,
 //
 //    transformImage(srcImageRange(fourier2, FFTWMagnitudeAccessor<double>()),
 //           					destImage(dest), Arg1());
-////    vigra::exportImage(srcImageRange(temp), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/wienerFilterFourier.png");
+////    vigra::exportImage(srcImageRange(temp), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/wienerFilterFourier.png");
 ////
 ////    //moveDCToCenter(srcImageRange(fourier), destImage(fourier_center));
 //////    //moveDCToUpperLeft(srcImageRange(fourier), destImage(fourier_center));
@@ -1859,14 +1859,14 @@ void constructWienerFilter(StormData& im,
 ////    transformImage(srcImageRange(fourier,  <double>()), destImage(dest), Arg1());
 ////    transformImage(srcImageRange(fourier, FFTWSquaredMagnitudeAccessor<double>()),
 ////        					destImage(temp), Arg1());
-////    vigra::exportImage(srcImageRange(temp), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/wienerFilterFourierFinal.png");
+////    vigra::exportImage(srcImageRange(temp), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/wienerFilterFourierFinal.png");
 
 
 	std::ofstream ostreamWF;
 
 	if(writeMatrices){
 		char fnameWF[1000];
-		sprintf(fnameWF, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/Wienerfilter.txt");
+		sprintf(fnameWF, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/Wienerfilter.txt");
 		ostreamWF.open(fnameWF);}
 	for(int i=0;i<w;i++){
 		for(int j=0;j<h;j++){
@@ -2142,7 +2142,7 @@ void wienerStormSingleFrame(const MultiArrayView<2, T>& in, const BasicImage<T>&
 //    std::cout<<"before min:"<<Minmax.min<<" after min:"<<Minmax2.min<<std::endl;
 
     //fftwWrapper.applyFourierFilter(srcImageRange(input), srcImage(filter), destImage(filteredView));
-    //vigra::exportImage(srcImageRange(filtered), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/imgAfterWienerFilter.png");
+    //vigra::exportImage(srcImageRange(filtered), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/imgAfterWienerFilter.png");
     //~ vigra::gaussianSmoothing(srcImageRange(input), destImage(filtered), 1.2);
     subtractBackground(filtered, bg);
     subtractBackground(unfiltered, bg2);
@@ -2169,8 +2169,8 @@ void wienerStormSingleFrame(const MultiArrayView<2, T>& in, const BasicImage<T>&
     //upscale filtered image regions with spline interpolation
     std::set<Coord<float> >::iterator it2;
 
-	//vigra::exportImage(srcImageRange(filtered), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/filtered.png");
-	//vigra::exportImage(srcImageRange(unfiltered), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/unfiltered.png");
+	//vigra::exportImage(srcImageRange(filtered), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/filtered.png");
+	//vigra::exportImage(srcImageRange(unfiltered), "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/software/simple-STORM/storm/build/output/unfiltered.png");
 //	vigra::FindMinMax<T> Minmax3;
 //	vigra::inspectImage(srcImageRange(unfiltered), Minmax3);
 //	std::cout<<"before max:"<<Minmax3.max<<" after max:"<<Minmax3.max<<std::endl;
