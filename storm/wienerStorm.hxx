@@ -564,6 +564,7 @@ void findBestFit(const MyImportInfo& info,T meanValues[],T skellamParameters[],i
         parameterTrafo[2] = coefs[0];
         std::cout<<"slope: "<< parameterTrafo[0]<<" x0: "<<parameterTrafo[1] << " intercept: "<<parameterTrafo[2] << std::endl;
     }
+    UNPROTECT(4);
 }
 
 //the best fit through the lowes points of each interval is found here
