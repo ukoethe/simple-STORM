@@ -6,7 +6,8 @@ import time
 
 cutoff=95
 
-def getCandidates2(dims,cc,frames):
+def getCandidates(dims,cc,frames):
+	#finds good candidates without to much redundancy
 	for i in range(cc.shape[0]):
 		if cc[i,2]>frames:
 			numberPoints=i
@@ -75,7 +76,11 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 	intensities = cc[:,3]
 	#~ allCandidates = cc[intensities > 2*np.mean(intensities)] # only high intensities
 	allCandidates = cc # all spots
-	initialCandidates = getCandidates2(dims, cc, 50)
+	if dims[2]>=50:
+		initialCandidates = getCandidates(dims, cc, 50)
+	else:
+		initialCandidates = getCandidates(dims, cc, dims[2])
+		
 	#initialCandidates = allCandidates[allCandidates[:,2]<100] # from frame 0 to 49
 	counter=0
 	'''for x, y, frame, intensity in initialCandidates[:,0:4]:
@@ -106,7 +111,7 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 
 	for beadCandidate in beads: # over all candidates
 		x,y,intensity = beadCandidate
-		roi = [x-2*maxDist, x+2*maxDist, y-2*maxDist, y+2*maxDist]
+		roi = [x-maxDist, x+maxDist, y-maxDist, y+maxDist]
 		candidate = coord2im.cropROI(cc, roi)[:,:4]
 		singleConsidered+=len(candidate)
 		#if len(candidate) > numFrames or len(candidate) < cutoff*numFrames: # allowing few percent not detected
@@ -124,11 +129,12 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 	print skipped, "initial candidates skipped."
 	
 	meanData = deleteSimilarBeads(meanData, maxDist, cc)
-			
+
 	
 	return meanData, scatterplotData
 
 def deleteSimilarBeads(mm, maxDist, cc):
+	#merges Beads that are too close
 	cleanmm = []
 	for i in range(len(mm)):
 		dist=1000

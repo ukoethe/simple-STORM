@@ -7,25 +7,47 @@ import vigra
 import scipy.stats
 
 
-
-
-def Angles(K):
-    gammas = np.zeros(K+1)
-    for i in range(K+1):
-        if i <= K/2.:
-            gammas[i] = np.arctan(i/(float(K)/2.))
-        else:
-            gammas[i] = 90/180.*np.pi - gammas[K-i]
-    
-    return gammas
-
 def contributionFunc(x,G,gamma, gamma_minus_one):
     return(max(G, min(G + 1, x*np.tan(gamma))) - min(G + 1, max(G, x*np.tan(gamma_minus_one))))
 
 def calcContribution(point, gammas, j): #point i, list of all angles, j = angle contribution is calculated for
     return(integrate.quad(contributionFunc,point[0],point[0]+1,(point[1],gammas[j],gammas[j-1])))
 
+def coloc(dataR, dataG):
+    #returns heatmap for colocalization based on the angle in the red- green value plot
+    #regions with low intensity are filterd out
+    
+    if dataR.shape != dataG.shape:
+        print 'images must have same shape'
+        return 0
+    
+    tol=0.05
+    dataB = np.zeros(dataR.shape)
+    dataB[...,0]=np.tan(dataR[...,2]/dataG[...,1])
+    dataB[...,0]=np.where((dataB[...,0]-np.pi/2.)**2>tol,0,dataB[...,0])   
+    maskG=np.where(dataG[...,1]<np.mean(dataG[...,1]),0,dataG[...,1])
+    maskR=np.where(dataR[...,2]<np.mean(dataR[...,2]),0,dataR[...,2])
+    from matplotlib import pyplot
+    #pyplot.matshow(maskR)
+    #pyplot.show()
+    #pyplot.matshow(maskG)
+    #pyplot.show()
+
+    dataB[...,0]=dataB[...,0]*maskG*maskR     
+    dataB=dataB*255/np.max(dataB)
+    dataB = np.array(dataB, dtype=np.uint8)
+    print np.mean(dataB[...,0])
+    
+    import matplotlib.pyplot as plot
+    plot.matshow(dataB[...,0])
+    plot.show()
+    
+    return dataB
+    #return dataB+dataR, dataG       
+    
+
 def Colocdetection(dataR, dataG):
+    #similar to the function coloc, but the angle is much wider, and can be set individually for the upper and lower bound
     threshR = 0.3*np.max(dataR)
     threshG = 0.3*np.max(dataG)
     combImg = dataR+dataG
@@ -44,25 +66,6 @@ def Colocdetection(dataR, dataG):
     #return dataB,np.zeros((dataR.shape))
     return dataB+dataR, dataG
     
-def mergePoints2(dataR, dataG, factor):
-    image=dataR+dataG
-    mergedPoints =[]
-    thresh = 25
-    ind = np.where(image!=0)
-    counter=0
-    while counter < ind[0].shape[0]-1:
-
-        if image[ind[0][counter],ind[1][counter],2] >= thresh and image[ind[0][counter],ind[1][counter],1] >= thresh:
-            mergedPoints.append((ind[0][counter], ind[1][counter], image[ind[0][counter],ind[1][counter],2],image[ind[0][counter],ind[1][counter],1]))
-            if ind[0][counter] == ind[0][counter+1] and ind[1][counter] == ind[1][counter+1]:   #if one pixel has 2 colors one index must be skipped, otherwise the pixel would be counted twice
-                counter +=1
-        counter +=1
-    
-    if not(mergedPoints[-1][0] == ind[0][-1] and mergedPoints[-1][1] == ind[1][-1]):    #if the last point hast NOT two channels it will be added
-        if image[ind[0][-1],ind[1][-1],2] > thresh and image[ind[0][-1],ind[1][-1],1] > thresh:
-            mergedPoints.append((ind[0][-1], ind[1][-1], image[ind[0][-1],ind[1][-1],2],image[ind[0][-1],ind[1][-1],1]))
-    return mergedPoints
-
 
 def calcPearsonCorrelationCoeff(dataR, dataG):
     dataR=dataR[...,2]
@@ -90,8 +93,8 @@ def calcOverlapCoeff(dataR, dataG):
     return numerator/denominator
 
 def calcMandersColocalizationCoeffs(dataR, dataG):
-    TG=10
-    TR=10
+    TG=np.max(dataG)*.1
+    TR=np.max(dataR)*.1
     
     indR = np.where(dataG[:,:,1]>TG)
     indG = np.where(dataR[:,:,2]>TR)
@@ -114,21 +117,6 @@ def gaussianRect(data, xmean,ymean,varx,vary):
             
     
     return resultMatrix
-
-
-def createHeatmap3(dataR,dataG):
-    '''rand=5
-    for x in range(3*rand,dataR.shape[0]-3*rand):
-        for y in range(3*rand,dataR.shape[1]-3*rand):
-            dataRG=gaussianRect(dataR[...,2],x,y,rand,rand)
-            dataGG=gaussianRect(dataG[...,2],x,y,rand,rand)
-            temp = np.corrcoef(dataRG.flatten(), dataGG.flatten())[0,1]
-            if np.isnan(temp):
-                temp=0
-            dataR[x,y,0]=temp
-    dataR[...,0]=dataR[...,0]*255/np.max(dataR[...,0])'''
-    return dataR, dataG
-            
             
 def createHeatmap2(dataR,dataG):
     dataRm = np.array(dataR[...,2],dtype=np.float32)
@@ -175,7 +163,7 @@ def createHeatmap2(dataR,dataG):
     dataB = dataB *255./np.max(dataB)
     dataB = np.array(dataB, dtype=np.uint8)
     dataR=dataR+ dataB
-    return dataR, dataG
+    return dataB
     #return dataB,np.zeros(dataR.shape, dtype=np.uint8)
     
 def createHeatmap(dataR, dataG):
@@ -209,6 +197,59 @@ def createHeatmap(dataR, dataG):
     dataB = np.array(dataB, dtype=np.uint8)
     dataR=dataR+ dataB
     return [dataR,dataG]
+
+def createColocHeatmap(dataR, dataG):
+    np.seterr(invalid='ignore')
+    borderWidth = 10
+    dataB = np.zeros(dataR.shape)
+    dataRc = np.zeros(dataR.shape[0:2])
+    dataGc = np.zeros_like(dataRc)
+    dataRc[borderWidth:-borderWidth,borderWidth:-borderWidth]=dataR[borderWidth:-borderWidth,borderWidth:-borderWidth,2]
+    dataGc[borderWidth:-borderWidth,borderWidth:-borderWidth]=dataG[borderWidth:-borderWidth,borderWidth:-borderWidth,1]
+    
+    
+    indicesRc = np.array(np.where(dataRc>0))
+    indicesGc = np.array(np.where(dataGc>0))
+
+    for i in range(indicesRc.shape[1]):
+        uli = indicesRc[0,i] + borderWidth #upper limit 
+        lli = indicesRc[0,i] - borderWidth #lower limit
+        ulj = indicesRc[1,i] + borderWidth
+        llj = indicesRc[1,i] - borderWidth
+        res=np.corrcoef(dataRc[lli:uli,llj:ulj].flatten(), dataGc[lli:uli,llj:ulj].flatten())[0,1]
+        if np.isnan(res):
+            res=0
+        dataB[indicesRc[0,i],indicesRc[1,i],0] = res
+    for i in range(indicesGc.shape[1]):
+        uli = indicesGc[0,i] + borderWidth #upper limit 
+        lli = indicesGc[0,i] - borderWidth #lower limit
+        ulj = indicesGc[1,i] + borderWidth
+        llj = indicesGc[1,i] - borderWidth
+        res=np.corrcoef(dataRc[lli:uli,llj:ulj].flatten(), dataGc[lli:uli,llj:ulj].flatten())[0,1]
+        if np.isnan(res):
+            res=0
+        #print res
+        dataB[indicesGc[0,i],indicesGc[1,i],0] = res
+    
+ #   for i in range(borderWidth, dataR.shape[0] - borderWidth):
+ #       print i
+ #       for j in range(borderWidth, dataR.shape[1] - borderWidth):
+ #           uli = i + borderWidth #upper limit 
+ #           lli = i - borderWidth #lower limit
+ #           ulj = j + borderWidth
+ #           llj = j - borderWidth
+ #           res=np.corrcoef(dataR[lli:uli,llj:ulj].flatten(), dataG[lli:uli,llj:ulj].flatten())[0,1]
+ #           if np.isnan(res):
+ #               res=0
+ #           dataB[i,j,0] = res
+  
+    factor = np.mean(np.where(dataR>0))/np.max(np.abs(dataB))
+    dataB = np.abs(dataB) * factor 
+    
+    import matplotlib.pyplot as plot
+    plot.matshow(dataB[...,0])
+    plot.show()
+    return dataB
 
 def getAngleHistogram(dataR, dataG, dims, factor=1):
     import pylab
@@ -266,8 +307,7 @@ def getAngleHistogram(dataR, dataG, dims, factor=1):
     '''
     return 0
 
-gammas = Angles(128)
-print gammas.shape
+
 #print calcContribution([0,255],gammas,1)
 
 def coordinateBasedColocalization(dataR, dataG):
@@ -276,7 +316,6 @@ def coordinateBasedColocalization(dataR, dataG):
     originaldataG = np.array(dataG)
     maximumR = np.max(dataR)
     dataR[:,:,2]=np.where(dataR[:,:,2]>=maximumR*0.1,255,0)
-    Samsung-Galaxy-Note
     
     dataRnp = vigra.RGBImage(np.array(dataR, dtype = np.float32))    
     labelsR = np.zeros((dataR.shape[0], dataR.shape[1]))   
@@ -342,7 +381,7 @@ def coordinateBasedColocalization(dataR, dataG):
                         for y in range(j-radius, j+radius):
                             if (x-i)**2+(y-j)**2<=radius**2:
                                 Naamax = Naamax + classesR[actuallClass][x,y]
-                    Samsung-Galaxy-Note
+
                     
                     #######Achtung sollte alle classen durchlaufen!!!!
                     Rminb = int(100)

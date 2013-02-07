@@ -95,9 +95,12 @@ def coords2Image(dimension, coords, factor=8):
 		im[cc[i,1],cc[i,0]] += intensity
 	
 	#limit maximum value
-	mmx = scipy.stats.scoreatpercentile(im.flat, 99.8)
+	mmx = scipy.stats.scoreatpercentile(im[np.where(im>0)].flat, 95.0)
 	if mmx > 0:
 		im[im>mmx] = mmx # crop maximum at above percentile
+	print np.max(im)
+	print mmx
+	print np.mean(im)
 	return im
 
 def Image2coords(image, color):

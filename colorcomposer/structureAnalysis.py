@@ -14,7 +14,7 @@ import coords
 import Image
 from os.path import basename
 import colocalizationDetection
-
+import copy
 
 
 class ImageData:
@@ -44,7 +44,7 @@ class ImageData:
                 self.numberElementsOfEachClass[self.labels[i,j]] += 1
                 self.meanx[self.labels[i,j]] += j
                 self.meany[self.labels[i,j]] += i
-        
+        False
         for i in range(1, self.numberclasses + 1):
             self.meanx[i] = self.meanx[i] / float(self.numberElementsOfEachClass[i]) / float(factor)
             self.meany[i] = self.meany[i] / float(self.numberElementsOfEachClass[i]) / float(factor)
@@ -203,6 +203,13 @@ class structureAnalysis(QtCore.QObject):
         self.m_lastPath = "."
         self.m_lastPathSave = "."
         
+        self.m_colocalizationHeatmap = []
+        self.m_showcolocalizationHeatmap = True
+        
+        self.m_copyImageRed = []
+        self.m_copyImageGreen = []
+        self.m_showImages = True
+        
         self.sigma = 1
         self.threshold = 50
         
@@ -210,6 +217,9 @@ class structureAnalysis(QtCore.QObject):
         self.connectSignals()
         
     def connectSignals(self):
+        QtCore.QObject.connect(self.ui.actionColocalization, QtCore.SIGNAL("triggered()"), self.colocalization)
+        QtCore.QObject.connect(self.ui.actionToggle_colocalization_heatmap, QtCore.SIGNAL("triggered()"), self.toggleColocalizationHeatmap)
+        QtCore.QObject.connect(self.ui.actionToggle_Images, QtCore.SIGNAL("triggered()"), self.toggleImages)
         self.ui.setSigmaSlider.valueChanged.connect(self.setSigmaSliderChanged)
         self.ui.setSigmaSpinBox.valueChanged.connect(self.setSigmaSpinBoxChanged)
         self.ui.thresholdSlider.valueChanged.connect(self.thresholdSliderChanged)
@@ -233,12 +243,12 @@ class structureAnalysis(QtCore.QObject):
         if 0:
             self.addFile('/home/herrmannsdoerfer/Desktop/SampleCells/01-control/confocal/Pos075_S001C0 - AveProj.tif')
             self.addFile('/home/herrmannsdoerfer/Desktop/SampleCells/01-control/confocal/Pos075_S001C1 - AveProj.tif')
-            self.showHeatmatrix()
+            
         
-        if 1:
+        if 0:
             self.addFile('/home/herrmannsdoerfer/Desktop/SampleCells/01-control/confocal/Pos081_S001C0 - AveProj.tif')
             self.addFile('/home/herrmannsdoerfer/Desktop/SampleCells/01-control/confocal/Pos081_S001C1 - AveProj.tif')
-            imgR, imgG = colocalizationDetection.Colocdetection(self.Images[0].npimage,self.Images[1].npimage)
+            imgR, imgG = colocalizationDetection.coloc(self.Images[0].npimage,self.Images[1].npimage)
             self.Images[0].npimage =imgR
             self.Images[1].npimage =imgG
             self.recalculateResult()
@@ -292,7 +302,44 @@ class structureAnalysis(QtCore.QObject):
     def thresholdSpinBoxChanged(self, value): 
         self.ui.thresholdSlider.setValue(value*10)
         self.threshold = value
+    
+    def colocalization(self):
+        imgR = self.Images[0].npimage
+        imgG = self.Images[1].npimage
+        self.m_colocalizationHeatmap = colocalizationDetection.coloc(imgR,imgG)
+        #Histogram = colocalizationDetection.getAngleHistogram(imgR, imgG, self.m_dims)
+        pearsonCoeff = colocalizationDetection.calcPearsonCorrelationCoeff(imgR, imgG)
+        MR, MG = colocalizationDetection.calcMandersColocalizationCoeffs(imgR, imgG)
+        overlap = colocalizationDetection.calcOverlapCoeff(imgR, imgG)
+        self.recalculateResult()    
         
+    def toggleColocalizationHeatmap(self):
+        if self.m_colocalizationHeatmap != []:
+            if self.m_showcolocalizationHeatmap:
+                self.Images[0].npimage[...,0] = self.m_colocalizationHeatmap[...,0]
+            else:
+                self.Images[0].npimage[...,0] = np.zeros(self.Images[0].npimage[:,:,2].shape)
+            self.m_showcolocalizationHeatmap = not self.m_showcolocalizationHeatmap
+            self.recalculateResult()    
+    
+    def toggleImages(self):
+        if self.m_copyImageRed == []:
+            self.m_copyImageRed = copy.deepcopy(self.Images[0].npimage)
+            self.m_copyImageGreen = copy.deepcopy(self.Images[1].npimage)
+            
+        if self.m_showImages:
+            self.Images[0].npimage = self.m_copyImageRed
+            self.Images[1].npimage = self.m_copyImageGreen
+        else:
+            self.m_copyImageRed = copy.deepcopy(self.Images[0].npimage)
+            self.Images[0].npimage[...,2] = np.zeros(self.Images[0].npimage[...,2].shape)
+            self.m_copyImageGreen = copy.deepcopy(self.Images[1].npimage)
+            self.Images[1].npimage[...,1] = np.zeros(self.Images[0].npimage[...,1].shape)
+        
+        self.m_showImages = not self.m_showImages
+        
+        self.recalculateResult()
+                
     def doSmoothing(self):
         #if len(self.m_npimages):
             #for i, imag in enumerate(self.m_npimages):

@@ -27,7 +27,22 @@ def getRandomElements(list, numberElements):
 			if len(randomElements)==numberElements:
 				break
 		
-	return np.array(randomElements), indices
+	return np.array(randomElements), np.array(indices)
+
+def getGoodPartnerIndex(indicesS, distMat, d):
+	#### This function tries to find the best red bead for the randomly selected green beads, nearer beads get higher possibilities
+	indicesD = np.zeros(indicesS.shape)
+	for i in range(len(indicesS)):
+		actuallColumn = distMat[:,indicesS[i]]
+		sumCol = np.sum(actuallColumn)
+		actuallColumnProb = sumCol / actuallColumn**1.8 #at this point the sensitivity for picking the nearest point can be influenced
+		randomValue = np.random.random() * np.sum(actuallColumnProb)
+		for j in range(len(actuallColumn)):
+			if (np.sum(actuallColumnProb[0:j]) < randomValue < (np.sum(actuallColumnProb[0:j+1]))):
+				indicesD[i] = j	
+				break
+	indicesD = np.array(indicesD, dtype = int)
+	return d[indicesD], indicesD
 
 def performRansac(s,d,dims,pointsNeeded, numberIterations, distanceTolerated):
 	indicesSCollection = []
@@ -36,19 +51,21 @@ def performRansac(s,d,dims,pointsNeeded, numberIterations, distanceTolerated):
 	additionalCandidatesD = []
 	trafoCollection = []
 	matchedPoints = []
+	distanceMatrixSD = getDistanceMatrix(s,d)
 	
 	for i in range(numberIterations):
 		sSet, indicesS = getRandomElements(s,pointsNeeded)
-		dSet, indicesD = getRandomElements(d,pointsNeeded)
+		dSet, indicesD = getGoodPartnerIndex(indicesS, distanceMatrixSD, d)
+		#dSet, indicesD = getRandomElements(d,pointsNeeded)
 		sSet, dSet = alignCandidates(sSet, dSet)
 		indicesSCollection.append(indicesS)
 		indicesDCollection.append(indicesD)
-		trafo = affineMatrix2DFromCorrespondingPoints(sSet, dSet, dims)
+		trafo, _,_ = affineMatrix2DFromCorrespondingPoints(sSet, dSet, dims)
 		trafoCollection.append(trafo)
 		sTransformed = np.dot(trafo, np.vstack([s.T,np.ones(len(s))])).T[:,:2]
 		distanceMatrix = getDistanceMatrix(sTransformed, d)
 		minimumRow = np.min(distanceMatrix, 1)		
-		matchedPoints.append(np.sum(np.where(minimumRow < distanceTolerated,1,0)))
+		matchedPoints.append(np.sum(np.where(minimumRow < distanceTolerated,1,0)))  #all red bead that are closer than distanceTolerated to a green bead are added
 		row, col =np.where(distanceMatrix < distanceTolerated)
 		additionalCandidatesD.append(row)
 		additionalCandidatesS.append(col)
@@ -81,38 +98,38 @@ def preselectPoints(s,d,maxDist):
 
 def doRansac(s,d,dims):
 	pointsNeeded = 3
-	numberIterations = 2000
-	numberRestarts = 50
-	distanceTolerated = (dims[0]+dims[1])/400  #This sets the distance for the check how much more beads are overlapping 
-	toleranceForShearing = 10.04				#set this variable to a small value, to suppress shearing
-	maxDist = (dims[0]+dims[1])/2./1			#Beads that have no nearer neighbor of the other color than maxDist are not considered
+	numberIterations = 1000
+	numberRestarts = 100
+	distanceTolerated = (dims[0]+dims[1])/40  #This sets the distance for the check of how much more beads are overlapping 
+	toleranceForShearing = 0.1				#set this variable to a small value, to suppress shearing
+	maxDist = (dims[0]+dims[1])/2./5				#Beads that have no nearer neighbor of the other color than maxDist are not considered
 	print len(s), len(d)
 	s,d = preselectPoints(s,d,maxDist)
 	print len(s), len(d)
 	
-	sc=copy.deepcopy(s)		# I don't know why but affineMatrix2DFromCorrespondingPoints changes the values given (looks like a call by reference)
+	sc=copy.deepcopy(s)		#affineMatrix2DFromCorrespondingPoints changes the values given
 	dc=copy.deepcopy(d)
 	
 	if len(s) < pointsNeeded or len(d)< pointsNeeded:
-		print 'To few points found'
+		print 'To few points found, there might have been no pairs of matching points'
 		return
 	
 	print 'begin Ransac'
 	for i in range(numberRestarts):
 		matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection, trafo = performRansac(sc,dc,dims,pointsNeeded, numberIterations, distanceTolerated)
 		maximalMatchedPoints = np.max(matchedPoints)
-		#print maximalMatchedPoints
-		if maximalMatchedPoints > np.min(matchedPoints):	
+		print maximalMatchedPoints
+		if maximalMatchedPoints > np.min(matchedPoints):	# more combined points are found than points that are necessary for the calculation of the transformation 
 			indexWithMaximalAlignment = np.where(matchedPoints==maximalMatchedPoints)[0][0]
 			#breaks if the trafo has no shear
 			print trafo[indexWithMaximalAlignment]
 			#if there is just translation and rotation trafo[0,0] should be cos(phi), trafo[0,1] - sin(phi)..., therefore on can check if there is shearing
 			if (1 + toleranceForShearing > (trafo[indexWithMaximalAlignment][0,0]**2+trafo[indexWithMaximalAlignment][0,1]**2) and (trafo[indexWithMaximalAlignment][0,0]**2+trafo[indexWithMaximalAlignment][0,1]**2) > 1 - toleranceForShearing and 1 + toleranceForShearing>(trafo[indexWithMaximalAlignment][1,0]**2+trafo[indexWithMaximalAlignment][1,1]**2) and (trafo[indexWithMaximalAlignment][1,0]**2+trafo[indexWithMaximalAlignment][1,1]**2) > 1 - toleranceForShearing):
 				break
-			print 'Start Iteration again (%i/%i), reason: minimum = maximum' %(i, numberRestarts)
+			print 'Start Iteration again (%i/%i), reason: minimum < maximum but shearing' %(i, numberRestarts)
 		else:
 			doBreak = False
-			for j in range(len(trafo)):				
+			for j in range(len(trafo)): # just the points used to calculate the transformation lay above each other, either there are just 3 pairs of beads, or the correct transformation has not been found jet
 				if (1 + toleranceForShearing > (trafo[j][0,0]**2+trafo[j][0,1]**2) and (trafo[j][0,0]**2+trafo[j][0,1]**2) > 1 - toleranceForShearing and 1 + toleranceForShearing>(trafo[j][1,0]**2+trafo[j][1,1]**2) and (trafo[j][1,0]**2+trafo[j][1,1]**2) > 1 - toleranceForShearing):
 					indexWithMaximalAlignment = j
 					doBreak = True
@@ -133,12 +150,12 @@ def doRansac(s,d,dims):
 	finalIndicesS = (np.reshape(np.array(finalIndicesS),-1))
 	finalIndicesD = (np.reshape(np.array(finalIndicesD),-1))
 	
-	finalTrafo = affineMatrix2DFromCorrespondingPoints(s[finalIndicesS], d[finalIndicesD], dims)
+	finalTrafo, delR, delPhi = affineMatrix2DFromCorrespondingPoints(s[finalIndicesS], d[finalIndicesD], dims)
 	
 	print 'Found %i, Points for transformation' %len(finalIndicesS)
 	print finalTrafo
 	print finalTrafo[0,0]**2+finalTrafo[0,1]**2,finalTrafo[1,0]**2+finalTrafo[1,1]**2
-	return finalTrafo,s[finalIndicesS],d[finalIndicesD]
+	return finalTrafo,s[finalIndicesS],d[finalIndicesD], delR, delPhi
 
 def getDistanceMatrix(s,d):
 	numberBeadsRed = d.shape[0]
@@ -227,7 +244,7 @@ def tryHungarianApproach(s,d,dims):
 	    	indicesDCollection = column
 	    	indicesSCollection = row
 	    	
-	trafo = affineMatrix2DFromCorrespondingPoints(s[indicesSCollection], d[indicesDCollection], dims)
+	trafo, _,_ = affineMatrix2DFromCorrespondingPoints(s[indicesSCollection], d[indicesDCollection], dims)
 	sTransformed = np.dot(trafo, np.vstack([s.T,np.ones(len(s))])).T[:,:2]
 	distanceMatrix = getDistanceMatrix(sTransformed, d)
 	minimumRow = np.min(distanceMatrix, 1)		
@@ -244,11 +261,13 @@ def tryHungarianApproach(s,d,dims):
 	return matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection
 
 def affineMatrix2DFromCorrespondingPoints(s, d, dims):
+	#d = layer 0
 	n = len(s)
 	if len(s) < 3:
 		print "at least three points required"
 		return
 	
+	#dims = [0,0]
 	deltaX=dims[0]/2.
 	deltaY=dims[1]/2.
 	#deltaX=np.mean(d[:,0])
@@ -274,29 +293,93 @@ def affineMatrix2DFromCorrespondingPoints(s, d, dims):
 
 	solx = solve(m, rx)
 	soly = solve(m, ry)
+	#d.T*s = A * s.T*s
+	#A = D.T*S*(S.T*S).I
 	row3 = np.array([0,0,1])
 	
 	A = np.vstack([solx,soly,row3])
 	R=np.matrix([[1, 0, deltaX],[0, 1, deltaY],[0, 0, 1]])
 	Ap = np.dot(R,np.dot(A,R.I))
 	
+	Atotalleast = affineMatrix2DFromCorrespondingPointsUseTotalLeastSquares(s, d, dims)
+	Atp = np.dot(R,np.dot(Atotalleast,R.I))
+	
+	#print (d[:,0:2]).T-np.dot(Atp[0:2,:],s.T)
 	#print "matrix:",[solx,soly,row3]
 	a=np.vstack([solx,soly])
 	
 	error=(d[:,0:2]).T-np.dot(a,s.T)
+	
+	coeffMat = np.ones([n,2])
+	vector = np.ones(n)
+	for i in range(n):
+		coeffMat[i,1] = (np.sqrt((d[i,0] )**2 + (d[i,1])**2))/ (2*np.pi) #r/(2pi)
+		vector[i] = np.sqrt(error[0,i]**2 + error[1,i]**2)
+	
+	#this gives an estimate of the origin of the errors, either from the shift coefficients in the transformation matrix
+	#or from an not accurate angle
+	[deltaR, deltaPhi],_,_,_ = np.linalg.lstsq(coeffMat, vector)
+	#print error
+	
+	estimatederror = np.zeros(n)
+	for i in range(n):
+		estimatederror[i] = deltaR + np.abs((np.sqrt((d[i,0] )**2 + (d[i,1])**2)) * deltaPhi/(2*np.pi))
+		#print 'estim:',estimatederror[i]
+		#print 'real:', np.sqrt(error[0,i]**2+error[1,i]**2)
 	#print error,"=",(d[:,0:2]).T,"-",np.dot(a,s.T)
 	#print "error",error
 	
 	#dA=-np.dot(error,(np.dot(s,np.linalg.pinv(np.dot(s.T,s)))))
 	#print np.linalg.pinv(s).shape, error.shape
-	dA=-np.dot(error,np.linalg.pinv(s).T)
-	
-	#print dA
-	#print np.dot([solx,soly,row3],s.T)
 	
 	#return np.vstack([solx,soly,row3])
-	return np.array([[Ap[0,0],Ap[0,1],Ap[0,2]],[Ap[1,0],Ap[1,1],Ap[1,2]],[Ap[2,0],Ap[2,1],Ap[2,2]]])
+	return np.array([[Ap[0,0],Ap[0,1],Ap[0,2]],[Ap[1,0],Ap[1,1],Ap[1,2]],[Ap[2,0],Ap[2,1],Ap[2,2]]]), deltaR, deltaPhi
 
+def affineMatrix2DFromCorrespondingPointsUseTotalLeastSquares(s, d, dims):
+	B0 = np.hstack([s[:,0:2],d[:,0:1]])
+	B0 = B0 - np.mean(B0,0)
+	U0,sig0,Vt0 = np.linalg.svd(B0)
+	
+	B1 = np.hstack([s[:,0:2],d[:,1:2]])
+	B1 = B1 - np.mean(B1,0)
+	U1,sig1,Vt1 = np.linalg.svd(B1)
+	
+	
+	A2 = np.zeros([3,3])
+
+	index1 = np.where(sig1 == np.min(sig1))[0][0]
+	index0 = np.where(sig0 == np.min(sig0))[0][0]
+
+		
+	
+	facest0 = -Vt0[index0,0]/(Vt0[index0,2]*np.cos(np.arcsin(-Vt0[index0,1]/Vt0[index0,2])))
+	phiest0 = np.arccos(-Vt0[index0,0]/(Vt0[index0,2]*facest0))
+	
+	phiest1 = np.arcsin(Vt1[index1,0]/(Vt1[index1,2]))
+	facest1 = -Vt1[index1,1]/(Vt1[index1,2]*np.cos(phiest1))
+	
+	'''print facest0
+	print phiest0 / 2. / np.pi *360
+		
+	print facest1
+	print phiest1 / 2. / np.pi *360
+	'''
+	facest = (facest0 + facest1)/2
+	phiest = (phiest0 + phiest1)/2
+	
+	
+	A2[0,0] = facest * np.cos(phiest)
+		
+	A2[0,1] = np.sin(phiest)
+	A2[1,0] = -np.sin(phiest)
+	A2[1,1] = facest * np.cos(phiest)
+	
+	A2[0,2] = np.mean(d[:,0]) - (A2[0,0] * np.mean(s,0)[0] + A2[0,1] * np.mean(s,0)[1])
+	A2[1,2] = np.mean(d[:,1]) - (A2[1,0] * np.mean(s,0)[0] + A2[1,1] * np.mean(s,0)[1])
+	A2[2,2] = 1
+	
+	
+	return A2
 
 def linFun(B,x):
   return (B[0]*x+B[1])
@@ -341,7 +424,7 @@ if __name__ == "__main__":
 	thrash, landmarks2 = coords.readfile(file2_landmarks)
 	landmarks1 = landmarks1[:,:2]
 	landmarks2 = landmarks2[:,:2]
-	trafo = affineMatrix2DFromCorrespondingPoints(landmarks2, landmarks1)
+	trafo, _,_ = affineMatrix2DFromCorrespondingPoints(landmarks2, landmarks1)
 	print "Transformation: \n", trafo
 
 	dims, cc1 = coords.readfile(file1)

@@ -402,6 +402,7 @@
     <addaction name="actionDiscard_selected_beads"/>
     <addaction name="actionColocalization"/>
     <addaction name="actionAuto_align_images"/>
+    <addaction name="actionToggle_colocalization_heatmap"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -468,6 +469,11 @@
   <action name="actionAuto_align_images">
    <property name="text">
     <string>Auto-align images</string>
+   </property>
+  </action>
+  <action name="actionToggle_colocalization_heatmap">
+   <property name="text">
+    <string>toggle colocalization heatmap</string>
    </property>
   </action>
  </widget>

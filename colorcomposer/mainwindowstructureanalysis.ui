@@ -406,6 +406,9 @@
     <addaction name="actionShow_covariance_matrix"/>
     <addaction name="actionCalculate_distance_matrix"/>
     <addaction name="actionShow_Heatmatrix"/>
+    <addaction name="actionColocalization"/>
+    <addaction name="actionToggle_colocalization_heatmap"/>
+    <addaction name="actionToggle_Images"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuReset"/>
@@ -450,6 +453,21 @@
   <action name="actionShow_Heatmatrix">
    <property name="text">
     <string>show Heatmatrix</string>
+   </property>
+  </action>
+  <action name="actionToggle_colocalization_heatmap">
+   <property name="text">
+    <string>Toggle colocalization heatmap</string>
+   </property>
+  </action>
+  <action name="actionColocalization">
+   <property name="text">
+    <string>Colocalization</string>
+   </property>
+  </action>
+  <action name="actionToggle_Images">
+   <property name="text">
+    <string>Toggle Images</string>
    </property>
   </action>
  </widget>

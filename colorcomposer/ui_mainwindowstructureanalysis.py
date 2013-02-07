@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindowstructureanalysis.ui'
 #
-# Created: Thu Jun 14 11:49:53 2012
+# Created: Tue Jul 17 14:42:55 2012
 #      by: PyQt4 UI code generator 4.8.5
 #
 # WARNING! All changes made in this file will be lost!
@@ -261,6 +261,15 @@ class Ui_MainWindowStructureAnalysis(object):
         self.actionShow_Heatmatrix = QtGui.QAction(MainWindowStructureAnalysis)
         self.actionShow_Heatmatrix.setText(QtGui.QApplication.translate("MainWindowStructureAnalysis", "show Heatmatrix", None, QtGui.QApplication.UnicodeUTF8))
         self.actionShow_Heatmatrix.setObjectName(_fromUtf8("actionShow_Heatmatrix"))
+        self.actionToggle_colocalization_heatmap = QtGui.QAction(MainWindowStructureAnalysis)
+        self.actionToggle_colocalization_heatmap.setText(QtGui.QApplication.translate("MainWindowStructureAnalysis", "Toggle colocalization heatmap", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionToggle_colocalization_heatmap.setObjectName(_fromUtf8("actionToggle_colocalization_heatmap"))
+        self.actionColocalization = QtGui.QAction(MainWindowStructureAnalysis)
+        self.actionColocalization.setText(QtGui.QApplication.translate("MainWindowStructureAnalysis", "Colocalization", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionColocalization.setObjectName(_fromUtf8("actionColocalization"))
+        self.actionToggle_Images = QtGui.QAction(MainWindowStructureAnalysis)
+        self.actionToggle_Images.setText(QtGui.QApplication.translate("MainWindowStructureAnalysis", "Toggle Images", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionToggle_Images.setObjectName(_fromUtf8("actionToggle_Images"))
         self.menuFile.addAction(self.actionOpen_File)
         self.menuFile.addAction(self.actionSave_File)
         self.menuFile.addAction(self.actionSave_Features)
@@ -268,6 +277,9 @@ class Ui_MainWindowStructureAnalysis(object):
         self.menuOptions.addAction(self.actionShow_covariance_matrix)
         self.menuOptions.addAction(self.actionCalculate_distance_matrix)
         self.menuOptions.addAction(self.actionShow_Heatmatrix)
+        self.menuOptions.addAction(self.actionColocalization)
+        self.menuOptions.addAction(self.actionToggle_colocalization_heatmap)
+        self.menuOptions.addAction(self.actionToggle_Images)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuReset.menuAction())
         self.menubar.addAction(self.menuOptions.menuAction())

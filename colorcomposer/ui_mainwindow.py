@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Thu Jun 28 17:01:21 2012
+# Created: Tue Jul 17 14:19:44 2012
 #      by: PyQt4 UI code generator 4.8.5
 #
 # WARNING! All changes made in this file will be lost!
@@ -246,6 +246,9 @@ class Ui_MainWindow(object):
         self.actionAuto_align_images = QtGui.QAction(MainWindow)
         self.actionAuto_align_images.setText(QtGui.QApplication.translate("MainWindow", "Auto-align images", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAuto_align_images.setObjectName(_fromUtf8("actionAuto_align_images"))
+        self.actionToggle_colocalization_heatmap = QtGui.QAction(MainWindow)
+        self.actionToggle_colocalization_heatmap.setText(QtGui.QApplication.translate("MainWindow", "toggle colocalization heatmap", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionToggle_colocalization_heatmap.setObjectName(_fromUtf8("actionToggle_colocalization_heatmap"))
         self.menuFile.addAction(self.actionExport_Composed_image)
         self.menuFile.addAction(self.actionExport_as_stack_of_images)
         self.menuFile.addAction(self.actionExport_transformed_coordinates)
@@ -255,6 +258,7 @@ class Ui_MainWindow(object):
         self.menuExtras.addAction(self.actionDiscard_selected_beads)
         self.menuExtras.addAction(self.actionColocalization)
         self.menuExtras.addAction(self.actionAuto_align_images)
+        self.menuExtras.addAction(self.actionToggle_colocalization_heatmap)
         self.menuHelp.addAction(self.actionAbout)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuView.menuAction())
