@@ -1,6 +1,6 @@
 project(storm)
 cmake_minimum_required(VERSION 2.8)
-SET(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH}  ${storm_SOURCE_DIR}/cmake)
+SET(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH}  ${storm_SOURCE_DIR}/../cmake)
 
 FIND_PACKAGE( Vigra 1.8.0 REQUIRED )
 FIND_PACKAGE( FFTW REQUIRED )
@@ -9,7 +9,7 @@ FIND_PACKAGE( OpenMP )
 find_package( R REQUIRED)
 include_directories(
 ${R_INCLUDE_DIRS}
-${storm_SOURCE_DIR}/../opengm/src/external/MaxFlow-v3.02.src-patched
+${storm_SOURCE_DIR}/../../opengm/src/external/MaxFlow-v3.02.src-patched
 /home/herrmannsdoerfer/master/opengm-2.0/src/external/MRF-v2.1.src-patched
 /home/herrmannsdoerfer/master/opengm-2.0/include
 )
@@ -25,6 +25,18 @@ set(CMAKE_CXX_FLAGS
     ${CMAKE_CXX_FLAGS}
     "-fpermissive"
 )
+
+set(STORM_R_SCRIPT_DIR ${CMAKE_INSTALL_PREFIX}/share/simpleStorm/)
+set(STORM_R_SCRIPT storm_fit.R)
+
+add_definitions(-DSTORM_RSCRIPT=\"${STORM_R_SCRIPT}\" -DSTORM_RSCRIPT_DIR=\"${STORM_R_SCRIPT_DIR}\")
+
+if(WIN32)
+    add_definitions(-D__WIN__)
+endif(WIN32)
+
+# to be able to run the binaries without installing
+file(COPY ${STORM_R_SCRIPT} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 IF(CMAKE_COMPILER_IS_GNUCXX)
 	ADD_EXECUTABLE(storm storm.cpp program_options_getopt.cpp myimportinfo.cpp util.cpp)
@@ -63,3 +75,4 @@ include_directories(
 ADD_SUBDIRECTORY(test)
 set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS storm DESTINATION ${BIN_INSTALL_DIR})
+install(FILES ${STORM_R_SCRIPT} DESTINATION ${STORM_R_SCRIPT_DIR})

@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     std::string filterfile = files['f'];
     std::string frames = files['F'];
     char verbose = (char)params['v'];
-        
+
     if(verbose) {
         std::cout << "thr:" << threshold << " factor:" << factor << std::endl;
     }
@@ -62,12 +62,12 @@ int main(int argc, char** argv) {
         MultiArray<3,float> in;
         typedef MultiArrayShape<3>::type Shape;
 
-        MyImportInfo info(infile);
+        MyImportInfo info(infile, argv[0]);
         //~ in.reshape(info.shape());
         //~ readVolume(info, in);
         int stacksize = info.shape()[2];
         Size2D size2 (info.shapeOfDimension(0), info.shapeOfDimension(1)); // isnt' there a slicing operator?
-        
+
 
         if(verbose) {
             std::cout << "Images with Shape: " << info.shape() << std::endl;
@@ -126,15 +126,15 @@ int main(int argc, char** argv) {
         //std::cin>>sdf;
 
         wienerStorm(info, filter, res_coords,parameterTrafo, PoissonMeans, threshold, factor, roilen, frames, verbose);
-        
+
         // resulting image
         drawCoordsToImage<Coord<float> >(res_coords, res);
-        
+
         int numSpots = 0;
         if(coordsfile != "") {
             numSpots = saveCoordsFile(coordsfile, res_coords, info.shape(), factor);
         }
-        
+
         // end: done.
         TOC;
         std::cout << "detected " << numSpots << " spots." << std::endl;
@@ -144,11 +144,11 @@ int main(int argc, char** argv) {
         findMinMaxPercentile(res, 0., minlim, 0.996, maxlim);
         std::cout << "cropping output values to range [" << minlim << ", " << maxlim << "]" << std::endl;
         if(maxlim > minlim) {
-            transformImage(srcImageRange(res), destImage(res), ifThenElse(Arg1()>Param(maxlim), Param(maxlim), Arg1())); 
+            transformImage(srcImageRange(res), destImage(res), ifThenElse(Arg1()>Param(maxlim), Param(maxlim), Arg1()));
         }
         exportImage(srcImageRange(res), ImageExportInfo(outfile.c_str()));
-        
-        
+
+
 
     }
     catch (vigra::StdException & e)

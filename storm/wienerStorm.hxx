@@ -37,7 +37,7 @@
 #include <vigra/resizeimage.hxx>
 #include <vigra/multi_array.hxx>
 #include <vigra/inspectimage.hxx>
-#include <vigra/fftw3.hxx> 
+#include <vigra/fftw3.hxx>
 #include <vigra/localminmax.hxx>
 #include <vigra/splineimageview.hxx>
 #include <vigra/multi_fft.hxx>
@@ -47,6 +47,8 @@
 #include <fstream>
 //#include <iomanip>
 #include <vector>
+#include <sys/stat.h>
+
 //#include <algorithm>
 #ifdef OPENMP_FOUND
     #include <omp.h>
@@ -68,6 +70,8 @@
 #include <opengm/functions/truncated_squared_difference.hxx>
 #include <opengm/inference/auxiliary/minstcutkolmogorov.hxx>
 
+#include <Rinternals.h>
+#include <Rinterface.h>
 #include <Rmath.h>
 
 using namespace vigra;
@@ -75,20 +79,20 @@ using namespace vigra::functor;
 
 /**
  * @file dSTORM data processing for localization microscopy
- * 
- * This file contains functions to localizes single molecule 
+ *
+ * This file contains functions to localizes single molecule
  * point-spread-functions by interpolation of each image in an
  * image stack after prefiltering. A Wiener filter can be learned
  * from good-quality input data and afterwards lied to
  * low SNR-measurements.
- * 
+ *
  * For algorithmic details and performance measurements please refer to
  * the diploma thesis available at
  * http://hci.iwr.uni-heidelberg.de/Staff/jschleic/
- * 
- * Some helper functions can be found in util.h, and the filter in Fourier 
+ *
+ * Some helper functions can be found in util.h, and the filter in Fourier
  * domain is applied using fftw-wrappers in fftfilter.h.
- * 
+ *
  * @date 2010-2011 Diploma thesis J. Schleicher
  */
 
@@ -250,7 +254,7 @@ class BSplineWOPrefilter
 
 /**
  * Class to keep an image coordinate with corresponding pixel value
- * 
+ *
  * This corresponds to a vigra::Point2D with an additional value at that coordinate.
  */
 template <class VALUETYPE>
@@ -277,7 +281,7 @@ class Coord{
 };
 
 
-// hack to push the coordinates into an array instead of marking them in 
+// hack to push the coordinates into an array instead of marking them in
 // a target image.
 // This is used as an accessor although it doesn't access the pixel values ;-)
 // To work on ROIs, a global offset can be set with setOffset().
@@ -337,7 +341,7 @@ void drawCoordsToImage(const std::set<C>& coords, Image& res) {
 }
 
 template <class C>
-int saveCoordsFile(const std::string& filename, const std::vector<std::set<C> >& coords, 
+int saveCoordsFile(const std::string& filename, const std::vector<std::set<C> >& coords,
             const MultiArrayShape<3>::type & shape, const int factor) {
     int numSpots = 0;
     std::set<Coord<float> >::iterator it2;
@@ -357,7 +361,7 @@ int saveCoordsFile(const std::string& filename, const std::vector<std::set<C> >&
     return numSpots;
 }
 
-/** 
+/**
  * finds the value, so that the given percentage of pixels is above / below that value.
  */
 template <class Image>
@@ -496,61 +500,70 @@ void findCorrectionCoefficients(const MyImportInfo& info, std::vector<T>& parame
 
 template <class T>
 void findBestFit(const MyImportInfo& info,T meanValues[],T skellamParameters[],int numberPoints, std::vector<T>& parameterTrafo){
-	int mode = 0; //0: take only lowest point from each interval and fit line through this points
-	switch(mode){
-		case 0:{
-			//std::cout<<"begin bestfit"<<std::endl;
-			int numberIntervals = std::min(10, numberPoints);
-			//std::cout<<numberIntervals;
-			T meanMin = 9999999, meanMax = 0;
-			for(int i = 0; i< numberPoints; i++){
-				if(meanValues[i]<meanMin){meanMin = meanValues[i];}
-				if(meanValues[i]>meanMax){meanMax = meanValues[i];}
-			}
-			T intervalSize = (meanMax - meanMin)/ numberIntervals;
-			std::vector<T> temp_vec(meanValues, meanValues + numberPoints);
-			//std::cout<<"middle best fit"<<std::endl;
-			std::vector<int> iter(numberPoints); //contains information about permutation from sort
-			linearSequence(iter.begin(), iter.end());
-			indexSort(temp_vec.begin(), temp_vec.end(), iter.begin());
+    int nbins = 10;
 
-			std::vector<T> minMeanValuesIntervals;
-			std::vector<T> minSkellamValuesIntervals;
-			T highValueForMinDetection = 99999999;
-			T localMinMean;
-			T currentMeanValue;
-			//std::cout<<"middle2 best fit"<<std::endl;
-			//from each interval only the point with the lowest skellam parameter is selected
-			for(int j = 0; j < numberIntervals; j++){
-				localMinMean = highValueForMinDetection;
-				for(int i = 0; i < numberPoints; i++){
-					if(meanValues[i] >= meanMin + j * intervalSize and meanValues[i] < meanMin + (j+1) * intervalSize){
-						if(skellamParameters[i] < localMinMean){localMinMean = skellamParameters[i]; currentMeanValue = meanValues[i];}
-					}
-				}
-				if(localMinMean != highValueForMinDetection){
-					minMeanValuesIntervals.push_back(currentMeanValue);
-					minSkellamValuesIntervals.push_back(localMinMean);
-				}
-			}
-			std::cout<<"from find best fit"<< std::endl;
-			std::cout<<std::endl<<"[";
-			for(int i = 0; i< minMeanValuesIntervals.size(); i++){std::cout<<minMeanValuesIntervals[i]<<",";}
-			std::cout<<"]"<<std::endl;
-			std::cout<<"[";
-			for(int i = 0; i< minSkellamValuesIntervals.size(); i++){std::cout<<minSkellamValuesIntervals[i]<<",";}
-			std::cout<<"]"<<std::endl;
-			//std::cin.get();
-			T slope, gof, intercept;
-			//std::cout<<"before ransac"<<std::endl;
-			doRansac(minMeanValuesIntervals, minSkellamValuesIntervals, 400, slope, intercept, gof);
-			//std::cout<<"after ransac"<<std::endl;
-			std::cout<<"slope: "<< slope<<" x0: "<<-intercept/slope<<" intercept: "<<intercept<<" lowest gof:"<<gof<<std::endl;
+    std::string rScript(info.executableDir());
+    rScript.append("/").append(STORM_RSCRIPT);
+    struct stat rScriptStat;
+    if (stat(rScript.c_str(), &rScriptStat) || !S_ISREG(rScriptStat.st_mode)) {
+        rScript.clear();
+        rScript.append(STORM_RSCRIPT_DIR).append(STORM_RSCRIPT);
+    }
 
-			parameterTrafo[0] = slope; parameterTrafo[1] = -intercept/slope; parameterTrafo[2] = intercept;
-		}
-	}
+    SEXP fun, t, tmp, tmp2;
+    PROTECT(tmp = ScalarInteger(42));
 
+    PROTECT(fun = t = allocList(2));
+    SET_TYPEOF(fun, LANGSXP);
+    SETCAR(t, install("set.seed"));
+    t = CDR(t);
+    SETCAR(t, tmp);
+    eval(fun, R_GlobalEnv);
+    UNPROTECT(2);
+
+    PROTECT(tmp = mkString(rScript.c_str()));
+    PROTECT(fun = t = allocList(2));
+    SET_TYPEOF(fun, LANGSXP);
+    SETCAR(t, install("parse"));
+    t = CDR(t);
+    SETCAR(t, tmp);
+    SET_TAG(t, install("file"));
+    PROTECT(tmp2 = eval(fun, R_GlobalEnv));
+    for (R_len_t i = 0; i < length(tmp2); ++i) {
+        eval(VECTOR_ELT(tmp2, i), R_GlobalEnv);
+    }
+    UNPROTECT(3);
+
+    PROTECT(tmp = allocMatrix(REALSXP, numberPoints, 2));
+    double *mat = REAL(tmp);
+    for (int row = 0; row < numberPoints; ++row) {
+        mat[row] = meanValues[row];
+    }
+    for (int row = 0; row < numberPoints; ++row) {
+        mat[numberPoints + row] = skellamParameters[row];
+    }
+
+    SEXP bins;
+    PROTECT(bins = ScalarInteger(nbins));
+    PROTECT(fun = t = allocList(3));
+    SET_TYPEOF(fun, LANGSXP);
+    SETCAR(t, install("fit.storm.points"));
+    t = CDR(t);
+    SETCAR(t, tmp);
+    t = CDR(t);
+    SETCAR(t, bins);
+    PROTECT(tmp = eval(fun, R_GlobalEnv));
+
+    if (tmp == R_NilValue) {
+        std::cerr << "Fit could not be performed, exiting..." << std::endl;
+        std::exit(1);
+    } else {
+        double *coefs = REAL(tmp);
+        parameterTrafo[0] = coefs[1];
+        parameterTrafo[1] = -coefs[0] / coefs[1];
+        parameterTrafo[2] = coefs[0];
+        std::cout<<"slope: "<< parameterTrafo[0]<<" x0: "<<parameterTrafo[1] << " intercept: "<<parameterTrafo[2] << std::endl;
+    }
 }
 
 //the best fit through the lowes points of each interval is found here
@@ -1398,12 +1411,12 @@ void applyMask(BasicImage<T>& img, MultiArrayView<2, T>& mask, int frnr){
  * Calculate Power-Spektrum
  */
 template <class T, class DestIterator, class DestAccessor>
-void powerSpectrum(const MultiArrayView<3, T>& array, 
+void powerSpectrum(const MultiArrayView<3, T>& array,
                    DestIterator res_ul, DestAccessor res_acc,
                    std::vector<T> parameterTrafo) {
     unsigned int stacksize = array.size(2);
     unsigned int w = array.size(0);
-    unsigned int h = array.size(1); 
+    unsigned int h = array.size(1);
     vigra::DImage ps(w, h);
     vigra::DImage ps_center(w, h);
     ps = 0;
@@ -1433,16 +1446,16 @@ void powerSpectrum(const MultiArrayView<3, T>& array,
 //				//std::cout<<array2(x0,x1,0)<< "<- after ";
 //			}
 //		}
-        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage     
+        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage
 
         vigra::FFTWComplexImage fourier(w, h);
         fourierTransform(srcImageRange(input), destImage(fourier));
-        
+
         // there is no squared magnitude accessor, so we use the magnitude here
-        vigra::combineTwoImages(srcImageRange(ps), 
-                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()), 
+        vigra::combineTwoImages(srcImageRange(ps),
+                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
                 destImage(ps), Arg1()+Arg2());
-        
+
         helper::progress(i, stacksize); // report progress
     }
 
@@ -1450,8 +1463,8 @@ void powerSpectrum(const MultiArrayView<3, T>& array,
 
     moveDCToCenter(srcImageRange(ps), destImage(ps_center));
     vigra::transformImage(
-            srcImageRange(ps_center), 
-            destIter(res_ul, res_acc), 
+            srcImageRange(ps_center),
+            destIter(res_ul, res_acc),
             Arg1() / Param(stacksize));
 }
 
@@ -1459,11 +1472,11 @@ void powerSpectrum(const MultiArrayView<3, T>& array,
  * Calculate Power-Spektrum
  */
 template <class DestIterator, class DestAccessor, class T>
-void powerSpectrum(const MyImportInfo& info, 
+void powerSpectrum(const MyImportInfo& info,
                    DestIterator res_ul, DestAccessor res_acc, std::vector<T> parameterTrafo) {
     unsigned int stacksize = info.shapeOfDimension(2);
     unsigned int w = info.shapeOfDimension(0);
-    unsigned int h = info.shapeOfDimension(1); 
+    unsigned int h = info.shapeOfDimension(1);
    // typedef float T;
     MultiArray<3, T> im(Shape3(w,h,1));
     vigra::DImage ps(w, h);
@@ -1489,14 +1502,14 @@ void powerSpectrum(const MyImportInfo& info,
         }
 
         MultiArrayView <2, T> array2 = im.bindOuter(0); // select current image
-        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage     
+        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage
 
         vigra::FFTWComplexImage fourier(w, h);
         fourierTransform(srcImageRange(input), destImage(fourier));
-        
+
         // there is no squared magnitude accessor, so we use the magnitude here
-        vigra::combineTwoImages(srcImageRange(ps), 
-                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()), 
+        vigra::combineTwoImages(srcImageRange(ps),
+                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
                 destImage(ps), Arg1()+Arg2());
 
         helper::progress(i, stacksize); // report progress
@@ -1557,16 +1570,16 @@ typename SrcIterator::value_type estimateNoisePower(int w, int h,
 }
 
 /**
- * Construct Wiener Filter using noise power estimated 
+ * Construct Wiener Filter using noise power estimated
  * at high frequencies.
  */
-// Wiener filter is defined as 
+// Wiener filter is defined as
 // H(f) = (|X(f)|)^2/[(|X(f)|)^2 + (|N(f)|)^2]
-// where X(f) is the power of the signal and 
+// where X(f) is the power of the signal and
 // N(f) is the power of the noise
 // (e.g., see http://cnx.org/content/m12522/latest/)
 template <class T, class DestImage, class StormData>
-void constructWienerFilter(StormData& im, 
+void constructWienerFilter(StormData& im,
                 DestImage& dest, std::vector<T>& parameterVector) {
 
     int w = im.shape(0);
@@ -1865,10 +1878,10 @@ void constructWienerFilter(StormData& im,
 }
 
 
-/** 
+/**
  Generate a filter for enhancing the image quality in fourier space.
  Either using constructWienerFilter() or by loading the given file.
-  
+
  @param filter if this file exists, load it. Otherwise create a filter
         from the data and save it to file 'filter'
  @param in 3-dimensional measurement as MultiArrayView<3,float> or MyImageInfo
@@ -1899,14 +1912,14 @@ void generateFilter(StormDataSet& in, BasicImage<T>& filter, const std::string& 
         std::cout << "wiener filter constructed"<<parameterVector[3]<<std::endl;
         vigra::exportImage(srcImageRange(filter), filterfile.c_str()); // save to disk
     }
-    
+
 }
 
 //--------------------------------------------------------------------------
 // STORM DATA PROCESSING
 //--------------------------------------------------------------------------
 
-/** 
+/**
  * Estimate Background level and subtract it from the image
  */
 template <class Image>
@@ -1934,20 +1947,20 @@ void prefilterBSpline(Image& im) {
 
 /**
  * Localize Maxima of the spots and return a list with coordinates
- * 
- * This is the actual loop over a microscopic image stack to 
+ *
+ * This is the actual loop over a microscopic image stack to
  * reconstruct a super-resolution image out of single molecule detections.
- * 
+ *
  * The localization is done on per-frame basis in wienerStormSingleFrame()
- * 
+ *
  * @param im MultiArrayView on the actual image data
  */
 template <class T>
-void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter, 
+void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter,
             std::vector<std::set<Coord<T> > >& maxima_coords, std::vector<T> parameterTrafo,
             const T threshold=800, const int factor=8, const int mylen=9,
             const std::string &frames="", const char verbose=0) {
-    
+
     unsigned int stacksize = im.size(2);
     unsigned int w = im.size(0);
     unsigned int h = im.size(1);
@@ -1959,10 +1972,10 @@ void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter,
         helper::rangeSplit(frames, i_beg, i_end, i_stride);
         if(i_beg < 0) i_end = stacksize+i_beg; // allow counting backwards from the end
         if(i_end < 0) i_end = stacksize+i_end; // allow counting backwards from the end
-        if(verbose) std::cout << "processing frames [" << i_beg << ":" 
+        if(verbose) std::cout << "processing frames [" << i_beg << ":"
             << i_end << ":" << i_stride << "]" << std::endl;
     }
-    
+
 
 
     // TODO: Precondition: res must have size (factor*(w-1)+1, factor*(h-1)+1)

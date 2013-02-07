@@ -50,28 +50,30 @@ using namespace vigra;
 class MyImportInfo {
     typedef vigra::MultiArrayShape<MYIMPORT_N>::type Shape;
   public:
-    MyImportInfo(const std::string & filename);
+    MyImportInfo(const std::string & filename, const char *argv0);
     ~MyImportInfo();
 
     const Shape & shape() const { return m_shape; }
     vigra::MultiArrayIndex shape(const int dim) const { return m_shape[dim]; }
     std::string getAttribute(std::string & key); // like a dictionary // TODO
 
-    vigra::MultiArrayIndex numDimensions() const;
+    //vigra::MultiArrayIndex numDimensions() const;
 
     vigra::MultiArrayIndex shapeOfDimension(const int dim) const { return m_shape[dim]; }
 
     FileType type() const { return m_type; };
-    
+
     const std::string & filename() const { return m_filename; }
-    
+
+    const std::string& executableDir() const;
+
     void * ptr; // hack
 
   private:
     std::string m_filename;
     Shape m_shape;
     FileType m_type;
-
+    std::string m_executableDir;
 };
 
 template <class  T>
@@ -110,17 +112,17 @@ void readVolume(MyImportInfo & info, MultiArrayView<MYIMPORT_N, T> & array) {
 }
 
 template <class  T>
-void readBlock(const MyImportInfo & info, 
-            const MultiArrayShape<MYIMPORT_N>::type& blockOffset, 
-            const MultiArrayShape<MYIMPORT_N>::type& blockShape, 
-            MultiArrayView<MYIMPORT_N, T> & array) 
+void readBlock(const MyImportInfo & info,
+            const MultiArrayShape<MYIMPORT_N>::type& blockOffset,
+            const MultiArrayShape<MYIMPORT_N>::type& blockShape,
+            MultiArrayView<MYIMPORT_N, T> & array)
 {
     std::string filename = info.filename();
     switch(info.type()) {
         case TIFF:
         {
             ImageImportInfo* info2 = reinterpret_cast<ImageImportInfo*>(info.ptr);
-            vigra_precondition(blockOffset[0]==0 && blockOffset[1]==0 && 
+            vigra_precondition(blockOffset[0]==0 && blockOffset[1]==0 &&
                     blockShape[0]==info.shapeOfDimension(0) && blockShape[1]==info.shapeOfDimension(1),
                     "for Tiff images only complete Frames are currently supported as ROIs");
             vigra_precondition(array.size(2)==blockShape[2],"array shape and number of images in ROI for tiff file differ.");

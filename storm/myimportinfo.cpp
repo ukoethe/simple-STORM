@@ -30,8 +30,16 @@
 /*    OTHER DEALINGS IN THE SOFTWARE.                                   */
 /*                                                                      */
 /************************************************************************/
- 
+
 #include <string>
+
+#ifndef __WIN__
+#include <libgen.h>
+#else
+#include <stdio.h>
+#include <cstdlib>
+#endif
+
 #include <vigra/impex.hxx>
 #include <vigra/sifImport.hxx>
 #ifdef HDF5_FOUND
@@ -43,7 +51,7 @@
 using namespace vigra;
 
 
-MyImportInfo::MyImportInfo(const std::string & filename) :
+MyImportInfo::MyImportInfo(const std::string & filename, const char* argv0) :
     m_filename(filename)
 {
 
@@ -60,7 +68,7 @@ MyImportInfo::MyImportInfo(const std::string & filename) :
         ptr = (void*) info;
         //m_shape = Shape(info->shape()[0],info->shape()[1],100);
         m_shape = Shape(info->shape()[0],info->shape()[1],info->shape()[2]);
-    } 
+    }
     #ifdef HDF5_FOUND
     else if (extension==".h5" || extension==".hdf" || extension==".hdf5") {
         m_type = HDF5;
@@ -68,11 +76,19 @@ MyImportInfo::MyImportInfo(const std::string & filename) :
         ArrayVector<hsize_t> shape = h5file->getDatasetShape("/data");
         m_shape = Shape(shape[0],shape[1],shape[2]);
         ptr = (void*) h5file;
-    } 
+    }
     #endif // HDF5_FOUND
     else {
         vigra_precondition(false, "Wrong filename-extension given. Currently supported: .sif .h5 .hdf .hdf5 .tif .tiff");
     }
+#ifndef __WIN__
+    m_executableDir.append(dirname(argv0));
+#else
+    char drive[_MAX_DRIVE];
+    char dir[_MAXDIR];
+    _splitpath(argv0, drive, dir);
+    m_executableDir.append(drive).append(dir);
+#endif
 
 }
 
@@ -92,5 +108,10 @@ MyImportInfo::~MyImportInfo() {
         default:
             break;
         }
+}
+
+const std::string& MyImportInfo::executableDir() const
+{
+    return m_executableDir;
 }
 
