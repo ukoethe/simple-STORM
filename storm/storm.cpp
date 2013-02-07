@@ -14,6 +14,8 @@
 #include <iomanip>
 #include <fstream>
 #include <map>
+#include <Rembedded.h>
+#include <Rinterface.h>
 #include "program_options_getopt.h"
 #include "wienerStorm.hxx"
 #include "configVersion.hxx"
@@ -35,6 +37,11 @@ int main(int argc, char** argv) {
     if(parseProgramOptions(argc, argv, params, files)!=0) {
         return -1;
     }
+
+    char *Rargv[] = {"REmbeddedStorm", "--silent"};
+    R_SignalHandlers = FALSE;
+    Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
+
     int factor = (int)params['g'];
     int roilen = (int)params['m'];
     float threshold = params['t'];
@@ -48,7 +55,7 @@ int main(int argc, char** argv) {
     if(verbose) {
         std::cout << "thr:" << threshold << " factor:" << factor << std::endl;
     }
-    
+
     try
     {
 
@@ -85,8 +92,40 @@ int main(int argc, char** argv) {
         TIC;  // measure the time
 
         // STORM Algorithmus
-        generateFilter(info, filter, filterfile);  // use the specified one or create wiener filter from the data
-        wienerStorm(info, filter, res_coords, threshold, factor, roilen, frames, verbose);
+        //printIntensities(info);
+
+        float a,offset, intercept;
+        std::vector<float> parameterTrafo(6);
+        findCorrectionCoefficients(info, parameterTrafo); 	//first 3 entries are parameters for the raw signal to poisson transformation
+        													//the last 3 entries are parameters for the poission to gaussian with sigma = 1 transformation
+        parameterTrafo[0] = 1;
+		parameterTrafo[1] = 0;
+		parameterTrafo[2] = 0;
+        std::cout<<"a: "<<parameterTrafo[0]<<" b: "<<parameterTrafo[1]<<" intercept: "<<parameterTrafo[2]<<std::endl;
+        //showPoisson(info, parameterTrafo);
+
+        //parameterTrafo[3] = 1;
+        //parameterTrafo[4] = 0;
+        //parameterTrafo[5] = 3./8.;
+
+        MultiArray<3, float> PoissonMeans(Shape3(info.shape()[0],info.shape()[1], 1));
+        getPoissonDistributions(info, parameterTrafo[0],parameterTrafo[1], PoissonMeans);
+
+        int w= info.shapeOfDimension(0), h =info.shapeOfDimension(1);
+        //int vecw[] = {20,30,40,50,60,70,80};
+        //int vech[] = {10,10,10,10,10,10,10};
+        //printIntensities(info, vecw, vech, 7, parameterTrafo[0],parameterTrafo[1]);
+
+        generateFilter(info, filter, filterfile, parameterTrafo);  // use the specified one or create wiener filter from the data
+        //for(int i = 0; i < info.shapeOfDimension(0);i++){
+        //	for(int j = 1; j < info.shapeOfDimension(1); j++){
+        //		std::cout<<filter(i,j)<<" ";
+        //	}
+        //}
+        //int sdf;
+        //std::cin>>sdf;
+
+        wienerStorm(info, filter, res_coords,parameterTrafo, PoissonMeans, threshold, factor, roilen, frames, verbose);
         
         // resulting image
         drawCoordsToImage<Coord<float> >(res_coords, res);
@@ -117,5 +156,6 @@ int main(int argc, char** argv) {
         std::cout<<"There was an error:"<<std::endl;
         std::cout << e.what() << std::endl;
         return 1;
-    }   
+    }
+    Rf_endEmbeddedR(0);
 }

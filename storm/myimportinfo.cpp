@@ -58,6 +58,7 @@ MyImportInfo::MyImportInfo(const std::string & filename) :
         m_type = SIF;
         vigra::SIFImportInfo* info = new vigra::SIFImportInfo (filename.c_str());
         ptr = (void*) info;
+        //m_shape = Shape(info->shape()[0],info->shape()[1],100);
         m_shape = Shape(info->shape()[0],info->shape()[1],info->shape()[2]);
     } 
     #ifdef HDF5_FOUND
