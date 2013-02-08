@@ -22,8 +22,7 @@ ELSE(HDF5_FOUND)
 ENDIF(HDF5_FOUND)
 
 set(CMAKE_CXX_FLAGS
-    ${CMAKE_CXX_FLAGS}
-    "-fpermissive"
+    "${CMAKE_CXX_FLAGS} -fpermissive -std=c++0x"
 )
 
 set(STORM_R_SCRIPT_DIR ${CMAKE_INSTALL_PREFIX}/share/simpleStorm/)
@@ -54,17 +53,19 @@ IF(OPENMP_FOUND)
 	SET_TARGET_PROPERTIES(wienerfilter PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
 ENDIF(OPENMP_FOUND)
 
+TARGET_LINK_LIBRARIES(storm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
+TARGET_LINK_LIBRARIES(wienerfilter vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
+
 IF(HDF5_FOUND)
     TARGET_LINK_LIBRARIES(storm ${HDF5_LIBRARIES}
-/home/herrmannsdoerfer/master/opengm-2.0/build/src/external/libexternal-library-maxflow.a
+    ${storm_SOURCE_DIR}/../../opengm/src/external/MaxFlow-v3.02.src-patched/libexternal-maxflow.a
 )
     TARGET_LINK_LIBRARIES(wienerfilter ${HDF5_LIBRARIES}
-/home/herrmannsdoerfer/master/opengm-2.0/build/src/external/libexternal-library-maxflow.a)
+    ${storm_SOURCE_DIR}/../../opengm/src/external/MaxFlow-v3.02.src-patched/libexternal-maxflow.a
+)
     INCLUDE_DIRECTORIES( ${HDF5_INCLUDE_DIRS} )
 ENDIF(HDF5_FOUND)
 
-TARGET_LINK_LIBRARIES(storm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
-TARGET_LINK_LIBRARIES(wienerfilter vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}

@@ -47,7 +47,6 @@
 #include <fstream>
 //#include <iomanip>
 #include <vector>
-#include <sys/stat.h>
 
 //#include <algorithm>
 #ifdef OPENMP_FOUND
@@ -504,8 +503,7 @@ void findBestFit(const MyImportInfo& info,T meanValues[],T skellamParameters[],i
 
     std::string rScript(info.executableDir());
     rScript.append("/").append(STORM_RSCRIPT);
-    struct stat rScriptStat;
-    if (stat(rScript.c_str(), &rScriptStat) || !S_ISREG(rScriptStat.st_mode)) {
+    if (!helper::fileExists(rScript)) {
         rScript.clear();
         rScript.append(STORM_RSCRIPT_DIR).append(STORM_RSCRIPT);
     }
@@ -1892,26 +1890,23 @@ void generateFilter(StormDataSet& in, BasicImage<T>& filter, const std::string& 
 		std::vector<T>& parameterVector) {
     bool constructNewFilter = true;
     if(filterfile != "" && helper::fileExists(filterfile)) {
-        vigra::ImageImportInfo filterinfo(filterfile.c_str());
-
-        if(filterinfo.isGrayscale())
-        {
-            std::cout << "using filter from file " << filterfile << std::endl;
-            vigra::BasicImage<T> filterIn(filterinfo.width(), filterinfo.height());
-            vigra::importImage(filterinfo, destImage(filterIn)); // read the image
-            vigra::resizeImageSplineInterpolation(srcImageRange(filterIn), destImageRange(filter));
+        std::ifstream filter(filterfile);
+        double filterWidth;
+        filter >> filterWidth;
+        parameterVector[3] = filterWidth;
+        if (!filter.fail() && !filter.bad()) {
             constructNewFilter = false;
+            std::cout << "using filter from file " << filterfile << std::endl;
         }
-        else
-        {
-            std::cout << "filter image must be grayscale" << std::endl;
-        }
+        filter.close();
     }
     if(constructNewFilter) {
         std::cout << "generating wiener filter from the data" << std::endl;
         constructWienerFilter<T>(in, filter, parameterVector);
         std::cout << "wiener filter constructed"<<parameterVector[3]<<std::endl;
-        vigra::exportImage(srcImageRange(filter), filterfile.c_str()); // save to disk
+        std::ofstream filter(filterfile);
+        filter << parameterVector[3] << std::endl;
+        filter.close();
     }
 
 }

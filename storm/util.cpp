@@ -30,8 +30,9 @@
 /*    OTHER DEALINGS IN THE SOFTWARE.                                   */
 /*                                                                      */
 /************************************************************************/
- 
+
 #include "util.h"
+#include <sys/stat.h>
 #include <iostream>
 
 // private helper functions
@@ -50,14 +51,14 @@ std::vector<std::string> split(const std::string &s, char delim) {
     std::vector<std::string> elems;
     return split(s, delim, elems);
 }
- 
+
 inline double convertToDouble(std::string const& s) {
    std::istringstream i(s);
    double x;
    if (!(i >> x))
      throw BadConversion("convertToDouble(\"" + s + "\")");
    return x;
-} 
+}
 
 inline int convertToInt(std::string const& s) {
    std::istringstream i(s);
@@ -65,7 +66,7 @@ inline int convertToInt(std::string const& s) {
    if (!(i >> x))
      throw BadConversion("convertToDouble(\"" + s + "\")");
    return x;
-} 
+}
 
 /**
  * Take python like range string and split it into start:end:stride
@@ -75,7 +76,7 @@ bool rangeSplit(const std::string &r, int &beg, int &end, unsigned int &stride) 
     size_t c1 = r.find(':');
     size_t c2 = r.find(':',c1+1);
     size_t c3 = r.find(':',c2+1);
-    
+
     // exactly one or two colons needed
     if(c1==std::string::npos || (c2!=std::string::npos && c3!=std::string::npos)) {
         return false;
@@ -105,8 +106,8 @@ bool rangeSplit(const std::string &r, int &beg, int &end, unsigned int &stride) 
  */
 bool fileExists(const std::string &filename)
 {
-  std::ifstream ifile(filename.c_str());
-  return ifile.is_open();       // file is closed at end of function scope
+    struct stat fStat;
+    return !stat(filename.c_str(), &fStat) && S_ISREG(fStat.st_mode);
 }
 
 /**

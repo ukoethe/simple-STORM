@@ -27,35 +27,35 @@
 /*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
 /*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
 /*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
-/*    OTHER DEALINGS IN THE SOFTWARE.                                   */                
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
 /*                                                                      */
 /************************************************************************/
 
 
 #include "program_options_getopt.h"
 #include "configVersion.hxx"
- 
+
 inline double convertToDouble(const char* const s) {
    std::istringstream i(s);
    double x;
    if (!(i >> x))
      throw BadConversion("convertToDouble(\"\")");
    return x;
-} 
+}
 
 void printUsage(const char* prog) {
-	std::cout << "Usage: " << prog << " [Options] infile.sif [outfile.png]" << std::endl 
-	 << "Allowed Options: " << std::endl 
-	 << "  --help           Print this help message" << std::endl 
+	std::cout << "Usage: " << prog << " [Options] infile.sif [outfile.png]" << std::endl
+	 << "Allowed Options: " << std::endl
+	 << "  --help           Print this help message" << std::endl
 	 <<	"  -v or --verbose  verbose message output" << std::endl
-	 << "  --factor=Arg     Resize factor equivalent to the subpixel-precision" << std::endl 
-	 << "  --threshold=Arg  Threshold for background suppression" << std::endl 
-	 << "  --coordsfile=Arg filename for output of the found Coordinates" << std::endl 
-	 << "  --filter=Arg     tif input for filtering in fft domain. If the file" << std::endl 
+	 << "  --factor=Arg     Resize factor equivalent to the subpixel-precision" << std::endl
+	 << "  --threshold=Arg  Threshold for background suppression" << std::endl
+	 << "  --coordsfile=Arg filename for output of the found Coordinates" << std::endl
+	 << "  --filter=Arg     tif input for filtering in fft domain. If the file" << std::endl
 	 << "                   does not exist, generate a new filter from the data" << std::endl
-	 << "  --roi-len=Arg    size of the roi around maxima candidates" << std::endl 
-	 << "  --frames=Arg     run only on a subset of the stack (frames=start:end)" << std::endl 
-	 << "  --version        print version information and exit" << std::endl 
+	 << "  --roi-len=Arg    size of the roi around maxima candidates" << std::endl
+	 << "  --frames=Arg     run only on a subset of the stack (frames=start:end)" << std::endl
+	 << "  --version        print version information and exit" << std::endl
 	 ;
 }
 
@@ -67,8 +67,8 @@ void setDefaults(std::map<char,double>& params, std::map<char,std::string>&files
     params['g']	= (params['g']==0)?8:params['g']; // factor
     params['t']	= (params['t']==0)?250:params['t']; // threshold
     params['m']	= (params['m']==0)?9:params['m']; // roi-len
-    
-    
+
+
     // defaults: save out- and coordsfile into the same folder as input stack
 	size_t pos = files['i'].find_last_of('.');
     if(files['o']=="") {
@@ -81,9 +81,9 @@ void setDefaults(std::map<char,double>& params, std::map<char,std::string>&files
 	}
     if(files['f']=="") {
 		files['f'] = files['i'];
-		files['f'].replace(pos, 255, "_filter.tif"); // replace extension
+		files['f'].replace(pos, 255, "_filter.txt"); // replace extension
 	}
-	
+
 }
 
 /**
@@ -123,7 +123,7 @@ int parseProgramOptions(int argc, char **argv, std::map<char,double>& params, st
 		case 'm': // roi-len
 			params[c] = convertToDouble(optarg);
 			break;
-			
+
 		case 'c': // coordsfile
 		case 'f': // filter
 		case 'F': // frames
@@ -133,7 +133,7 @@ int parseProgramOptions(int argc, char **argv, std::map<char,double>& params, st
 		case 'v':
 			params['v'] = 1; // verbose mode
 			break;
-			
+
 		// Option -? and in case of unknown option or missing argument
 		case '?':
 			printUsage(argv[0]);
@@ -145,7 +145,7 @@ int parseProgramOptions(int argc, char **argv, std::map<char,double>& params, st
 			 << "Copyright (C) 2011 Joachim Schleicher and Ullrich Koethe" << std::endl
 			 << "This is free software; see the source for copying conditions.  There is NO" << std::endl
 			 << "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE." << std::endl
-			 ;			
+			 ;
 			return -1;
 			break;
 
@@ -159,15 +159,15 @@ int parseProgramOptions(int argc, char **argv, std::map<char,double>& params, st
 		else if (files['o'] == "") files['o'] = argv[optind++];
 		else std::cout << "unrecognized non-option Argument: " << argv[optind++] << std::endl;
 	}
-	
+
 	// if no input file given
 	if(files['i'] == "" ) {
 		std::cerr << "error: no input file given" << std::endl;
 		printUsage(argv[0]);
 		return -1;
 	}
-	
+
 	setDefaults(params, files);
-	
+
 	return 0;
 }
