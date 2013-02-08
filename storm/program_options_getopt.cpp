@@ -51,6 +51,8 @@ void printUsage(const char* prog) {
 	 << "  --factor=Arg     Resize factor equivalent to the subpixel-precision" << std::endl
 	 << "  --threshold=Arg  Threshold for background suppression" << std::endl
 	 << "  --coordsfile=Arg filename for output of the found Coordinates" << std::endl
+	 << "  --pixelsize=Arg  Pixel size in nanometers. If set, the coordinates" << std::endl
+	 << "                   will be in nanometers, otherwise in pixels" << std::endl
 	 << "  --filter=Arg     tif input for filtering in fft domain. If the file" << std::endl
 	 << "                   does not exist, generate a new filter from the data" << std::endl
 	 << "  --roi-len=Arg    size of the roi around maxima candidates" << std::endl
@@ -64,9 +66,10 @@ void printUsage(const char* prog) {
  */
 void setDefaults(std::map<char,double>& params, std::map<char,std::string>&files) {
     // defaults:
-    params['g']	= (params['g']==0)?8:params['g']; // factor
-    params['t']	= (params['t']==0)?250:params['t']; // threshold
-    params['m']	= (params['m']==0)?9:params['m']; // roi-len
+    params['g']	= !params['g'] ? 8 : params['g']; // factor
+    params['t']	= !params['t'] ? 250 : params['t']; // threshold
+    params['m']	= !params['m'] ? 9 : params['m']; // roi-len
+    params['p'] = !params['p'] ? 1 : params['p'];
 
 
     // defaults: save out- and coordsfile into the same folder as input stack
@@ -104,6 +107,7 @@ int parseProgramOptions(int argc, char **argv, std::map<char,double>& params, st
 			{"factor",  required_argument,       0,  'g' },
 			{"threshold",  required_argument, 0,  't' },
 			{"coordsfile",    required_argument, 0,  'c'},
+            {"pixelsize",    required_argument, 0,  'p'},
 			{"filter",    required_argument, 0,  'f' },
 			{"roi-len",    required_argument, 0,  'm' },
 			{"frames",    required_argument, 0,  'F' },
@@ -112,7 +116,7 @@ int parseProgramOptions(int argc, char **argv, std::map<char,double>& params, st
 		};
 
 		// valid options: "vc:" => -v option without parameter, c flag requires parameter
-		c = getopt_long(argc, argv, "?vVt:c:f:F:",
+		c = getopt_long(argc, argv, "?vVt:c:f:p:m:F:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -121,6 +125,7 @@ int parseProgramOptions(int argc, char **argv, std::map<char,double>& params, st
 		case 't': // threshold
 		case 'g': // factor
 		case 'm': // roi-len
+        case 'p': // pixelsize
 			params[c] = convertToDouble(optarg);
 			break;
 

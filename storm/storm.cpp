@@ -51,6 +51,7 @@ int main(int argc, char** argv) {
     int factor = (int)params['g'];
     int roilen = (int)params['m'];
     float threshold = params['t'];
+    float pixelsize = params['p'];
     std::string infile = files['i'];
     std::string outfile = files['o'];
     std::string coordsfile = files['c'];
@@ -138,7 +139,7 @@ int main(int argc, char** argv) {
 
         int numSpots = 0;
         if(coordsfile != "") {
-            numSpots = saveCoordsFile(coordsfile, res_coords, info.shape(), factor);
+            numSpots = saveCoordsFile(coordsfile, res_coords, info.shape(), factor, pixelsize);
         }
 
         // end: done.

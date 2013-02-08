@@ -341,7 +341,7 @@ void drawCoordsToImage(const std::set<C>& coords, Image& res) {
 
 template <class C>
 int saveCoordsFile(const std::string& filename, const std::vector<std::set<C> >& coords,
-            const MultiArrayShape<3>::type & shape, const int factor) {
+            const MultiArrayShape<3>::type & shape, int factor, float pxSize) {
     int numSpots = 0;
     std::set<Coord<float> >::iterator it2;
     std::ofstream cfile (filename.c_str());
@@ -351,7 +351,7 @@ int saveCoordsFile(const std::string& filename, const std::vector<std::set<C> >&
         for(it2=coords[j].begin(); it2 != coords[j].end(); it2++) {
             numSpots++;
             const Coord<float>& c = *it2;
-            cfile << std::setprecision(3) << (float)c.x/factor << " " << (float)c.y/factor << " "
+            cfile << std::setprecision(3) << (float)c.x/factor * pxSize << " " << (float)c.y/factor * pxSize << " "
                 << j << " " << std::setprecision(1) << c.val << " " << std::setprecision(3) << c.asymmetry << " "
                 << c.signalNoiseRatio << std::endl;
         }
