@@ -6,12 +6,15 @@ FIND_PACKAGE( Vigra 1.8.0 REQUIRED )
 FIND_PACKAGE( FFTW REQUIRED )
 FIND_PACKAGE( HDF5 )
 FIND_PACKAGE( OpenMP )
-find_package( R REQUIRED)
+FIND_PACKAGE( R REQUIRED)
 include_directories(
 ${R_INCLUDE_DIRS}
-${storm_SOURCE_DIR}/../../opengm/src/external/MaxFlow-v3.02.src-patched
-/home/herrmannsdoerfer/master/opengm-2.0/src/external/MRF-v2.1.src-patched
-/home/herrmannsdoerfer/master/opengm-2.0/include
+
+${storm_SOURCE_DIR}
+/home/herrmannsdoerfer/master/opengm/src/external/MaxFlow-v3.02.src-patched
+/home/herrmannsdoerfer/master/opengm/src/external/MRF-v2.1.src-patched
+/home/herrmannsdoerfer/master/opengm/include
+
 )
 
 
@@ -58,11 +61,11 @@ TARGET_LINK_LIBRARIES(wienerfilter vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
 
 IF(HDF5_FOUND)
     TARGET_LINK_LIBRARIES(storm ${HDF5_LIBRARIES}
-    ${storm_SOURCE_DIR}/../../opengm/src/external/MaxFlow-v3.02.src-patched/libexternal-maxflow.a
-)
+
+/home/herrmannsdoerfer/master/opengm/build/src/external/libexternal-library-maxflow.a)
     TARGET_LINK_LIBRARIES(wienerfilter ${HDF5_LIBRARIES}
-    ${storm_SOURCE_DIR}/../../opengm/src/external/MaxFlow-v3.02.src-patched/libexternal-maxflow.a
-)
+/home/herrmannsdoerfer/master/opengm/build/src/external/libexternal-library-maxflow.a)
+
     INCLUDE_DIRECTORIES( ${HDF5_INCLUDE_DIRS} )
 ENDIF(HDF5_FOUND)
 

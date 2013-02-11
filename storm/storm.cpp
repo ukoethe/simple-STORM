@@ -105,23 +105,22 @@ int main(int argc, char** argv) {
         std::vector<float> parameterTrafo(6);
         findCorrectionCoefficients(info, parameterTrafo); 	//first 3 entries are parameters for the raw signal to poisson transformation
         													//the last 3 entries are parameters for the poission to gaussian with sigma = 1 transformation
-        parameterTrafo[0] = 1;
-		parameterTrafo[1] = 0;
-		parameterTrafo[2] = 0;
+        //parameterTrafo[0] = 1;
+//		parameterTrafo[1] = 0;
+//		parameterTrafo[2] = 0;
         std::cout<<"a: "<<parameterTrafo[0]<<" b: "<<parameterTrafo[1]<<" intercept: "<<parameterTrafo[2]<<std::endl;
         //showPoisson(info, parameterTrafo);
 
-        //parameterTrafo[3] = 1;
         //parameterTrafo[4] = 0;
         //parameterTrafo[5] = 3./8.;
 
-        MultiArray<3, float> PoissonMeans(Shape3(info.shape()[0],info.shape()[1], 1));
+        MultiArray<2, float> PoissonMeans(Shape2(info.shape()[0],info.shape()[1]));
         getPoissonDistributions(info, parameterTrafo[0],parameterTrafo[1], PoissonMeans);
 
         int w= info.shapeOfDimension(0), h =info.shapeOfDimension(1);
-        //int vecw[] = {20,30,40,50,60,70,80};
-        //int vech[] = {10,10,10,10,10,10,10};
-        //printIntensities(info, vecw, vech, 7, parameterTrafo[0],parameterTrafo[1]);
+        int vecw[] = {16,30,40,50,60,16,26};
+        int vech[] = {39,10,10,10,10,40,20};
+        printIntensities(info, vecw, vech, 7, parameterTrafo[0],parameterTrafo[1]);
 
         generateFilter(info, filter, filterfile, parameterTrafo);  // use the specified one or create wiener filter from the data
         //for(int i = 0; i < info.shapeOfDimension(0);i++){
