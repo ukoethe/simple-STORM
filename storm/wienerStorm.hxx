@@ -613,7 +613,7 @@ void getMask(MultiArrayView<2,T >& array, int w, int h, int stacksize, MultiArra
 
 	std::ofstream origimg, maski;
 
-	bool writeMatrices = true;
+	bool writeMatrices = (framenumber == 1);
 	if(writeMatrices){
 		char origimgname[1000], maskname[1000];
 		sprintf(origimgname, "/home/herrmannsdoerfer/master/workspace/output/outputMyStorm/origimgbeforefilter%d.txt", framenumber);
@@ -650,7 +650,7 @@ void getMask(MultiArrayView<2,T >& array, int w, int h, int stacksize, MultiArra
 	        		ifThenElse(Arg1()>Param(2/(2*3.14*parameterTrafo[3])), Param(1.), Param(0.)));
 
 	std::ofstream maskafter;
-	bool writeMatrices2 = true;
+	bool writeMatrices2 = (framenumber == 1);
 	if(writeMatrices2){
 		char maskaftername[1000];
 
@@ -1084,9 +1084,8 @@ typename SrcIterator::value_type estimateNoisePower(int w, int h,
 // where X(f) is the power of the signal and
 // N(f) is the power of the noise
 // (e.g., see http://cnx.org/content/m12522/latest/)
-template <class T, class DestImage, class StormData>
-void constructWienerFilter(StormData& im,
-                DestImage& dest, std::vector<T>& parameterVector) {
+template <class T, class StormData>
+void constructWienerFilter(StormData& im, std::vector<T>& parameterVector) {
 
     int w = im.shape(0);
     int h = im.shape(1);
@@ -1098,6 +1097,7 @@ void constructWienerFilter(StormData& im,
 	bool writeMatrices = false;
 	if(writeMatrices){
 		char fnamePS[1000];
+
 		//sprintf(fnamePS, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/meanPS.txt");
 
 		ostreamPS.open(fnamePS);}
@@ -1153,7 +1153,6 @@ void constructWienerFilter(StormData& im,
 		dy = ((i-h/2.)/(h/2.));
 		vary += ps(w/2,i) * dy *dy;
 	}
-
 	varx = varx / (sum2-ps(w/2,h/2));
 	vary = vary / (sum3-ps(w/2,h/2));
 
@@ -1165,14 +1164,6 @@ void constructWienerFilter(StormData& im,
 	parameterVector[3] = sigmaSpatial;
 
 	std::cout<<"Variance: "<< totvar<<" Sigma spatial domain: "<<sigmaSpatial <<" sum:"<<sum<<"ps(w,h/2): "<<ps(w/2,h/2)<<std::endl;
-
-
-
-    transformImage(srcImageRange(ps),
-            destImage(ps),
-            ifThenElse(Arg1()-Param(noise)>Param(0.), (Arg1()-Param(noise))/Arg1(), Param(0.)));
-    moveDCToUpperLeft(srcImageRange(ps), destImage(dest));
-
 }
 
 
@@ -1185,25 +1176,24 @@ void constructWienerFilter(StormData& im,
  @param in 3-dimensional measurement as MultiArrayView<3,float> or MyImageInfo
 */
 template <class T, class StormDataSet>
-void generateFilter(StormDataSet& in, BasicImage<T>& filter, const std::string& filterfile,
-		std::vector<T>& parameterVector) {
+void generateFilter(StormDataSet& in, std::vector<T>& parameterVector) {
     bool constructNewFilter = true;
-    if(filterfile != "" && helper::fileExists(filterfile)) {
-        std::ifstream filter(filterfile);
+    if(!in.getFilterfile().empty() && helper::fileExists(in.getFilterfile())) {
+        std::ifstream filter(in.getFilterfile());
         double filterWidth;
         filter >> filterWidth;
         parameterVector[3] = filterWidth;
         if (!filter.fail() && !filter.bad()) {
             constructNewFilter = false;
-            std::cout << "using filter from file " << filterfile << std::endl;
+            std::cout << "using filter from file " << in.getFilterfile() << std::endl;
         }
         filter.close();
     }
     if(constructNewFilter) {
         std::cout << "generating wiener filter from the data" << std::endl;
-        constructWienerFilter<T>(in, filter, parameterVector);
+        constructWienerFilter(in, parameterVector);
         std::cout << "wiener filter constructed"<<parameterVector[3]<<std::endl;
-        std::ofstream filter(filterfile);
+        std::ofstream filter(in.getFilterfile());
         filter << parameterVector[3] << std::endl;
         filter.close();
     }
@@ -1248,76 +1238,6 @@ void prefilterBSpline(Image& im) {
  *
  * The localization is done on per-frame basis in wienerStormSingleFrame()
  *
- * @param im MultiArrayView on the actual image data
- */
-template <class T>
-void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter,
-            std::vector<std::set<Coord<T> > >& maxima_coords, std::vector<T> parameterTrafo,
-            MultiArray<3, T>& PoissonMeans,
-            const T threshold=800, const int factor=8, const int mylen=9,
-            const std::string &frames="", const char verbose=0) {
-
-    unsigned int stacksize = im.size(2);
-    unsigned int w = im.size(0);
-    unsigned int h = im.size(1);
-    unsigned int w_xxl = factor*(w-1)+1;
-    unsigned int h_xxl = factor*(h-1)+1;
-    unsigned int i_stride=1;
-    int i_beg=0, i_end=stacksize;
-    if(frames!="") {
-        helper::rangeSplit(frames, i_beg, i_end, i_stride);
-        if(i_beg < 0) i_end = stacksize+i_beg; // allow counting backwards from the end
-        if(i_end < 0) i_end = stacksize+i_end; // allow counting backwards from the end
-        if(verbose) std::cout << "processing frames [" << i_beg << ":"
-            << i_end << ":" << i_stride << "]" << std::endl;
-    }
-
-    // TODO: Precondition: res must have size (factor*(w-1)+1, factor*(h-1)+1)
-    // filter must have the size of input
-
-
-    // initialize fftw-wrapper; create plans
-    BasicImageView<T> sampleinput = makeBasicImageView(im.bindOuter(0));  // access first frame as BasicImage
-    FFTFilter<T> fftwWrapper(sampleinput);
-
-    std::cout << "Finding the maximum spots in the images...2" << std::endl;
-    helper::progress(-1,-1); // reset progress
-
-    //over all images in stack
-    transformationFunctor tF(1,3./8.,0);
-    #pragma omp parallel for schedule(static, CHUNKSIZE)
-    for(int i = i_beg; i < i_end; i+=i_stride) {
-        MultiArrayView <2, T> array = im.bindOuter(i); // select current image
-        for(int x0 = 0; x0 < w; x0++){
-			for(int x1 = 0; x1 < h; x1++){
-				array(x0,x1,0) = (array(x0,x1,0) - parameterTrafo[1])/parameterTrafo[0];
-			}
-		}
-
-        MultiArray<2, T> mask(Shape2(w,h));
-        MultiArrayView<2, T> poissView = PoissonMeans.bindOuter(i);
-        getMask(array.bindOuter(0),w,h,stacksize, poissView, i, mask, parameterTrafo);
-
-        for(int x0 = 0; x0 < w; x0++){
-			for(int x1 = 0; x1 < h; x1++){
-				array(x0,x1,0) = tF(array(x0,x1,0));
-			}
-		}
-
-        wienerStormSingleFrame(array, filter, maxima_coords[i],
-                fftwWrapper, // TODO (this is no real function argument but should be global)
-                threshold, factor, mylen, verbose);
-
-        #ifdef OPENMP_FOUND
-        if(omp_get_thread_num()==0) { // master thread
-            helper::progress(i+1, i_end); // update progress bar
-        }
-        #else
-            helper::progress(i+1, i_end); // update progress bar
-        #endif //OPENMP_FOUND
-    }
-    std::cout << std::endl;
-}
 
 /**
  * Localize Maxima of the spots and return a list with coordinates
@@ -1331,28 +1251,25 @@ void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter,
  */
 
 template <class T>
-void wienerStorm(const MyImportInfo& info, const BasicImage<T>& filter,
-            std::vector<std::set<Coord<T> > >& maxima_coords, std::vector<T> parameterTrafo,
-            MultiArray<3, T>& PoissonMeans,
-            const T threshold=800, const int factor=8, const int mylen=9,
-            const std::string &frames="", const char verbose=0) {
+void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& maxima_coords,
+			std::vector<T> parameterTrafo, MultiArray<3, T>& PoissonMeans) {
 
     unsigned int stacksize = info.shape(2);
     unsigned int w = info.shape(0);
     unsigned int h = info.shape(1);
-    unsigned int w_xxl = factor*(w-1)+1;
-    unsigned int h_xxl = factor*(h-1)+1;
+    unsigned int w_xxl = info.getFactor()*(w-1)+1;
+    unsigned int h_xxl = info.getFactor()*(h-1)+1;
     unsigned int i_stride=1;
     int i_beg=0, i_end=stacksize;
-    if(frames!="") {
-        helper::rangeSplit(frames, i_beg, i_end, i_stride);
+    if(!info.getFrameRange().empty()) {
+        helper::rangeSplit(info.getFrameRange(), i_beg, i_end, i_stride);
         if(i_beg < 0) i_end = stacksize+i_beg; // allow counting backwards from the end
         if(i_end < 0) i_end = stacksize+i_end; // allow counting backwards from the end
-        if(verbose) std::cout << "processing frames [" << i_beg << ":"
+        if(info.verbose) std::cout << "processing frames [" << i_beg << ":"
             << i_end << ":" << i_stride << "]" << std::endl;
     }
 
-    // TODO: Precondition: res must have size (factor*(w-1)+1, factor*(h-1)+1)
+    // TODO: Precondition: res must have size (info.getFactor()*(w-1)+1, info.getFactor()*(h-1)+1)
     // filter must have the size of input
     MultiArray<3, T> im(Shape3(w,h,1));
 
@@ -1385,10 +1302,9 @@ void wienerStorm(const MyImportInfo& info, const BasicImage<T>& filter,
 			for(int x1 = 0; x1 < h; x1++){array(x0,x1) = tF(array(x0,x1));} // this does Anscombe transformation
 		}
 
-        wienerStormSingleFrame(array, filter, maxima_coords[i],
+        wienerStormSingleFrame(info, array, maxima_coords[i],
                 fftwWrapper, // TODO (this is no real function argument but should be global)
-                mask, i, parameterTrafo,
-                threshold, factor, mylen, verbose);
+                mask, i, parameterTrafo);
         #ifdef OPENMP_FOUND
         if(omp_get_thread_num()==0) { // master thread
             helper::progress(i+1, i_end); // update progress bar
@@ -1403,17 +1319,18 @@ void wienerStorm(const MyImportInfo& info, const BasicImage<T>& filter,
 }
 
 template <class T>
-void wienerStormSingleFrame(const MultiArrayView<2, T>& in, const BasicImage<T>& filter,
-            std::set<Coord<T> >& maxima_coords,
-            FFTFilter<T> & fftwWrapper, MultiArray<2, T>& mask, int framenumber, std::vector<T> parameterTrafo,
-            const T threshold=800, const int factor=8, const int mylen=9,
-            const char verbose=0) {
+void wienerStormSingleFrame(const MyImportInfo& info, const MultiArrayView<2, T>& in, std::set<Coord<T> >& maxima_coords,
+            FFTFilter<T> & fftwWrapper, MultiArray<2, T>& mask, int framenumber, std::vector<T> parameterTrafo)
+          	{
 
     unsigned int w = in.shape(0); // width
     unsigned int h = in.shape(1); // height
 
     BasicImage<T> filtered(w,h);
     BasicImage<T> bg(w,h), bg2(w,h);        // background
+
+    int factor = info.getFactor();
+    int mylen = info.getRoilen();
 
     const int mylen2 = mylen/2;
     unsigned int w_roi = factor*(mylen-1)+1;
@@ -1433,7 +1350,6 @@ void wienerStormSingleFrame(const MultiArrayView<2, T>& in, const BasicImage<T>&
     //gaussianSmoothing(srcImageRange(input), destImage(filteredView), 1.4);
 
     //fftwWrapper.applyFourierFilter(srcImageRange(input), srcImage(filter), destImage(filteredView));
-
     subtractBackground(filtered, bg);
     subtractBackground(unfiltered, bg2);
 

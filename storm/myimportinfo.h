@@ -43,6 +43,17 @@
 
 #define MYIMPORT_N 3 // could eventually be a template parameter later on
 
+#include "program_options_getopt.h"
+#include "configVersion.hxx"
+
+inline double convertToDouble(const char* const s) {
+   std::istringstream i(s);
+   double x;
+   if (!(i >> x))
+     throw BadConversion("convertToDouble(\"\")");
+   return x;
+}
+
 enum FileType { UNDEFINED, TIFF, HDF5, SIF };
 
 using namespace vigra;
@@ -50,22 +61,31 @@ using namespace vigra;
 class MyImportInfo {
     typedef vigra::MultiArrayShape<MYIMPORT_N>::type Shape;
   public:
-    MyImportInfo(const std::string & filename, const char *argv0);
+    MyImportInfo(int argc, char **argv);
     ~MyImportInfo();
 
-    const Shape & shape() const { return m_shape; }
-    vigra::MultiArrayIndex shape(const int dim) const { return m_shape[dim]; }
-    std::string getAttribute(std::string & key); // like a dictionary // TODO
+    void printUsage(const char* prog);
+    void setDefaults();
+    int parseProgramOptions(int argc, char **argv);
 
-    //vigra::MultiArrayIndex numDimensions() const;
+    int getFactor() const;
+    int getRoilen() const;
+    float getThreshold() const;
+    float getPixelsize() const;
+    const std::string& getInfile() const;
+    const std::string& getOutfile() const;
+    const std::string& getCoordsfile() const;
+    const std::string& getFilterfile() const;
+    const std::string& getFrameRange() const;
+    char getVerbose() const;
 
-    vigra::MultiArrayIndex shapeOfDimension(const int dim) const { return m_shape[dim]; }
-
-    FileType type() const { return m_type; };
-
-    const std::string & filename() const { return m_filename; }
-
+    const Shape & shape() const;
+    vigra::MultiArrayIndex shape(const int dim) const;
+    vigra::MultiArrayIndex shapeOfDimension(const int dim) const;
+    FileType type() const;
     const std::string& executableDir() const;
+
+    char verbose;
 
     void * ptr; // hack
 
@@ -74,11 +94,22 @@ class MyImportInfo {
     Shape m_shape;
     FileType m_type;
     std::string m_executableDir;
+    int m_factor;
+    int m_roilen;
+    float m_threshold;
+    float m_pixelsize;
+    std::string m_infile;
+    std::string m_outfile;
+    std::string m_coordsfile;
+    std::string m_filterfile;
+    std::string m_frames;
+
+
 };
 
 template <class  T>
 void readVolume(MyImportInfo & info, MultiArrayView<MYIMPORT_N, T> & array) {
-    std::string filename = info.filename();
+    std::string filename = info.getInfile();
     switch(info.type()) {
         case TIFF:
         {
@@ -117,7 +148,7 @@ void readBlock(const MyImportInfo & info,
             const MultiArrayShape<MYIMPORT_N>::type& blockShape,
             MultiArrayView<MYIMPORT_N, T> & array)
 {
-    std::string filename = info.filename();
+    std::string filename = info.getInfile();
     switch(info.type()) {
         case TIFF:
         {

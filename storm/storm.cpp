@@ -37,31 +37,10 @@ void preventRConsoleWrite(const char* buf, int buflen)
 
 // MAIN
 int main(int argc, char** argv) {
-    // Read commandline Parameters
-    std::map<char, double> params;
-    std::map<char, std::string> files;
-    if(parseProgramOptions(argc, argv, params, files)!=0) {
-        return -1;
-    }
 
-    char *Rargv[] = {"REmbeddedStorm", "--silent"};
+    char *Rargv[] = {"REmbeddedStorm", "--silent", "--no-save"};
     R_SignalHandlers = FALSE;
     Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
-
-    int factor = (int)params['g'];
-    int roilen = (int)params['m'];
-    float threshold = params['t'];
-    float pixelsize = params['p'];
-    std::string infile = files['i'];
-    std::string outfile = files['o'];
-    std::string coordsfile = files['c'];
-    std::string filterfile = files['f'];
-    std::string frames = files['F'];
-    char verbose = (char)params['v'];
-
-    if(verbose) {
-        std::cout << "thr:" << threshold << " factor:" << factor << std::endl;
-    }
 
     try
     {
@@ -69,14 +48,18 @@ int main(int argc, char** argv) {
         MultiArray<3,float> in;
         typedef MultiArrayShape<3>::type Shape;
 
-        MyImportInfo info(infile, argv[0]);
+        MyImportInfo info(argc, argv);
+
+        if(info.verbose) {
+		   std::cout << "thr:" << info.getThreshold() << " factor:" << info.getFactor() << std::endl;
+	    }
         //~ in.reshape(info.shape());
         //~ readVolume(info, in);
         int stacksize = info.shape()[2];
         Size2D size2 (info.shapeOfDimension(0), info.shapeOfDimension(1)); // isnt' there a slicing operator?
 
 
-        if(verbose) {
+        if(info.verbose) {
             std::cout << "Images with Shape: " << info.shape() << std::endl;
             std::cout << "Processing a stack of " << stacksize << " images..." << std::endl;
         }
@@ -85,12 +68,12 @@ int main(int argc, char** argv) {
         // found spots. One Vector over all images in stack
         // the inner set contains all spots in the image
         std::vector<std::set<Coord<float> > > res_coords(stacksize);
-        BasicImage<float> filter(info.shapeOfDimension(0), info.shapeOfDimension(1)); // filter in fourier space
-        DImage res((size2-Diff2D(1,1))*factor+Diff2D(1,1));
+
+        DImage res((size2-Diff2D(1,1))*info.getFactor()+Diff2D(1,1));
         // check if outfile is writable, otherwise throw error -> exit
-        exportImage(srcImageRange(res), ImageExportInfo(outfile.c_str()));
-        if(coordsfile!="") {
-            std::ofstream cf (coordsfile.c_str());
+        exportImage(srcImageRange(res), ImageExportInfo(info.getOutfile().c_str()));
+        if(!info.getCoordsfile().empty()) {
+            std::ofstream cf (info.getCoordsfile().c_str());
             vigra_precondition(cf.is_open(), "Could not open coordinate-file for writing.");
             cf.close();
         }
@@ -98,7 +81,7 @@ int main(int argc, char** argv) {
         USETICTOC;
         TIC;  // measure the time
 
-        // STORM Algorithmus
+        // STORM Algorithmut
         //printIntensities(info);
 
         float a,offset, intercept;
@@ -122,23 +105,16 @@ int main(int argc, char** argv) {
         int vech[] = {39,10,10,10,10,40,20};
         printIntensities(info, vecw, vech, 7, parameterTrafo[0],parameterTrafo[1]);
 
-        generateFilter(info, filter, filterfile, parameterTrafo);  // use the specified one or create wiener filter from the data
-        //for(int i = 0; i < info.shapeOfDimension(0);i++){
-        //	for(int j = 1; j < info.shapeOfDimension(1); j++){
-        //		std::cout<<filter(i,j)<<" ";
-        //	}
-        //}
-        //int sdf;
-        //std::cin>>sdf;
+        generateFilter(info, parameterTrafo);  // use the specified one or create wiener filter from the data
 
-        wienerStorm(info, filter, res_coords,parameterTrafo, PoissonMeans, threshold, factor, roilen, frames, verbose);
+        wienerStorm(info, res_coords,parameterTrafo, PoissonMeans);
 
         // resulting image
         drawCoordsToImage<Coord<float> >(res_coords, res);
 
         int numSpots = 0;
-        if(coordsfile != "") {
-            numSpots = saveCoordsFile(coordsfile, res_coords, info.shape(), factor, pixelsize);
+        if(!info.getCoordsfile().empty()) {
+            numSpots = saveCoordsFile(info.getCoordsfile(), res_coords, info.shape(), info.getFactor(), info.getPixelsize());
         }
 
         // end: done.
@@ -152,7 +128,7 @@ int main(int argc, char** argv) {
         if(maxlim > minlim) {
             transformImage(srcImageRange(res), destImage(res), ifThenElse(Arg1()>Param(maxlim), Param(maxlim), Arg1()));
         }
-        exportImage(srcImageRange(res), ImageExportInfo(outfile.c_str()));
+        exportImage(srcImageRange(res), ImageExportInfo(info.getOutfile().c_str()));
 
 
 
