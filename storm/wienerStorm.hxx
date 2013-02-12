@@ -41,12 +41,15 @@
 #include <vigra/localminmax.hxx>
 #include <vigra/splineimageview.hxx>
 #include <vigra/multi_fft.hxx>
+#include <vigra/accumulator.hxx>
+#include <vigra/multi_resize.hxx>
 
 #include <ctime>
 //#include <set>
 #include <fstream>
 //#include <iomanip>
 #include <vector>
+#include <valarray>
 
 //#include <algorithm>
 #ifdef OPENMP_FOUND
@@ -602,7 +605,7 @@ void printIntensities(const MyImportInfo& info, int* vecw, int* vech, int nbrPoi
 //get Mask calculates the probabilities for each pixel of the current frame to be foreground,
 //there are two different methods available: logliklihood, based on cumulative distribution function
 template <class T>
-void getMask(MultiArrayView<2,T >& array, int w, int h, int stacksize, MultiArray<2, T>& PoissonMeans ,int framenumber,MultiArray<2,T>& mask, std::vector<T> parameterTrafo){
+void getMask(MultiArrayView<2,T >& array, int w, int h, int stacksize, MultiArrayView<2, T>& PoissonMeans ,int framenumber,MultiArray<2,T>& mask, std::vector<T> parameterTrafo){
 
 	T alpha = 0.05;
 
@@ -697,32 +700,56 @@ T isSignal_fast(T corrInt, T lamb_,T factor2ndDist){
 
 //estimates the mean of the poisson distributions
 template <class T>
-void getPoissonDistributions(const MyImportInfo& info,T a,T offset,MultiArray<2,T> &PoissonMeans){
-	unsigned int stacksize = info.shape(2); // 100
-	unsigned int w = info.shape(0);
-	unsigned int h = info.shape(1);
-	int g;
-	MultiArray<3,T> tempMA(Shape3(w,h,1)),SumIntensities(Shape3(w,h,1));
-	for(int k = 0; k< stacksize; k++){
-		//std::cout<<"framenr: "<<k<<std::endl;
-		readBlock(info, Shape3(0,0,k),Shape3(w,h,1), tempMA);
-		for(int i = 0; i<w;i++){
-			for(int j=0; j<h; j++){
-				tempMA(i,j,0) = (tempMA(i,j,0) - offset)/a;
-			}
-		}
-		combineTwoMultiArrays(srcMultiArrayRange(SumIntensities), srcMultiArray(tempMA), destMultiArray(SumIntensities),
-                std::plus<T>());
-	}
-	for(int i = 0; i<w;i++){
-		for(int j=0; j<h; j++){
-			PoissonMeans(i,j) = SumIntensities(i,j,0)/ stacksize;
-			//std::cout<<PoissonMeans(i,j,0)<<" ";
-		}
-	}
-	//gaussianSmoothing(srcImageRange(PoissonMeans), destImage(PoissonMeans), 3);
+void getSmoothedPixelMeans(const MyImportInfo& info,T a,T offset,MultiArray<3,T> &regionMeans){
+    unsigned int stacksize = info.shape(2);
+    unsigned int w = info.shape(0);
+    unsigned int h = info.shape(1);
 
-	//std::cin>>a;
+    unsigned int blocks = 30;
+
+    MultiArray<3, T> temp_arr(Shape3(w,h,blocks));
+    auto *test = new MultiArray<3, T>(Shape3(w, h, blocks));
+    delete test;
+    MultiArray<3, T> tempRegionMeans(Shape3(std::ceil(w / (float)blocks), std::ceil(h / (float)blocks), std::ceil(stacksize / (float)blocks)));
+    MultiArray<3, int> labels(Shape3(w, h, blocks));
+    regionMeans.reshape(Shape3(w, h, stacksize));
+
+    for (int y = 0, f = 0; y < std::ceil(h / (float)blocks); ++y) {
+        for (int x = 0; x < std::ceil(w / (float)blocks); ++x, ++f) {
+            vigra::Shape3 index(std::min((x + 1) * blocks, w), std::min((y + 1) * blocks, h), blocks);
+            auto roi = labels.subarray(vigra::Shape3(x * blocks, y * blocks, 0), index);
+            vigra::initMultiArray(destMultiArrayRange(roi), f);
+        }
+    }
+
+    for(int f = 0; f < std::ceil(stacksize / (float)blocks); f++) {
+        int zShape;
+        MultiArrayView<3, T> temp_arrView;
+        MultiArrayView<3, int> labelsView;
+        if ((f + 1) * blocks <= stacksize) {
+            zShape = blocks;
+            temp_arrView = temp_arr; // should be assignment in MultiArrayView => no copying
+            labelsView = labels;
+        } else {
+            zShape = stacksize % blocks;
+            temp_arrView = temp_arr.subarray(Shape3(0, 0, 0), Shape3(w, h, zShape));
+            labelsView = labels.subarray(Shape3(0, 0, 0), Shape3(w, h, zShape));
+        }
+        readBlock(info, Shape3(0,0,f * blocks),Shape3(w,h, zShape), temp_arrView);
+        vigra::transformMultiArray(srcMultiArrayRange(temp_arrView), destMultiArrayRange(temp_arrView), [&a, &offset](T p){return (p - offset) / a;});
+        vigra::acc::AccumulatorChainArray<typename CoupledIteratorType<3, T, int>::type::value_type, vigra::acc::Select<vigra::acc::DataArg<1>, vigra::acc::LabelArg<2>, vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
+        auto iter = vigra::createCoupledIterator(temp_arrView, labelsView);
+        auto iterEnd = iter.getEndIterator();
+        vigra::acc::extractFeatures(iter, iterEnd, accChain);
+        for (int y = 0, i = 0; y < std::ceil(h / (float)blocks); ++y) {
+            for (int x = 0; x < std::ceil(w / (float)blocks); ++x, ++i) {
+                tempRegionMeans(x, y, f) = 0.75 * vigra::acc::get<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>(accChain, i)[3];
+                auto test = tempRegionMeans(x, y, f);
+
+            }
+        }
+    }
+    vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(tempRegionMeans), destMultiArrayRange(regionMeans), vigra::BSpline<3>());
 }
 
 //calcuates the skellam parameters (in principle variances) for the pixels chosen previously.
@@ -733,14 +760,17 @@ void calculateSkellamParameters(const MyImportInfo& info, int listPixelCoordinat
 	unsigned int stacksize = info.shape(2);
 	unsigned int w = info.shape(0);
 	unsigned int h = info.shape(1);
+
 	std::vector< std::vector <T> > intensities(numberPoints, std::vector<T>(stacksize));
 	MultiArray<3, T> temp_arr(Shape3(w,h,1));
-	for(int f = 0; f < stacksize; f++){
+
+	for(int f = 0; f < stacksize; f++) {
 		readBlock(info, Shape3(0,0,f),Shape3(w,h,1), temp_arr);
 		for(int i = 0; i < numberPoints; i++){
 			intensities[i][f] = temp_arr[listPixelCoordinates[i]];
 		}
 	}
+
 	for(int i = 0; i < numberPoints; i++){
 		meanValues[i] = 0;
 		for(int f = 0; f < stacksize; f++){meanValues[i] += intensities[i][f];}
@@ -918,7 +948,7 @@ void powerSpectrum(const MultiArrayView<3, T>& array,
 		subtractBackground(array2, bg);
 		vigra::exportImage(srcImageRange(array2), "/home/herrmannsdoerfer/master/workspace/output/nachBGSubstr.png");
 
-        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage     
+        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage
 
 
         vigra::FFTWComplexImage fourier(w, h);
@@ -1223,7 +1253,7 @@ void prefilterBSpline(Image& im) {
 template <class T>
 void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter,
             std::vector<std::set<Coord<T> > >& maxima_coords, std::vector<T> parameterTrafo,
-            MultiArray<2, T>& PoissonMeans,
+            MultiArray<3, T>& PoissonMeans,
             const T threshold=800, const int factor=8, const int mylen=9,
             const std::string &frames="", const char verbose=0) {
 
@@ -1265,7 +1295,8 @@ void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter,
 		}
 
         MultiArray<2, T> mask(Shape2(w,h));
-        getMask(array.bindOuter(0),w,h,stacksize, PoissonMeans, i, mask, parameterTrafo);
+        MultiArrayView<2, T> poissView = PoissonMeans.bindOuter(i);
+        getMask(array.bindOuter(0),w,h,stacksize, poissView, i, mask, parameterTrafo);
 
         for(int x0 = 0; x0 < w; x0++){
 			for(int x1 = 0; x1 < h; x1++){
@@ -1302,7 +1333,7 @@ void wienerStorm(const MultiArrayView<3, T>& im, const BasicImage<T>& filter,
 template <class T>
 void wienerStorm(const MyImportInfo& info, const BasicImage<T>& filter,
             std::vector<std::set<Coord<T> > >& maxima_coords, std::vector<T> parameterTrafo,
-            MultiArray<2, T>& PoissonMeans,
+            MultiArray<3, T>& PoissonMeans,
             const T threshold=800, const int factor=8, const int mylen=9,
             const std::string &frames="", const char verbose=0) {
 
@@ -1347,8 +1378,8 @@ void wienerStorm(const MyImportInfo& info, const BasicImage<T>& filter,
         }
 
         MultiArray<2, T> mask(Shape2(w,h));
-
-        getMask(array, w,h,stacksize, PoissonMeans, i, mask, parameterTrafo);
+        MultiArrayView<2, T> poissView = PoissonMeans.bindOuter(i);
+        getMask(array, w,h,stacksize, poissView, i, mask, parameterTrafo);
 
         for(int x0 = 0; x0 < w; x0++){
 			for(int x1 = 0; x1 < h; x1++){array(x0,x1) = tF(array(x0,x1));} // this does Anscombe transformation

@@ -114,8 +114,8 @@ int main(int argc, char** argv) {
         //parameterTrafo[4] = 0;
         //parameterTrafo[5] = 3./8.;
 
-        MultiArray<2, float> PoissonMeans(Shape2(info.shape()[0],info.shape()[1]));
-        getPoissonDistributions(info, parameterTrafo[0],parameterTrafo[1], PoissonMeans);
+        MultiArray<3, float> PoissonMeans;
+        getSmoothedPixelMeans(info, parameterTrafo[0],parameterTrafo[1], PoissonMeans);
 
         int w= info.shapeOfDimension(0), h =info.shapeOfDimension(1);
         int vecw[] = {16,30,40,50,60,16,26};
