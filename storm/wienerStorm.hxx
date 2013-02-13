@@ -59,18 +59,6 @@
 #include "fftfilter.hxx"
 #include "myimportinfo.h"
 //#include <iostream>
-#include <opengm/graphicalmodel/graphicalmodel.hxx>
-#include <opengm/graphicalmodel/space/simplediscretespace.hxx>
-#include <opengm/functions/potts.hxx>
-//#include <opengm/operations/adder.hxx>
-#include <opengm/inference/graphcut.hxx>
-//#include <opengm/operations/minimizer.hxx>
-#include <opengm/inference/auxiliary/minstcutboost.hxx>
-
-#include <opengm/operations/adder.hxx>
-
-#include <opengm/functions/truncated_squared_difference.hxx>
-#include <opengm/inference/auxiliary/minstcutkolmogorov.hxx>
 
 #include <Rinternals.h>
 #include <Rinterface.h>
@@ -130,87 +118,6 @@ void poissonlastValue_log(T xmax, T& y_lastout, T lamb){
 	y_lastout = p4 + p3;//(p5+p3);
 	//std::cout<<"p5 * p3: "<<p5 * p3<<" ";
 
-}
-
-
-size_t variableIndex(const size_t x, const size_t y, const size_t nx){return x + nx *y;}
-
-template <class T>
-void performGraphcut(MultiArray<2, T>& array, T lambda){
-	using namespace opengm;
-	using namespace std;
-
-	const size_t nx = array.size(0);
-	const size_t ny = array.size(1);
-	const size_t numberOfLabels = 2;
-	//double lambda = 0.1;
-
-
-	typedef SimpleDiscreteSpace<size_t, size_t> Space;
-	Space space(nx * ny, numberOfLabels);
-	typedef GraphicalModel<double, Adder, OPENGM_TYPELIST_2(
-			ExplicitFunction<double> ,PottsFunction<double>), Space> Model;
-	double maximum = 1.05;//max2DArr(array);
-	Model gm(space);
-	for(size_t y = 0; y < ny; ++y){
-		for(size_t x = 0; x < nx; ++x){
-			const size_t shape[] = {numberOfLabels};
-			ExplicitFunction<double> f(shape, shape + 1);
-
-			//if(array(x,y)>0){f(0) = array(x,y); f(1) = 0.0;}
-			//if(array(x,y)<=0){f(1) = -array(x,y); f(0) = 0.0;}
-			f(0) = array(x,y);
-			f(1) = (maximum - array(x,y));
-
-			Model::FunctionIdentifier fid = gm.addFunction(f);
-			size_t variableIndices[] = {variableIndex(x,y,nx)};
-			gm.addFactor(fid, variableIndices, variableIndices +1);
-		}
-	}
-
-	PottsFunction<double> f(numberOfLabels, numberOfLabels, 0.0, lambda);
-	Model::FunctionIdentifier fid = gm.addFunction(f);
-
-
-	for(size_t y = 0; y < ny; y++){
-		for(size_t x = 0; x < nx; ++x){
-			if(x+1 < nx){
-				size_t variableIndices[] = {variableIndex(x,y,nx), variableIndex(x+1,y,nx)};
-				sort(variableIndices, variableIndices + 2);
-				gm.addFactor(fid, variableIndices, variableIndices + 2);
-			}
-			if(y + 1 < ny){
-				size_t variableIndices[] = {variableIndex(x,y,nx), variableIndex(x,y+1,nx)};
-				sort(variableIndices, variableIndices + 2);
-				gm.addFactor(fid, variableIndices, variableIndices + 2);
-			}
-		}
-	}
-
-	typedef opengm::external::MinSTCutKolmogorov<size_t, double> MinStCutType;
-
-	typedef opengm::GraphCut<Model, opengm::Minimizer, MinStCutType> MinCut;
-
-	std::vector<Model::LabelType> v;
-	{
-	MinCut mincut(gm);
-	mincut.infer();
-	mincut.arg(v);
-	}
-
-
-	int counter = 0;
-	//std::vector<Model::LabelType>::iterator it;
-	//for(it = v.begin(); it != v.end(); it++){
-	//	std::cout<<it<<" ";
-	//}
-
-	for(int i = 0; i< ny;i++){
-		for(int j = 0; j< nx;j++){
-			array(j,i) = v[counter];
-			counter += 1;
-		}
-	}
 }
 
 template <int ORDER, class T>
