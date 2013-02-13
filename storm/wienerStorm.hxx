@@ -370,7 +370,7 @@ void findCorrectionCoefficients(const MyImportInfo& info, std::vector<T>& parame
     MultiArray<3, T> tempMA(Shape3(w,h,1));
 	T minVal = 999999999999;
 	for(int k = 0; k<stacksize; k++){
-		readBlock(info, Shape3(0,0,k),Shape3(w,h,1), tempMA);
+		info.readBlock(Shape3(0,0,k),Shape3(w,h,1), tempMA);
 		FindMinMax<T> minmax;
 	    inspectMultiArray(srcMultiArrayRange(tempMA), minmax);
 	    if(minVal > minmax.min){minVal = minmax.min;}
@@ -497,7 +497,7 @@ void printIntensities(const MyImportInfo& info, int* vecw, int* vech, int nbrPoi
 
 
 	for(int f = 0; f< stacksize2;f++){
-		readBlock(info, Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
+		info.readBlock(Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
 		for(int i = 0; i <nbrPoints; i++){
 			origimg[i]<< (mean_im_temp2(vecw[i], vech[i])-b)/a<<std::endl;
 		}
@@ -642,7 +642,7 @@ void getSmoothedPixelMeans(const MyImportInfo& info,T a,T offset,MultiArray<3,T>
             temp_arrView = temp_arr.subarray(Shape3(0, 0, 0), Shape3(w, h, zShape));
             labelsView = labels.subarray(Shape3(0, 0, 0), Shape3(w, h, zShape));
         }
-        readBlock(info, Shape3(0,0,f * blocks),Shape3(w,h, zShape), temp_arrView);
+        info.readBlock(Shape3(0,0,f * blocks),Shape3(w,h, zShape), temp_arrView);
         vigra::transformMultiArray(srcMultiArrayRange(temp_arrView), destMultiArrayRange(temp_arrView), [&a, &offset](T p){return (p - offset) / a;});
         vigra::acc::AccumulatorChainArray<typename CoupledIteratorType<3, T, int>::type::value_type, vigra::acc::Select<vigra::acc::DataArg<1>, vigra::acc::LabelArg<2>, vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
         auto iter = vigra::createCoupledIterator(temp_arrView, labelsView);
@@ -672,7 +672,7 @@ void calculateSkellamParameters(const MyImportInfo& info, int listPixelCoordinat
 	MultiArray<3, T> temp_arr(Shape3(w,h,1));
 
 	for(int f = 0; f < stacksize; f++) {
-		readBlock(info, Shape3(0,0,f),Shape3(w,h,1), temp_arr);
+		info.readBlock(Shape3(0,0,f),Shape3(w,h,1), temp_arr);
 		for(int i = 0; i < numberPoints; i++){
 			intensities[i][f] = temp_arr[listPixelCoordinates[i]];
 		}
@@ -716,7 +716,7 @@ int findGoodPixelsForScellamApproach(const MyImportInfo& info, T & tmpType,int m
 	std::vector<int> iter2;
 
     for(int f = 0; f< numberFramesForMean;f++){
-    	readBlock(info, Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
+    	info.readBlock(Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
     	vigra::combineTwoMultiArrays(srcMultiArrayRange(mean_im_temp2),
     						srcMultiArray(mean_im_temp),
     						destMultiArray(mean_im_temp),
@@ -851,9 +851,9 @@ void powerSpectrum(const MultiArrayView<3, T>& array,
 template <class DestIterator, class DestAccessor, class T>
 void powerSpectrum(const MyImportInfo& info,
                    DestIterator res_ul, DestAccessor res_acc, std::vector<T> parameterTrafo) {
-    unsigned int stacksize = info.shapeOfDimension(2);
-    unsigned int w = info.shapeOfDimension(0);
-    unsigned int h = info.shapeOfDimension(1);
+    unsigned int stacksize = info.shape(2);
+    unsigned int w = info.shape(0);
+    unsigned int h = info.shape(1);
    // typedef float T;
     MultiArray<3, T> im(Shape3(w,h,1));
     vigra::DImage ps(w, h);
@@ -862,7 +862,7 @@ void powerSpectrum(const MyImportInfo& info,
 
     transformationFunctor tF(1, 3./8., 0);
     for(unsigned int i = 0; i < stacksize; i++) {
-        readBlock(info, Shape3(0,0,i), Shape3(w,h,1), im);
+        info.readBlock(Shape3(0,0,i), Shape3(w,h,1), im);
         for(int x0 = 0; x0 < w; x0++){
         	for(int x1 = 0; x1 < h; x1++){
         		if(((im(x0,x1,0) - parameterTrafo[1])/parameterTrafo[0])>0){
@@ -1148,7 +1148,7 @@ void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& ma
     MultiArray<3, T> im(Shape3(w,h,1));
 
     // initialize fftw-wrapper; create plans
-    readBlock(info, Shape3(0,0,0), Shape3(w,h,1), im);
+    info.readBlock(Shape3(0,0,0), Shape3(w,h,1), im);
     BasicImageView<T> sampleinput = makeBasicImageView(im.bindOuter(0));  // access first frame as BasicImage
     FFTFilter<T> fftwWrapper(srcImageRange(sampleinput));
 
@@ -1161,7 +1161,7 @@ void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& ma
     //over all images in stack
     #pragma omp parallel for schedule(static, CHUNKSIZE) firstprivate(im)
     for(int i = i_beg; i < i_end; i+=i_stride) {
-        readBlock(info, Shape3(0,0,i), Shape3(w,h,1), im);
+        info.readBlock(Shape3(0,0,i), Shape3(w,h,1), im);
         MultiArrayView <2, T> array = im.bindOuter(0); // select current image
 
         for(int x0 = 0; x0 < w; x0++){

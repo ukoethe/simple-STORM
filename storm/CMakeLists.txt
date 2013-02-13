@@ -22,7 +22,7 @@ ELSE(HDF5_FOUND)
 ENDIF(HDF5_FOUND)
 
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -fpermissive -std=c++0x"
+    "${CMAKE_CXX_FLAGS} -fpermissive -std=c++11"
 )
 
 set(STORM_R_SCRIPT_DIR ${CMAKE_INSTALL_PREFIX}/share/simpleStorm/)
@@ -38,12 +38,12 @@ endif(WIN32)
 file(COPY ${STORM_R_SCRIPT} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 IF(CMAKE_COMPILER_IS_GNUCXX)
-	ADD_EXECUTABLE(storm storm.cpp program_options_getopt.cpp myimportinfo.cpp util.cpp)
-	ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp program_options_getopt.cpp myimportinfo.cpp util.cpp)
+	ADD_EXECUTABLE(storm storm.cpp myimportinfo.cpp util.cpp)
+	ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp myimportinfo.cpp util.cpp)
 ELSE(CMAKE_COMPILER_IS_GNUCXX)
 	ADD_DEFINITIONS(-DEMULATE_GETOPT)
-	ADD_EXECUTABLE(storm storm.cpp getoptMSVC.c program_options_getopt.cpp myimportinfo.cpp util.cpp)
-	ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp getoptMSVC.c program_options_getopt.cpp myimportinfo.cpp util.cpp)
+	ADD_EXECUTABLE(storm storm.cpp getoptMSVC.c myimportinfo.cpp util.cpp)
+	ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp getoptMSVC.c myimportinfo.cpp util.cpp)
 ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 
 IF(OPENMP_FOUND)

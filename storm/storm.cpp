@@ -20,7 +20,6 @@
 #include <Rembedded.h>
 #include <Rinterface.h>
 
-#include "program_options_getopt.h"
 #include "wienerStorm.hxx"
 #include "configVersion.hxx"
 
@@ -56,7 +55,7 @@ int main(int argc, char** argv) {
         //~ in.reshape(info.shape());
         //~ readVolume(info, in);
         int stacksize = info.shape()[2];
-        Size2D size2 (info.shapeOfDimension(0), info.shapeOfDimension(1)); // isnt' there a slicing operator?
+        Size2D size2 (info.shape(0), info.shape(1)); // isnt' there a slicing operator?
 
 
         if(info.verbose) {
@@ -100,7 +99,7 @@ int main(int argc, char** argv) {
         MultiArray<3, float> PoissonMeans;
         getSmoothedPixelMeans(info, parameterTrafo[0],parameterTrafo[1], PoissonMeans);
 
-        int w= info.shapeOfDimension(0), h =info.shapeOfDimension(1);
+        int w= info.shape(0), h =info.shape(1);
         int vecw[] = {16,30,40,50,60,16,26};
         int vech[] = {39,10,10,10,10,40,20};
         printIntensities(info, vecw, vech, 7, parameterTrafo[0],parameterTrafo[1]);

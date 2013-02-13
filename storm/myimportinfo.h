@@ -43,24 +43,21 @@
 
 #define MYIMPORT_N 3 // could eventually be a template parameter later on
 
-#include "program_options_getopt.h"
 #include "configVersion.hxx"
-
-inline double convertToDouble(const char* const s) {
-   std::istringstream i(s);
-   double x;
-   if (!(i >> x))
-     throw BadConversion("convertToDouble(\"\")");
-   return x;
-}
 
 enum FileType { UNDEFINED, TIFF, HDF5, SIF };
 
-using namespace vigra;
+class BadConversion : public std::runtime_error {
+public:
+    BadConversion(std::string const& s)
+    : std::runtime_error(s)
+    { }
+};
 
 class MyImportInfo {
-    typedef vigra::MultiArrayShape<MYIMPORT_N>::type Shape;
 public:
+    typedef vigra::MultiArrayShape<MYIMPORT_N>::type Shape;
+
     MyImportInfo(int argc, char **argv);
     ~MyImportInfo();
 
@@ -70,6 +67,7 @@ public:
     int getRoilen() const;
     float getThreshold() const;
     float getPixelsize() const;
+    unsigned int getSkellamFrames() const;
     const std::string& getInfile() const;
     const std::string& getOutfile() const;
     const std::string& getCoordsfile() const;
@@ -79,13 +77,17 @@ public:
 
     const Shape & shape() const;
     vigra::MultiArrayIndex shape(const int dim) const;
-    vigra::MultiArrayIndex shapeOfDimension(const int dim) const;
     FileType type() const;
     const std::string& executableDir() const;
 
+    template <typename  T>
+    void readVolume(vigra::MultiArrayView<MYIMPORT_N, T> &) const;
+    template <typename  T>
+    void readBlock(const Shape&, const Shape&, vigra::MultiArrayView<MYIMPORT_N, T>&) const;
+
     char verbose;
 
-    void * ptr; // hack
+    mutable void * ptr; // hack
 
 private:
     int parseProgramOptions(int argc, char **argv);
@@ -100,6 +102,7 @@ private:
     int m_roilen;
     float m_threshold;
     float m_pixelsize;
+    unsigned int m_skellamFrames;
     std::string m_infile;
     std::string m_outfile;
     std::string m_coordsfile;
@@ -107,82 +110,54 @@ private:
     std::string m_frames;
 };
 
-template <class  T>
-void readVolume(MyImportInfo & info, MultiArrayView<MYIMPORT_N, T> & array) {
-    std::string filename = info.getInfile();
-    switch(info.type()) {
-        case TIFF:
-        {
-            ImageImportInfo* info2 = reinterpret_cast<ImageImportInfo*>(info.ptr);
-            vigra_precondition(array.size(2)==info2->numImages(),"array shape and number of images in tiff file differ.");
-            for(int i = 0; i < info2->numImages(); ++i) {
-                MultiArrayView <2, T> img = array.bindOuter(i);
-                BasicImageView <T> v = makeBasicImageView(img);
-                info2->setImageIndex(i);
-                importImage(*info2, destImage(v));
-            }
-            break;
-        }
-        case SIF:
-        {
-            SIFImportInfo* info2 = reinterpret_cast<SIFImportInfo*>(info.ptr);
-            readSIF(*info2, array);
-            break;
-        }
-        #ifdef HDF5_FOUND
-        case HDF5:
-        {
-            HDF5File* info2 = reinterpret_cast<HDF5File*>(info.ptr);
-            info2->read("/data", array);
-            break;
-        }
-        #endif // HDF5_FOUND
-        default:
-            vigra_fail("decoder for type not implemented.");
-    }
-}
+extern template
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, int8_t>&) const;
+extern template
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, int16_t>&) const;
+extern template
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, int32_t>&) const;
+extern template
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, unsigned int8_t>&) const;
+extern template
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, unsigned int16_t>&) const;
+extern template
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, unsigned int32_t>&) const;
+template<>
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, float>&) const;
+extern template
+void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, double>&) const;
 
-template <class  T>
-void readBlock(const MyImportInfo & info,
-            const MultiArrayShape<MYIMPORT_N>::type& blockOffset,
-            const MultiArrayShape<MYIMPORT_N>::type& blockShape,
-            MultiArrayView<MYIMPORT_N, T> & array)
-{
-    std::string filename = info.getInfile();
-    switch(info.type()) {
-        case TIFF:
-        {
-            ImageImportInfo* info2 = reinterpret_cast<ImageImportInfo*>(info.ptr);
-            vigra_precondition(blockOffset[0]==0 && blockOffset[1]==0 &&
-                    blockShape[0]==info.shapeOfDimension(0) && blockShape[1]==info.shapeOfDimension(1),
-                    "for Tiff images only complete Frames are currently supported as ROIs");
-            vigra_precondition(array.size(2)==blockShape[2],"array shape and number of images in ROI for tiff file differ.");
-            vigra_precondition(blockShape[2] <= info2->numImages(), "block shape larger than number of frames in the image");
-            for(int i = 0; i < blockShape[2]; ++i) {
-                MultiArrayView <2, T> img = array.bindOuter(i);
-                BasicImageView <T> v = makeBasicImageView(img);
-                info2->setImageIndex(i+blockOffset[2]);
-                importImage(*info2, destImage(v));
-            }
-            break;
-        }
-        case SIF:
-        {
-            SIFImportInfo* info2 = reinterpret_cast<SIFImportInfo*>(info.ptr);
-            readSIFBlock(*info2, blockOffset, blockShape, array);
-            break;
-        }
-        #ifdef HDF5_FOUND
-        case HDF5:
-        {
-            HDF5File* info2 = reinterpret_cast<HDF5File*>(info.ptr);
-            info2->readBlock("/data", blockOffset, blockShape, array);
-            break;
-        }
-        #endif // HDF5_FOUND
-        default:
-            vigra_fail("decoder for type not implemented.");
-    }
-}
+extern template
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, int8_t>&) const;
+extern template
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, int16_t>&) const;
+extern template
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, int32_t>&) const;
+extern template
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, unsigned int8_t>&) const;
+extern template
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, unsigned int16_t>&) const;
+extern template
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, unsigned int32_t>&) const;
+template<>
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, float>&) const;
+extern template
+void MyImportInfo::readBlock(const MyImportInfo::Shape&,
+                const MyImportInfo::Shape&,
+                vigra::MultiArrayView<MYIMPORT_N, double>&) const;
 
 #endif // MYIMPORTINFO_H
