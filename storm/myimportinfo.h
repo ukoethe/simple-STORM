@@ -60,14 +60,12 @@ using namespace vigra;
 
 class MyImportInfo {
     typedef vigra::MultiArrayShape<MYIMPORT_N>::type Shape;
-  public:
+public:
     MyImportInfo(int argc, char **argv);
     ~MyImportInfo();
 
-    void printUsage(const char* prog);
-    void setDefaults();
-    int parseProgramOptions(int argc, char **argv);
-
+    void printUsage() const;
+    void printVersion() const;
     int getFactor() const;
     int getRoilen() const;
     float getThreshold() const;
@@ -89,11 +87,15 @@ class MyImportInfo {
 
     void * ptr; // hack
 
-  private:
+private:
+    int parseProgramOptions(int argc, char **argv);
+    void setDefaults();
+
     std::string m_filename;
     Shape m_shape;
     FileType m_type;
     std::string m_executableDir;
+    std::string m_executableName;
     int m_factor;
     int m_roilen;
     float m_threshold;
@@ -103,8 +105,6 @@ class MyImportInfo {
     std::string m_coordsfile;
     std::string m_filterfile;
     std::string m_frames;
-
-
 };
 
 template <class  T>

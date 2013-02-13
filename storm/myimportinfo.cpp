@@ -52,7 +52,20 @@ using namespace vigra;
 
 
 MyImportInfo::MyImportInfo(int argc, char **argv)
-{
+: m_factor(8), m_roilen(9), m_threshold(250), m_pixelsize(1) {
+#ifndef __WIN__
+    m_executableDir.append(dirname(argv[0]));
+    m_executableName.append(basename(argv[0]));
+#else
+    char drive[_MAX_DRIVE];
+    char dir[_MAXDIR];
+    char fname[ _MAX_FNAME];
+    char ext[_MAX_EXT];
+    _splitpath(argv0, drive, dir, fname, ext);
+    m_executableDir.append(drive).append(dir);
+    m_executableName.append(fname).append(ext);
+#endif
+
 	parseProgramOptions(argc, argv);
 	setDefaults();
 
@@ -82,15 +95,6 @@ MyImportInfo::MyImportInfo(int argc, char **argv)
     else {
         vigra_precondition(false, "Wrong infile-extension given. Currently supported: .sif .h5 .hdf .hdf5 .tif .tiff");
     }
-#ifndef __WIN__
-    m_executableDir.append(dirname(argv[0]));
-#else
-    char drive[_MAX_DRIVE];
-    char dir[_MAXDIR];
-    _splitpath(argv0, drive, dir);
-    m_executableDir.append(drive).append(dir);
-#endif
-
 }
 
 MyImportInfo::~MyImportInfo() {
@@ -132,8 +136,9 @@ const std::string& MyImportInfo::executableDir() const
 {
     return m_executableDir;
 }
-void MyImportInfo::printUsage(const char* prog) {
-	std::cout << "Usage: " << prog << " [Options] infile.sif [outfile.png]" << std::endl
+
+void MyImportInfo::printUsage() const {
+	std::cout << "Usage: " << m_executableName << " [Options] infile.sif [outfile.png]" << std::endl
 	 << "Allowed Options: " << std::endl
 	 << "  --help           Print this help message" << std::endl
 	 <<	"  -v or --verbose  verbose message output" << std::endl
@@ -150,27 +155,29 @@ void MyImportInfo::printUsage(const char* prog) {
 	 ;
 }
 
+void MyImportInfo::printVersion() const {
+    std::cout << "STORM analysis software version " << versionString() << std::endl
+    << "Copyright (C) 2011 Joachim Schleicher and Ullrich Koethe" << std::endl
+    << "This is free software; see the source for copying conditions.  There is NO" << std::endl
+    << "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE." << std::endl
+    ;
+}
+
 /**
  * Defaults for unset variables are important
  */
 void MyImportInfo::setDefaults() {
-    // defaults:
-	m_factor = 8;
-	m_roilen = 9;
-	m_threshold = 250;
-	m_pixelsize = 100;
-
     // defaults: save out- and coordsfile into the same folder as input stack
 	size_t pos = m_infile.find_last_of('.');
-    if(m_outfile=="") {
+    if(m_outfile.empty()) {
     	m_outfile = m_infile;
     	m_outfile.replace(pos, 255, ".png"); // replace extension
 	}
-    if(m_coordsfile=="") {
+    if(m_coordsfile.empty()) {
     	m_coordsfile = m_infile;
     	m_coordsfile.replace(pos, 255, ".txt"); // replace extension
 	}
-    if(m_filterfile=="") {
+    if(m_filterfile.empty()) {
     	m_filterfile = m_infile;
     	m_filterfile.replace(pos, 255, "_filter.txt"); // replace extension
 	}
@@ -241,18 +248,12 @@ int MyImportInfo::parseProgramOptions(int argc, char **argv)
 
 		// Option -? and in case of unknown option or missing argument
 		case '?':
-			printUsage(argv[0]);
-			return -1;
-			break;
+			printUsage();
+			std::exit(0);
 
 		case 'V':
-			std::cout << "STORM analysis software version " << versionString() << std::endl
-			 << "Copyright (C) 2011 Joachim Schleicher and Ullrich Koethe" << std::endl
-			 << "This is free software; see the source for copying conditions.  There is NO" << std::endl
-			 << "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE." << std::endl
-			 ;
-			return -1;
-			break;
+			printVersion();
+			std::exit(0);
 
 		default:
 			std::cout << "?? getopt returned character code 0%o ??\n" << std::endl;
@@ -268,12 +269,9 @@ int MyImportInfo::parseProgramOptions(int argc, char **argv)
 	// if no input file given
 	if(m_infile == "" ) {
 		std::cerr << "error: no input file given" << std::endl;
-		printUsage(argv[0]);
-		return -1;
+		printUsage();
+		std::exit(-1);
 	}
-
-	setDefaults();
-
 	return 0;
 }
 
