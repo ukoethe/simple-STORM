@@ -13,7 +13,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
-#include <map>
+#include <set>
 
 #define R_INTERFACE_PTRS
 #define R_NO_REMAP

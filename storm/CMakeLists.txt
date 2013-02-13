@@ -11,9 +11,6 @@ include_directories(
 ${R_INCLUDE_DIRS}
 
 ${storm_SOURCE_DIR}
-/home/herrmannsdoerfer/master/opengm/src/external/MaxFlow-v3.02.src-patched
-/home/herrmannsdoerfer/master/opengm/src/external/MRF-v2.1.src-patched
-/home/herrmannsdoerfer/master/opengm/include
 
 )
 
@@ -62,9 +59,9 @@ TARGET_LINK_LIBRARIES(wienerfilter vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
 IF(HDF5_FOUND)
     TARGET_LINK_LIBRARIES(storm ${HDF5_LIBRARIES}
 
-/home/herrmannsdoerfer/master/opengm/build/src/external/libexternal-library-maxflow.a)
+)
     TARGET_LINK_LIBRARIES(wienerfilter ${HDF5_LIBRARIES}
-/home/herrmannsdoerfer/master/opengm/build/src/external/libexternal-library-maxflow.a)
+)
 
     INCLUDE_DIRECTORIES( ${HDF5_INCLUDE_DIRS} )
 ENDIF(HDF5_FOUND)
