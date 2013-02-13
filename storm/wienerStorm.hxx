@@ -430,11 +430,11 @@ void findCorrectionCoefficients(const MyImportInfo& info, std::vector<T>& parame
     unsigned int w = info.shape(0);
     unsigned int h = info.shape(1);
 
-    int numberPoints = 2000;
-    int listPixelCoordinates[numberPoints];
+    int maxNumberPoints = 2000;
+    int listPixelCoordinates[maxNumberPoints];
     T b;
 
-    findGoodPixelsForScellamApproach(info, b, numberPoints, listPixelCoordinates, parameterTrafo);
+    int numberPoints = findGoodPixelsForScellamApproach(info, b, maxNumberPoints, listPixelCoordinates, parameterTrafo);
     //std::cout<<"skellam candidates found"<<std::endl;
     //for(int n = 0; n < numberPoints;n++){
     //	std::cout<<listPixelCoordinates[n]<<'\n';
@@ -793,7 +793,7 @@ void calculateSkellamParameters(const MyImportInfo& info, int listPixelCoordinat
 //To estimate the gain factor points with different mean intensities are needed. This functions searches for
 //good candidates, it tries to find pixels with as much different mean values as possible.
 template <class T>
-void findGoodPixelsForScellamApproach(const MyImportInfo& info, T & tmpType,int numberPoints, int listPixelCoordinates[],
+int findGoodPixelsForScellamApproach(const MyImportInfo& info, T & tmpType,int maxNumberPoints, int listPixelCoordinates[],
 		std::vector<T> parameterVector){
 	unsigned int stacksize = info.shape(2);
 	unsigned int w = info.shape(0);
@@ -827,50 +827,17 @@ void findGoodPixelsForScellamApproach(const MyImportInfo& info, T & tmpType,int 
 
 	std::cout << pixelPerFrame<<"  "<<mean_im_temp[iter[pixelPerFrame-20]]<<"  "<<mean_im_temp[iter[pixelPerFrame-30]]<<'\n';
 
-	int mode = 1; 	//0: chose points with lower and higher mean intensities
-					//1: take points from interval
-
-	switch(mode){
-		case 0:{
-			int lowerPerc, higherPerc;
-			float percentage_low = 10/100.;
-			float percentage_high = 1/100.;
-
-			std::cout<<std::rand()%10<<'\n';
-
-			//findIndicesBackgroundAndBeads(lowerPerc, higherPerc, percentage, mean_im_temp, iter, minmax.min, minmax.max);
-			lowerPerc = (int)(percentage_low * pixelPerFrame);
-			higherPerc = (int)(pixelPerFrame * (1-percentage_high));
-			std::cout<<"minVal: "<<minmax.min<<" lowerPerc: "<<lowerPerc<<" lowerVal: "<<mean_im_temp[iter[lowerPerc]]<<'\n';
-			std::cout<<"maxVal: "<<minmax.max<<" higherPerc: "<<higherPerc<<" higherVal: "<<mean_im_temp[iter[higherPerc]]<<'\n';
-
-			for(int n = 0;n < numberPoints;n++){
-				if(std::rand()%2 == 0){listPixelCoordinates[n] = iter[std::rand()%lowerPerc];}
-				else{listPixelCoordinates[n] = iter[std::rand()%(pixelPerFrame - higherPerc) + higherPerc];}
-				//std::cout<<listPixelCoordinates[n]<<'\n';
-			}
-		}
-		case 1:{
-			int intervalCounter = 0;
-			T intervalDistance = (minmax.max - minmax.min)/ numberPoints;
-			std::cout<<"intervalDist: "<<intervalDistance<<'\n';
-			for(int i = 0; i< pixelPerFrame; i++){
-				if(mean_im_temp[iter[i]] > minmax.min + intervalDistance * intervalCounter){
-					listPixelCoordinates[intervalCounter] = iter[i];
-					//std::cout<<"listat counter: "<<listPixelCoordinates[intervalCounter]<<'\n';
-					//std::cout<<"intervalCounter: "<<intervalCounter<<'\n';
-					intervalCounter += 1;
-					//std::cout<<"intervalCounter: "<<intervalCounter<<'\n';
-					if (intervalCounter == numberPoints){break;}
-				}
-			}
-			std::cout<<"intervalCounter ende: "<<intervalCounter<<'\n';
-			if (intervalCounter < numberPoints){	//this is the case if the last for loop finished before enough points were found
-				intervalCounter -= 1;
-				for(int ic = intervalCounter; ic < numberPoints; ic++){listPixelCoordinates[ic] = iter[std::rand()%pixelPerFrame];}
-			}
-		}
-	}
+    int intervalCounter = 0;
+    T intervalDistance = (minmax.max - minmax.min)/ maxNumberPoints;
+    std::cout<<"intervalDist: "<<intervalDistance<<'\n';
+    for(int i = 0; i< pixelPerFrame && intervalCounter < maxNumberPoints; i++) {
+        if(mean_im_temp[iter[i]] > minmax.min + intervalDistance * intervalCounter) {
+            listPixelCoordinates[intervalCounter] = iter[i];
+            intervalCounter += 1;
+        }
+    }
+    std::cout<<"intervalCounter ende: "<<intervalCounter<<'\n';
+    return intervalCounter;
 }
 
 template <class T>
