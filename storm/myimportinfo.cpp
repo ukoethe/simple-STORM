@@ -87,7 +87,8 @@ inline unsigned long convertToULong(const char* const s) {
 }
 
 MyImportInfo::MyImportInfo(int argc, char **argv)
-: m_factor(8), m_roilen(9), m_threshold(250), m_pixelsize(1), m_skellamFrames(200) {
+: m_factor(8), m_roilen(9), m_threshold(250), m_pixelsize(1), m_skellamFrames(200), m_xyChunkSize(10),
+  m_tChunkSize(10), m_chunksInMemory(5) {
 #ifndef __WIN__
     m_executableDir.append(dirname(argv[0]));
     m_executableName.append(basename(argv[0]));
@@ -156,6 +157,9 @@ int MyImportInfo::getRoilen() const {return m_roilen;}
 float MyImportInfo::getThreshold() const {return m_threshold;}
 float MyImportInfo::getPixelsize() const {return m_pixelsize;}
 unsigned int MyImportInfo::getSkellamFrames() const {return m_skellamFrames;}
+unsigned int MyImportInfo::getXYChunkSize() const {return m_xyChunkSize;}
+unsigned int MyImportInfo::getTChunkSize() const {return m_tChunkSize;}
+unsigned int MyImportInfo::getChunksInMemory() const {return m_chunksInMemory;}
 const std::string& MyImportInfo::getInfile() const {return m_infile;}
 const std::string& MyImportInfo::getOutfile() const {return m_outfile;}
 const std::string& MyImportInfo::getCoordsfile() const {return m_coordsfile;}
@@ -176,19 +180,20 @@ void MyImportInfo::printUsage() const {
 	std::cout << "Usage: " << m_executableName << " [Options] infile.sif [outfile.png]" << std::endl
 	<< "Allowed Options: " << std::endl
 	<< "  --help                 Print this help message" << std::endl
-	<<	"  -v or --verbose        verbose message output" << std::endl
+	<< "  -v or --verbose        verbose message output" << std::endl
 	<< "  --factor=Arg           Resize factor equivalent to the subpixel-precision" << std::endl
-	<< "  --cam-param-frames=Arg Number of frames to use for estimation of gain and offset" << std::endl
+	<< "  --cam-param-frames=Arg Number of frames to use for estimation of gain and offset." << std::endl
+    << "                         Set to 0 to use the whole stack." << std::endl
 	<< "  --threshold=Arg        Threshold for background suppression" << std::endl
 	<< "  --coordsfile=Arg       filename for output of the found Coordinates" << std::endl
 	<< "  --pixelsize=Arg        Pixel size in nanometers. If set, the coordinates" << std::endl
 	<< "                         will be in nanometers, otherwise in pixels" << std::endl
 	<< "  --filter=Arg           Text file with filter width (in pixels) for filtering in the" << std::endl
-    << "                        FFT domain. If the file does not exist, generate a new filter" << std::endl
-	<< "                        from the data" << std::endl
-	<< "  --roi-len=Arg         size of the roi around maxima candidates" << std::endl
-	<< "  --frames=Arg          run only on a subset of the stack (frames=start:end)" << std::endl
-	<< "  --version             print version information and exit" << std::endl
+    << "                         FFT domain. If the file does not exist, generate a new filter" << std::endl
+	<< "                         from the data" << std::endl
+	<< "  --roi-len=Arg          size of the roi around maxima candidates" << std::endl
+	<< "  --frames=Arg           run only on a subset of the stack (frames=start:end)" << std::endl
+	<< "  --version              print version information and exit" << std::endl
 	;
 }
 
@@ -218,8 +223,10 @@ void MyImportInfo::setDefaults() {
     	m_filterfile = m_infile;
     	m_filterfile.replace(pos, 255, "_filter.txt"); // replace extension
 	}
-    if (m_skellamFrames > m_shape[2])
+    if (m_skellamFrames > m_shape[2] || m_skellamFrames <= 0)
         m_skellamFrames = m_shape[2];
+    if (m_chunksInMemory < 4)
+        m_chunksInMemory = 3;
 }
 
 /**

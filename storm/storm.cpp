@@ -87,17 +87,14 @@ int main(int argc, char** argv) {
         std::vector<float> parameterTrafo(6);
         findCorrectionCoefficients(info, parameterTrafo); 	//first 3 entries are parameters for the raw signal to poisson transformation
         													//the last 3 entries are parameters for the poission to gaussian with sigma = 1 transformation
-        //parameterTrafo[0] = 1;
-//		parameterTrafo[1] = 0;
+        //parameterTrafo[0] = 1.5;
+		//parameterTrafo[1] = 40;
 //		parameterTrafo[2] = 0;
         std::cout<<"a: "<<parameterTrafo[0]<<" b: "<<parameterTrafo[1]<<" intercept: "<<parameterTrafo[2]<<std::endl;
         //showPoisson(info, parameterTrafo);
 
         //parameterTrafo[4] = 0;
         //parameterTrafo[5] = 3./8.;
-
-        MultiArray<3, float> PoissonMeans;
-        getSmoothedPixelMeans(info, parameterTrafo[0],parameterTrafo[1], PoissonMeans);
 
         int w= info.shape(0), h =info.shape(1);
         int vecw[] = {16,30,40,50,60,16,26};
@@ -106,7 +103,7 @@ int main(int argc, char** argv) {
 
         generateFilter(info, parameterTrafo);  // use the specified one or create wiener filter from the data
 
-        wienerStorm(info, res_coords,parameterTrafo, PoissonMeans);
+        wienerStorm(info, res_coords,parameterTrafo);
 
         // resulting image
         drawCoordsToImage<Coord<float> >(res_coords, res);

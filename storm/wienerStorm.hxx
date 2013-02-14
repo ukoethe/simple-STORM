@@ -50,6 +50,7 @@
 //#include <iomanip>
 #include <vector>
 #include <valarray>
+#include <limits>
 
 //#include <algorithm>
 #ifdef OPENMP_FOUND
@@ -319,7 +320,8 @@ void determineSNR(SrcIterator srcUpperLeft,
 }
 
 //template <class T>
-struct transformationFunctor{
+class transformationFunctor {
+public:
 	transformationFunctor(float a, float intercept, float minInt = 0): a(a), intercept(intercept), C(-2/a*std::sqrt(a*minInt+ intercept)){}
 	float operator()(float poissInt){return 2/a*std::sqrt(a*poissInt + intercept)+ C;}
 
@@ -348,9 +350,10 @@ void findCorrectionCoefficients(const MyImportInfo& info, std::vector<T>& parame
     //}
     T meanValues[numberPoints];
     T skellamParameters[numberPoints];
+    T minVal;
     //std::cout<<"before skellam found"<<std::endl;
 
-    calculateSkellamParameters(info, listPixelCoordinates, meanValues, skellamParameters, numberPoints,parameterTrafo);
+    calculateSkellamParameters(info, listPixelCoordinates, meanValues, skellamParameters, numberPoints, minVal);
 
     std::ofstream selectedPoints;
 
@@ -366,17 +369,10 @@ void findCorrectionCoefficients(const MyImportInfo& info, std::vector<T>& parame
 
 
     findBestFit(info, meanValues, skellamParameters, numberPoints, parameterTrafo);
-    //std::cout<<"bestfit found"<<std::endl;
-    MultiArray<3, T> tempMA(Shape3(w,h,1));
-	T minVal = 999999999999;
-	for(int k = 0; k<stacksize; k++){
-		info.readBlock(Shape3(0,0,k),Shape3(w,h,1), tempMA);
-		FindMinMax<T> minmax;
-	    inspectMultiArray(srcMultiArrayRange(tempMA), minmax);
-	    if(minVal > minmax.min){minVal = minmax.min;}
-	}
 
-	if(minVal < parameterTrafo[1]){parameterTrafo[1] = minVal;}
+	if(minVal < parameterTrafo[1]) {
+        parameterTrafo[1] = minVal;
+    }
 	//parameterTrafo[1] = minVal;   // sets offset to the minimum of all pixels, to avoid negative values during calculation of Poisson distributions
 	std::cout<<"minimum: "<< minVal<<std::endl;
 }
@@ -512,9 +508,10 @@ void printIntensities(const MyImportInfo& info, int* vecw, int* vech, int nbrPoi
 //get Mask calculates the probabilities for each pixel of the current frame to be foreground,
 //there are two different methods available: logliklihood, based on cumulative distribution function
 template <class T>
-void getMask(MultiArrayView<2,T >& array, int w, int h, int stacksize, MultiArrayView<2, T>& PoissonMeans ,int framenumber,MultiArray<2,T>& mask, std::vector<T> parameterTrafo){
+void getMask(const MultiArrayView<2,T >& array, const MultiArrayView<2, T>& PoissonMeans ,int framenumber,MultiArray<2,T>& mask, const std::vector<T> &parameterTrafo){
 
-	T alpha = 0.05;
+    int w = array.shape()[0], h = array.shape()[1];
+	T alpha = 0.001;
 
 	T factor2ndDist; //= 1+arrMinmax.max/muMin/10; // should be dependent of snr
 
@@ -523,8 +520,8 @@ void getMask(MultiArrayView<2,T >& array, int w, int h, int stacksize, MultiArra
 	bool writeMatrices = (framenumber == 1);
 	if(writeMatrices){
 		char origimgname[1000], maskname[1000];
-		sprintf(origimgname, "/home/herrmannsdoerfer/master/workspace/output/outputMyStorm/origimgbeforefilter%d.txt", framenumber);
-		sprintf(maskname, "/home/herrmannsdoerfer/master/workspace/output/outputMyStorm/maskPoiss%d.txt", framenumber);
+        sprintf(origimgname, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/data/Localization Microscopy Challenge/origimgbeforefilter%d.txt", framenumber);
+        sprintf(maskname, "/home/ilia/Eigene Dateien/Uni/Uni/Master/1. Semester/Lab Rotation Köthe/data/Localization Microscopy Challenge/maskPoiss%d.txt", framenumber);
 
 		origimg.open (origimgname);
 		maski.open (maskname);}
@@ -605,77 +602,30 @@ T isSignal_fast(T corrInt, T lamb_,T factor2ndDist){
 	return prob;
 }
 
-//estimates the mean of the poisson distributions
-template <class T>
-void getSmoothedPixelMeans(const MyImportInfo& info,T a,T offset,MultiArray<3,T> &regionMeans){
-    unsigned int stacksize = info.shape(2);
-    unsigned int w = info.shape(0);
-    unsigned int h = info.shape(1);
-
-    unsigned int blocks = 30;
-
-    MultiArray<3, T> temp_arr(Shape3(w,h,blocks));
-    auto *test = new MultiArray<3, T>(Shape3(w, h, blocks));
-    delete test;
-    MultiArray<3, T> tempRegionMeans(Shape3(std::ceil(w / (float)blocks), std::ceil(h / (float)blocks), std::ceil(stacksize / (float)blocks)));
-    MultiArray<3, int> labels(Shape3(w, h, blocks));
-    regionMeans.reshape(Shape3(w, h, stacksize));
-
-    for (int y = 0, f = 0; y < std::ceil(h / (float)blocks); ++y) {
-        for (int x = 0; x < std::ceil(w / (float)blocks); ++x, ++f) {
-            vigra::Shape3 index(std::min((x + 1) * blocks, w), std::min((y + 1) * blocks, h), blocks);
-            auto roi = labels.subarray(vigra::Shape3(x * blocks, y * blocks, 0), index);
-            vigra::initMultiArray(destMultiArrayRange(roi), f);
-        }
-    }
-
-    for(int f = 0; f < std::ceil(stacksize / (float)blocks); f++) {
-        int zShape;
-        MultiArrayView<3, T> temp_arrView;
-        MultiArrayView<3, int> labelsView;
-        if ((f + 1) * blocks <= stacksize) {
-            zShape = blocks;
-            temp_arrView = temp_arr; // should be assignment in MultiArrayView => no copying
-            labelsView = labels;
-        } else {
-            zShape = stacksize % blocks;
-            temp_arrView = temp_arr.subarray(Shape3(0, 0, 0), Shape3(w, h, zShape));
-            labelsView = labels.subarray(Shape3(0, 0, 0), Shape3(w, h, zShape));
-        }
-        info.readBlock(Shape3(0,0,f * blocks),Shape3(w,h, zShape), temp_arrView);
-        vigra::transformMultiArray(srcMultiArrayRange(temp_arrView), destMultiArrayRange(temp_arrView), [&a, &offset](T p){return (p - offset) / a;});
-        vigra::acc::AccumulatorChainArray<typename CoupledIteratorType<3, T, int>::type::value_type, vigra::acc::Select<vigra::acc::DataArg<1>, vigra::acc::LabelArg<2>, vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
-        auto iter = vigra::createCoupledIterator(temp_arrView, labelsView);
-        auto iterEnd = iter.getEndIterator();
-        vigra::acc::extractFeatures(iter, iterEnd, accChain);
-        for (int y = 0, i = 0; y < std::ceil(h / (float)blocks); ++y) {
-            for (int x = 0; x < std::ceil(w / (float)blocks); ++x, ++i) {
-                tempRegionMeans(x, y, f) = 0.75 * vigra::acc::get<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>(accChain, i)[3];
-                auto test = tempRegionMeans(x, y, f);
-
-            }
-        }
-    }
-    vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(tempRegionMeans), destMultiArrayRange(regionMeans), vigra::BSpline<3>());
-}
-
 //calcuates the skellam parameters (in principle variances) for the pixels chosen previously.
 template <class T>
 void calculateSkellamParameters(const MyImportInfo& info, int listPixelCoordinates[],T meanValues[],T skellamParameters[],
-		int numberPoints, std::vector<T> parameterTrafo){
+		int numberPoints, T &minVal){
 
-	unsigned int stacksize = info.shape(2);
+	unsigned int stacksize = info.getSkellamFrames();
 	unsigned int w = info.shape(0);
 	unsigned int h = info.shape(1);
 
 	std::vector< std::vector <T> > intensities(numberPoints, std::vector<T>(stacksize));
 	MultiArray<3, T> temp_arr(Shape3(w,h,1));
 
+    minVal = std::numeric_limits<T>::max();
 	for(int f = 0; f < stacksize; f++) {
 		info.readBlock(Shape3(0,0,f),Shape3(w,h,1), temp_arr);
 		for(int i = 0; i < numberPoints; i++){
 			intensities[i][f] = temp_arr[listPixelCoordinates[i]];
 		}
+		FindMinMax<T> minmax;
+        inspectMultiArray(srcMultiArrayRange(temp_arr), minmax);
+        if(minVal > minmax.min){
+            minVal = minmax.min;
+
+        }
 	}
 
 	for(int i = 0; i < numberPoints; i++){
@@ -702,11 +652,8 @@ void calculateSkellamParameters(const MyImportInfo& info, int listPixelCoordinat
 template <class T>
 int findGoodPixelsForScellamApproach(const MyImportInfo& info, T & tmpType,int maxNumberPoints, int listPixelCoordinates[],
 		std::vector<T> parameterVector){
-	unsigned int stacksize = info.shape(2);
 	unsigned int w = info.shape(0);
 	unsigned int h = info.shape(1);
-
-	int numberFramesForMean = stacksize;
 
 	MultiArray<3, T> mean_im_temp(Shape3(w,h,1)), mean_im_temp2(Shape3(w,h,1));
 
@@ -715,14 +662,14 @@ int findGoodPixelsForScellamApproach(const MyImportInfo& info, T & tmpType,int m
 	int minMean = INT_MAX, maxMean = 0;
 	std::vector<int> iter2;
 
-    for(int f = 0; f< numberFramesForMean;f++){
+    for(int f = 0; f< info.getSkellamFrames();f++){
     	info.readBlock(Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
     	vigra::combineTwoMultiArrays(srcMultiArrayRange(mean_im_temp2),
     						srcMultiArray(mean_im_temp),
     						destMultiArray(mean_im_temp),
     		                std::plus<int>());
     }
-    for(int i = 0; i< pixelPerFrame;i++){mean_im_temp[i] = mean_im_temp[i]/numberFramesForMean;}
+    for(int i = 0; i< pixelPerFrame;i++){mean_im_temp[i] = mean_im_temp[i]/info.getSkellamFrames();}
     FindMinMax<T> minmax;
 
     inspectMultiArray(srcMultiArrayRange(mean_im_temp), minmax);
@@ -958,14 +905,14 @@ typename SrcIterator::value_type estimateNoisePower(int w, int h,
 // where X(f) is the power of the signal and
 // N(f) is the power of the noise
 // (e.g., see http://cnx.org/content/m12522/latest/)
-template <class T, class StormData>
-void constructWienerFilter(StormData& im, std::vector<T>& parameterVector) {
+template <class T>
+void constructWienerFilter(const MyImportInfo& info, std::vector<T>& parameterVector) {
 
-    int w = im.shape(0);
-    int h = im.shape(1);
+    int w = info.shape(0);
+    int h = info.shape(1);
     std::cout<<w<< "  "<<h<<std::endl;
     BasicImage<T> ps(w,h);
-    powerSpectrum(im, destImage(ps), parameterVector);
+    powerSpectrum(info, destImage(ps), parameterVector);
 
     std::ofstream ostreamPS;
 	bool writeMatrices = false;
@@ -1049,25 +996,25 @@ void constructWienerFilter(StormData& im, std::vector<T>& parameterVector) {
         from the data and save it to file 'filter'
  @param in 3-dimensional measurement as MultiArrayView<3,float> or MyImageInfo
 */
-template <class T, class StormDataSet>
-void generateFilter(StormDataSet& in, std::vector<T>& parameterVector) {
+template <class T>
+void generateFilter(const MyImportInfo& info, std::vector<T>& parameterVector) {
     bool constructNewFilter = true;
-    if(!in.getFilterfile().empty() && helper::fileExists(in.getFilterfile())) {
-        std::ifstream filter(in.getFilterfile());
+    if(!info.getFilterfile().empty() && helper::fileExists(info.getFilterfile())) {
+        std::ifstream filter(info.getFilterfile());
         double filterWidth;
         filter >> filterWidth;
         parameterVector[3] = filterWidth;
         if (!filter.fail() && !filter.bad()) {
             constructNewFilter = false;
-            std::cout << "using filter from file " << in.getFilterfile() << std::endl;
+            std::cout << "using filter from file " << info.getFilterfile() << std::endl;
         }
         filter.close();
     }
     if(constructNewFilter) {
         std::cout << "generating wiener filter from the data" << std::endl;
-        constructWienerFilter(in, parameterVector);
+        constructWienerFilter(info, parameterVector);
         std::cout << "wiener filter constructed"<<parameterVector[3]<<std::endl;
-        std::ofstream filter(in.getFilterfile());
+        std::ofstream filter(info.getFilterfile());
         filter << parameterVector[3] << std::endl;
         filter.close();
     }
@@ -1104,14 +1051,79 @@ void prefilterBSpline(Image& im) {
     }
 }
 
-/**
- * Localize Maxima of the spots and return a list with coordinates
- *
- * This is the actual loop over a microscopic image stack to
- * reconstruct a super-resolution image out of single molecule detections.
- *
- * The localization is done on per-frame basis in wienerStormSingleFrame()
- *
+template <class T>
+void getPoissonLabelsArray(const MyImportInfo &info, MultiArray<3, T> &labels) {
+    unsigned int w = info.shape(0);
+    unsigned int h = info.shape(1);
+    unsigned int tChunkSize = info.getTChunkSize();
+    unsigned int xyChunkSize = info.getXYChunkSize();
+    unsigned int xChunks = std::ceil(w / (float)xyChunkSize);
+    unsigned int yChunks = std::ceil(h / (float)xyChunkSize);
+    labels.reshape(Shape3(w, h, tChunkSize));
+    for (int x = 0, l = 0; x < xChunks; ++x) {
+        for (int y = 0; y < yChunks; ++y, ++l) {
+            vigra::Shape3 index(std::min((x + 1) * xyChunkSize, w), std::min((y + 1) * xyChunkSize, h), tChunkSize);
+            auto roi = labels.subarray(vigra::Shape3(x * xyChunkSize, y * xyChunkSize, 0), index);
+            vigra::initMultiArray(destMultiArrayRange(roi), l);
+        }
+    }
+}
+
+template <class T, class L>
+void getPoissonMeansForChunk(const MyImportInfo &info, const MultiArrayView<3, L> &labels, const MultiArrayView<3, T> &img, MultiArrayView<2, T> &regionMeans) {
+    vigra::acc::AccumulatorChainArray<typename CoupledIteratorType<3, T, L>::type::value_type, vigra::acc::Select<vigra::acc::DataArg<1>, vigra::acc::LabelArg<2>, vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
+    auto iter = vigra::createCoupledIterator(img, labels);
+    auto iterEnd = iter.getEndIterator();
+    vigra::acc::extractFeatures(iter, iterEnd, accChain);
+    for (int x = 0, i = 0; x < regionMeans.shape()[0]; ++x) {
+        for (int y = 0; y < regionMeans.shape()[1]; ++y, ++i) {
+            regionMeans(x, y) = vigra::acc::get<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>(accChain, i)[3] - 0.3333;
+        }
+    }
+}
+
+template <class T, class F>
+void processChunk(const MyImportInfo &info, MultiArray<3, T> &srcImage,
+                  MultiArrayView<3, T> &poissonMeans, F tF, int &currframe, int middleChunk,
+                  std::vector<std::set<Coord<T>>>& maxima_coords, std::vector<T> &parameterTrafo) {
+    unsigned int middleChunkFrame = middleChunk * info.getTChunkSize();
+    for (int f = 0; f < srcImage.shape()[2]; ++f, ++currframe) {
+        auto currSrc = srcImage.bindOuter(f);
+        auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
+        MultiArray<2, T> mask(Shape2(info.shape(0), info.shape(1)));
+        getMask(currSrc, currPoisson, currframe, mask, parameterTrafo);
+        vigra::transformMultiArray(srcMultiArrayRange(currSrc), destMultiArrayRange(currSrc), tF); // this does Anscombe transformation
+        wienerStormSingleFrame(info, currSrc, mask, maxima_coords[currframe], currframe, parameterTrafo);
+    }
+}
+
+template <class T, class L>
+void readChunk(const MyImportInfo &info, MultiArray<3, T>** srcImage,
+               MultiArrayView<3, T> &poissonMeansRaw, MultiArrayView<3, T> &poissonMeans,
+               const MultiArrayView<3, L> &poissonLabels, int chunk, std::vector<T> &parameterTrafo) {
+    unsigned int xChunks = std::ceil(info.shape(0) / (float)info.getXYChunkSize());
+    unsigned int yChunks = std::ceil(info.shape(1) / (float)info.getXYChunkSize());
+    unsigned int chunksInMemory = info.getChunksInMemory();
+    unsigned int middleChunk = std::floor(0.5 * chunksInMemory);
+    auto *tmp = srcImage[0];
+    for (int i = 0; i < middleChunk; ++i) {
+        srcImage[i] = srcImage[i + 1];
+    }
+    srcImage[middleChunk] = tmp;
+    info.readBlock(Shape3(0, 0, chunk * info.getTChunkSize()), tmp->shape(), *tmp);
+    vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&parameterTrafo](T p){return (p - parameterTrafo[1]) / parameterTrafo[0];});
+    for (int z = 0; z < chunksInMemory - 1; ++z) {
+        for (int x = 0; x < xChunks; ++x) {
+            for (int y = 0; y < yChunks; ++y) {
+                poissonMeansRaw(x, y, z) = poissonMeansRaw(x, y, z + 1);
+            }
+        }
+    }
+    auto currRawMean = poissonMeansRaw.bindOuter(chunksInMemory - 1);
+    getPoissonMeansForChunk(info, poissonLabels, *tmp, currRawMean);
+    vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
+}
+
 
 /**
  * Localize Maxima of the spots and return a list with coordinates
@@ -1126,31 +1138,30 @@ void prefilterBSpline(Image& im) {
 
 template <class T>
 void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& maxima_coords,
-			std::vector<T> parameterTrafo, MultiArray<3, T>& PoissonMeans) {
+			std::vector<T> &parameterTrafo) {
 
     unsigned int stacksize = info.shape(2);
     unsigned int w = info.shape(0);
     unsigned int h = info.shape(1);
-    unsigned int w_xxl = info.getFactor()*(w-1)+1;
-    unsigned int h_xxl = info.getFactor()*(h-1)+1;
     unsigned int i_stride=1;
     int i_beg=0, i_end=stacksize;
-    if(!info.getFrameRange().empty()) {
+    unsigned int tChunks = std::ceil((i_end - i_beg) / (float)info.getTChunkSize());
+    unsigned int xChunks = std::ceil(w / (float)info.getXYChunkSize());
+    unsigned int yChunks = std::ceil(h / (float)info.getXYChunkSize());
+    unsigned int chunksInMemory = info.getChunksInMemory();
+    unsigned int lastTChunkIndex = info.getTChunkSize() - 1;
+    unsigned int middleChunk = std::floor(0.5 * chunksInMemory);
+    unsigned int middleChunkFrame = middleChunk * info.getTChunkSize();
+    /*if(!info.getFrameRange().empty()) {
         helper::rangeSplit(info.getFrameRange(), i_beg, i_end, i_stride);
         if(i_beg < 0) i_end = stacksize+i_beg; // allow counting backwards from the end
         if(i_end < 0) i_end = stacksize+i_end; // allow counting backwards from the end
         if(info.verbose) std::cout << "processing frames [" << i_beg << ":"
             << i_end << ":" << i_stride << "]" << std::endl;
-    }
+    }*/
 
     // TODO: Precondition: res must have size (info.getFactor()*(w-1)+1, info.getFactor()*(h-1)+1)
     // filter must have the size of input
-    MultiArray<3, T> im(Shape3(w,h,1));
-
-    // initialize fftw-wrapper; create plans
-    info.readBlock(Shape3(0,0,0), Shape3(w,h,1), im);
-    BasicImageView<T> sampleinput = makeBasicImageView(im.bindOuter(0));  // access first frame as BasicImage
-    FFTFilter<T> fftwWrapper(srcImageRange(sampleinput));
 
     #ifndef STORM_QT // silence stdout
     std::cout << "Finding the maximum spots in the images..." << std::endl;
@@ -1158,9 +1169,67 @@ void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& ma
     helper::progress(-1,-1); // reset progress
 
     transformationFunctor tF(1, 3./8,0);
+
+    MultiArray<3, T>** srcImage = (MultiArray<3, T>**)std::malloc(chunksInMemory * sizeof(MultiArray<3, T>*));
+    for (int i = 0; i < chunksInMemory; ++i) {
+        srcImage[i] = new MultiArray<3, T>(Shape3(w, h, info.getTChunkSize()));
+    }
+    MultiArray<3, int> poissonLabels;
+    MultiArray<3, T> poissonMeansRaw(Shape3(xChunks, yChunks, chunksInMemory));
+    MultiArray<3, T> poissonMeans(Shape3(w, h, info.getTChunkSize() * chunksInMemory));
+    getPoissonLabelsArray(info, poissonLabels);
+
+    int currframe = 0, chunk;
+
+    for (chunk = 0; chunk < chunksInMemory; ++chunk) {
+        info.readBlock(Shape3(0, 0, chunk * info.getTChunkSize()), srcImage[chunk]->shape(), *srcImage[chunk]);
+        auto currRawMean = poissonMeansRaw.bindOuter(chunk);
+        vigra::transformMultiArray(srcMultiArrayRange(*srcImage[chunk]), destMultiArrayRange(*srcImage[chunk]), [&parameterTrafo](T p){return (p - parameterTrafo[1]) / parameterTrafo[0];});
+        getPoissonMeansForChunk(info, poissonLabels, *srcImage[chunk], currRawMean);
+
+    }
+    vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
+    for (int c = 0; c <= middleChunk; ++c) {
+        processChunk(info, *srcImage[c], poissonMeans, tF, currframe, middleChunk, maxima_coords, parameterTrafo);
+    }
+    if (chunksInMemory % 2) {
+        for (int c = 0; c < middleChunk; ++c) {
+            delete srcImage[c];
+            srcImage[c] = srcImage[c + middleChunk];
+        }
+        srcImage[middleChunk] = srcImage[chunksInMemory - 1];
+    } else {
+        for (int c = 0; c < middleChunk - 1; ++c) {
+            srcImage[c] = srcImage[c + middleChunk - 1];
+        }
+        srcImage[middleChunk - 1] = srcImage[chunksInMemory - 2];
+        srcImage[middleChunk] = srcImage[chunksInMemory - 1];
+    }
+
+    int lastChunkSize = stacksize % info.getTChunkSize();
+    for (; chunk < (lastChunkSize ? tChunks - 1 : tChunks); ++chunk) {
+        readChunk(info, srcImage, poissonMeansRaw, poissonMeans, poissonLabels, chunk, parameterTrafo);
+        processChunk(info, *srcImage[middleChunk], poissonMeans, tF, currframe, middleChunk, maxima_coords, parameterTrafo);
+    }
+    if (lastChunkSize) {
+        srcImage[0]->reshape(Shape3(w, h, lastChunkSize));
+        Shape3 labelsShape = poissonLabels.shape();
+        labelsShape[2] = lastChunkSize;
+        auto lastPoissonLabelsView = poissonLabels.subarray(Shape3(0, 0, 0), labelsShape);
+        readChunk(info, srcImage, poissonMeansRaw, poissonMeans, lastPoissonLabelsView, chunk, parameterTrafo);
+        processChunk(info, *srcImage[middleChunk], poissonMeans, tF, currframe, middleChunk, maxima_coords, parameterTrafo);
+    }
+    delete srcImage[0];
+    for (int c = middleChunk + 1; c < chunksInMemory; ++c) {
+        int cIndex = c - middleChunk;
+        processChunk(info, *srcImage[cIndex], poissonMeans, tF, currframe, c, maxima_coords, parameterTrafo);
+        delete srcImage[cIndex];
+    }
+    std::free(srcImage);
+
     //over all images in stack
-    #pragma omp parallel for schedule(static, CHUNKSIZE) firstprivate(im)
-    for(int i = i_beg; i < i_end; i+=i_stride) {
+    //#pragma omp parallel for schedule(static, CHUNKSIZE) firstprivate(im)
+    /*for(int i = i_beg; i < i_end; i+=i_stride) {
         info.readBlock(Shape3(0,0,i), Shape3(w,h,1), im);
         MultiArrayView <2, T> array = im.bindOuter(0); // select current image
 
@@ -1173,12 +1242,10 @@ void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& ma
         getMask(array, w,h,stacksize, poissView, i, mask, parameterTrafo);
 
         for(int x0 = 0; x0 < w; x0++){
-			for(int x1 = 0; x1 < h; x1++){array(x0,x1) = tF(array(x0,x1));} // this does Anscombe transformation
+			for(int x1 = 0; x1 < h; x1++){array(x0,x1) = tF(array(x0,x1));}
 		}
 
-        wienerStormSingleFrame(info, array, maxima_coords[i],
-                fftwWrapper, // TODO (this is no real function argument but should be global)
-                mask, i, parameterTrafo);
+        wienerStormSingleFrame(info, array, maxima_coords[i], mask, i, parameterTrafo);
         #ifdef OPENMP_FOUND
         if(omp_get_thread_num()==0) { // master thread
             helper::progress(i+1, i_end); // update progress bar
@@ -1189,16 +1256,14 @@ void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& ma
     }
     #ifndef STORM_QT // silence stdout
     std::cout << std::endl;
-    #endif // STORM_QT
+    #endif // STORM_QT*/
 }
 
 template <class T>
-void wienerStormSingleFrame(const MyImportInfo& info, const MultiArrayView<2, T>& in, std::set<Coord<T> >& maxima_coords,
-            FFTFilter<T> & fftwWrapper, MultiArray<2, T>& mask, int framenumber, std::vector<T> parameterTrafo)
-          	{
-
-    unsigned int w = in.shape(0); // width
-    unsigned int h = in.shape(1); // height
+void wienerStormSingleFrame(const MyImportInfo& info, const MultiArrayView<2, T>& in, MultiArray<2, T> &mask, std::set<Coord<T> >& maxima_coords, int framenumber, const std::vector<T> &parameterTrafo)
+    {
+    int w = in.shape(0); // width
+    int h = in.shape(1); // height
 
     BasicImage<T> filtered(w,h);
     BasicImage<T> bg(w,h), bg2(w,h);        // background
@@ -1223,10 +1288,8 @@ void wienerStormSingleFrame(const MyImportInfo& info, const MultiArrayView<2, T>
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), parameterTrafo[3]/2.);
     //gaussianSmoothing(srcImageRange(input), destImage(filteredView), 1.4);
 
-    //fftwWrapper.applyFourierFilter(srcImageRange(input), srcImage(filter), destImage(filteredView));
     subtractBackground(filtered, bg);
     subtractBackground(unfiltered, bg2);
-
 	applyMask(filtered, mask, framenumber);
 
 	vigra::FindMinMax<T> filteredMinMax;

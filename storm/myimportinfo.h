@@ -68,6 +68,9 @@ public:
     float getThreshold() const;
     float getPixelsize() const;
     unsigned int getSkellamFrames() const;
+    unsigned int getXYChunkSize() const;
+    unsigned int getTChunkSize() const;
+    unsigned int getChunksInMemory() const;
     const std::string& getInfile() const;
     const std::string& getOutfile() const;
     const std::string& getCoordsfile() const;
@@ -103,6 +106,9 @@ private:
     float m_threshold;
     float m_pixelsize;
     unsigned int m_skellamFrames;
+    unsigned int m_xyChunkSize;
+    unsigned int m_tChunkSize;
+    unsigned int m_chunksInMemory;
     std::string m_infile;
     std::string m_outfile;
     std::string m_coordsfile;
