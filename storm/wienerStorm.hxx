@@ -651,25 +651,44 @@ void calculateSkellamParameters(const MyImportInfo& info, int listPixelCoordinat
 //good candidates, it tries to find pixels with as much different mean values as possible.
 template <class T>
 int findGoodPixelsForScellamApproach(const MyImportInfo& info, T & tmpType,int maxNumberPoints, int listPixelCoordinates[],
-		std::vector<T> parameterVector){
+		std::vector<T> &parameterVector){
+    unsigned int stacksize = info.getSkellamFrames();
 	unsigned int w = info.shape(0);
 	unsigned int h = info.shape(1);
 
 	MultiArray<3, T> mean_im_temp(Shape3(w,h,1)), mean_im_temp2(Shape3(w,h,1));
 
-	std::vector<T> pixelValues;
 	int pixelPerFrame = w*h;
-	int minMean = INT_MAX, maxMean = 0;
-	std::vector<int> iter2;
 
-    for(int f = 0; f< info.getSkellamFrames();f++){
+    transformationFunctor tF(1, 3./8., 0);
+    vigra::DImage ps(w, h, 0.0);
+    vigra::DImage ps_center(w, h);
+
+    for(int f = 0; f< stacksize;f++){
     	info.readBlock(Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
     	vigra::combineTwoMultiArrays(srcMultiArrayRange(mean_im_temp2),
     						srcMultiArray(mean_im_temp),
     						destMultiArray(mean_im_temp),
     		                std::plus<int>());
+
+        // calculate PowerSpectrum
+        vigra::transformMultiArray(srcMultiArrayRange(mean_im_temp2), destMultiArrayRange(mean_im_temp2), tF);
+        MultiArrayView <2, T> array = mean_im_temp2.bindOuter(0);
+        auto arrayView = makeBasicImageView(array);
+        subtractBackground(arrayView);
+        vigra::FFTWComplexImage fourier(w, h);
+        fourierTransform(srcImageRange(array), destImage(fourier));
+        vigra::combineTwoImages(srcImageRange(ps),
+                                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
+                                destImage(ps), Arg1()+Arg2());
+
     }
-    for(int i = 0; i< pixelPerFrame;i++){mean_im_temp[i] = mean_im_temp[i]/info.getSkellamFrames();}
+    moveDCToCenter(srcImageRange(ps), destImage(ps_center));
+    vigra::transformImage(srcImageRange(ps_center), destImage(ps),
+                          Arg1() / Param(stacksize));
+    constructWienerFilter(info, ps, parameterVector);
+
+    for(int i = 0; i< pixelPerFrame;i++){mean_im_temp[i] = mean_im_temp[i]/stacksize;}
     FindMinMax<T> minmax;
 
     inspectMultiArray(srcMultiArrayRange(mean_im_temp), minmax);
@@ -738,129 +757,6 @@ void applyMask(BasicImage<T>& img, MultiArrayView<2, T>& mask, int frnr){
 // input file pointers.
 
 /**
- * Calculate Power-Spektrum
- */
-template <class T, class DestIterator, class DestAccessor>
-void powerSpectrum(const MultiArrayView<3, T>& array,
-                   DestIterator res_ul, DestAccessor res_acc,
-                   std::vector<T> parameterTrafo) {
-    unsigned int stacksize = array.size(2);
-    unsigned int w = array.size(0);
-    unsigned int h = array.size(1);
-    vigra::DImage ps(w, h);
-    vigra::DImage ps_center(w, h);
-    ps = 0;
-    typename MultiArray<2,T>::iterator it;
-    T a = parameterTrafo[0];
-    T b = parameterTrafo[1];
-
-    for(unsigned int i = 0; i < stacksize; i++) {
-        MultiArrayView <2, T> array2 = array.bindOuter(i); // select current image
-        for(it = array2.begin(); it != array2.end(); it++){
-        	if((*it-b)/a > 0){
-        		*it = (*it-b)/a;
-        		*it = (2*std::sqrt(*it + 3.0/8.0));
-        	}
-        	else{*it = 2*std::sqrt(0+3./8);}
-        }
-
-        BasicImage<T> bg(w,h);        // background
-		vigra::exportImage(srcImageRange(array2), "/home/herrmannsdoerfer/master/workspace/output/vorBGSubstr.png");
-		subtractBackground(array2, bg);
-		vigra::exportImage(srcImageRange(array2), "/home/herrmannsdoerfer/master/workspace/output/nachBGSubstr.png");
-
-        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage
-
-
-        vigra::FFTWComplexImage fourier(w, h);
-        fourierTransform(srcImageRange(input), destImage(fourier));
-
-        // there is no squared magnitude accessor, so we use the magnitude here
-        vigra::combineTwoImages(srcImageRange(ps),
-                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
-                destImage(ps), Arg1()+Arg2());
-
-        helper::progress(i, stacksize); // report progress
-    }
-
-    std::cout <<"info"<< std::endl;
-
-    moveDCToCenter(srcImageRange(ps), destImage(ps_center));
-    vigra::transformImage(
-            srcImageRange(ps_center),
-            destIter(res_ul, res_acc),
-            Arg1() / Param(stacksize));
-}
-
-/**
- * Calculate Power-Spektrum
- */
-template <class DestIterator, class DestAccessor, class T>
-void powerSpectrum(const MyImportInfo& info,
-                   DestIterator res_ul, DestAccessor res_acc, std::vector<T> parameterTrafo) {
-    unsigned int stacksize = info.shape(2);
-    unsigned int w = info.shape(0);
-    unsigned int h = info.shape(1);
-   // typedef float T;
-    MultiArray<3, T> im(Shape3(w,h,1));
-    vigra::DImage ps(w, h);
-    vigra::DImage ps_center(w, h);
-    ps = 0;
-
-    transformationFunctor tF(1, 3./8., 0);
-    for(unsigned int i = 0; i < stacksize; i++) {
-        info.readBlock(Shape3(0,0,i), Shape3(w,h,1), im);
-        for(int x0 = 0; x0 < w; x0++){
-        	for(int x1 = 0; x1 < h; x1++){
-        		if(((im(x0,x1,0) - parameterTrafo[1])/parameterTrafo[0])>0){
-        		im(x0,x1,0) = (im(x0,x1,0) - parameterTrafo[1])/parameterTrafo[0];}
-        		else{im(x0,x1,0) = 0;}
-        		im(x0,x1,0) = 2*std::sqrt(im(x0,x1,0) + 3.0/8.0);//tF(poissInt);
-        	}
-        }
-
-        BasicImage<T> bg(w,h);        // background
-        BasicImageView<T> bgV(bg.data(), w,h);
-        BasicImageView<T> tmp = makeBasicImageView(im.bindOuter(0));
-
-		vigra::exportImage(srcImageRange(tmp), "/home/herrmannsdoerfer/master/workspace/output/vorBGSubstr.png");
-		subtractBackground(tmp, bgV);
-		vigra::exportImage(srcImageRange(tmp), "/home/herrmannsdoerfer/master/workspace/output/nachBGSubstr.png");
-
-        MultiArrayView <2, T> array2 = im.bindOuter(0); // select current image
-        BasicImageView<T> input = makeBasicImageView(array2);  // access data as BasicImage
-
-
-        vigra::FFTWComplexImage fourier(w, h);
-        fourierTransform(srcImageRange(input), destImage(fourier));
-
-        // there is no squared magnitude accessor, so we use the magnitude here
-        vigra::combineTwoImages(srcImageRange(ps),
-                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
-                destImage(ps), Arg1()+Arg2());
-
-        helper::progress(i, stacksize); // report progress
-    }
-    std::cout <<std::endl;
-    moveDCToCenter(srcImageRange(ps), destImage(ps_center));
-
-    vigra::transformImage(
-            srcImageRange(ps_center),
-            destIter(res_ul, res_acc),
-            Arg1() / Param(stacksize));
-}
-
-
-template <class DestIterator, class DestAccessor, class StormDataSet,class T>
-inline
-void powerSpectrum(
-                   const StormDataSet& im,
-                   pair<DestIterator, DestAccessor> ps, std::vector<T> parameterTrafo)
-{
-    powerSpectrum(im, ps.first, ps.second, parameterTrafo);
-}
-
-/**
  * Estimate Noise Power
  */
 template <class SrcIterator, class SrcAccessor>
@@ -905,14 +801,12 @@ typename SrcIterator::value_type estimateNoisePower(int w, int h,
 // where X(f) is the power of the signal and
 // N(f) is the power of the noise
 // (e.g., see http://cnx.org/content/m12522/latest/)
-template <class T>
-void constructWienerFilter(const MyImportInfo& info, std::vector<T>& parameterVector) {
+template <class S, class T>
+void constructWienerFilter(const MyImportInfo& info, BasicImage<S> &ps, std::vector<T>& parameterVector) {
 
     int w = info.shape(0);
     int h = info.shape(1);
     std::cout<<w<< "  "<<h<<std::endl;
-    BasicImage<T> ps(w,h);
-    powerSpectrum(info, destImage(ps), parameterVector);
 
     std::ofstream ostreamPS;
 	bool writeMatrices = false;
@@ -987,40 +881,6 @@ void constructWienerFilter(const MyImportInfo& info, std::vector<T>& parameterVe
 	std::cout<<"Variance: "<< totvar<<" Sigma spatial domain: "<<sigmaSpatial <<" sum:"<<sum<<"ps(w,h/2): "<<ps(w/2,h/2)<<std::endl;
 }
 
-
-/**
- Generate a filter for enhancing the image quality in fourier space.
- Either using constructWienerFilter() or by loading the given file.
-
- @param filter if this file exists, load it. Otherwise create a filter
-        from the data and save it to file 'filter'
- @param in 3-dimensional measurement as MultiArrayView<3,float> or MyImageInfo
-*/
-template <class T>
-void generateFilter(const MyImportInfo& info, std::vector<T>& parameterVector) {
-    bool constructNewFilter = true;
-    if(!info.getFilterfile().empty() && helper::fileExists(info.getFilterfile())) {
-        std::ifstream filter(info.getFilterfile());
-        double filterWidth;
-        filter >> filterWidth;
-        parameterVector[3] = filterWidth;
-        if (!filter.fail() && !filter.bad()) {
-            constructNewFilter = false;
-            std::cout << "using filter from file " << info.getFilterfile() << std::endl;
-        }
-        filter.close();
-    }
-    if(constructNewFilter) {
-        std::cout << "generating wiener filter from the data" << std::endl;
-        constructWienerFilter(info, parameterVector);
-        std::cout << "wiener filter constructed"<<parameterVector[3]<<std::endl;
-        std::ofstream filter(info.getFilterfile());
-        filter << parameterVector[3] << std::endl;
-        filter.close();
-    }
-
-}
-
 //--------------------------------------------------------------------------
 // STORM DATA PROCESSING
 //--------------------------------------------------------------------------
@@ -1029,9 +889,9 @@ void generateFilter(const MyImportInfo& info, std::vector<T>& parameterVector) {
  * Estimate Background level and subtract it from the image
  */
 template <class Image>
-void subtractBackground(Image& im, Image& bg) {
+void subtractBackground(Image& im) {
     float sigma = 10.; // todo: estimate from data
-
+    BasicImage<typename Image::value_type> bg(im.size());
     vigra::recursiveSmoothX(srcImageRange(im), destImage(bg), sigma);
     vigra::recursiveSmoothY(srcImageRange(bg), destImage(bg), sigma);
     vigra::combineTwoImages(srcImageRange(im), srcImage(bg), destImage(im), Arg1()-Arg2());
@@ -1266,7 +1126,6 @@ void wienerStormSingleFrame(const MyImportInfo& info, const MultiArrayView<2, T>
     int h = in.shape(1); // height
 
     BasicImage<T> filtered(w,h);
-    BasicImage<T> bg(w,h), bg2(w,h);        // background
 
     int factor = info.getFactor();
     int mylen = info.getRoilen();
@@ -1288,8 +1147,8 @@ void wienerStormSingleFrame(const MyImportInfo& info, const MultiArrayView<2, T>
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), parameterTrafo[3]/2.);
     //gaussianSmoothing(srcImageRange(input), destImage(filteredView), 1.4);
 
-    subtractBackground(filtered, bg);
-    subtractBackground(unfiltered, bg2);
+    subtractBackground(filtered);
+    subtractBackground(unfiltered);
 	applyMask(filtered, mask, framenumber);
 
 	vigra::FindMinMax<T> filteredMinMax;

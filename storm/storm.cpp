@@ -101,8 +101,6 @@ int main(int argc, char** argv) {
         int vech[] = {39,10,10,10,10,40,20};
         printIntensities(info, vecw, vech, 7, parameterTrafo[0],parameterTrafo[1]);
 
-        generateFilter(info, parameterTrafo);  // use the specified one or create wiener filter from the data
-
         wienerStorm(info, res_coords,parameterTrafo);
 
         // resulting image
