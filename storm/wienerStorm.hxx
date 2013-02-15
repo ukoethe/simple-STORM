@@ -1069,7 +1069,7 @@ void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& ma
     int lastChunkSize = stacksize % info.getTChunkSize();
     for (; chunk < (lastChunkSize ? tChunks - 1 : tChunks); ++chunk) {
         readChunk(info, srcImage, poissonMeansRaw, poissonMeans, poissonLabels, chunk, parameterTrafo);
-        processChunk(info, *srcImage[middleChunk], poissonMeans, tF, currframe, middleChunk, maxima_coords, parameterTrafo);
+        processChunk(info, *srcImage[0], poissonMeans, tF, currframe, middleChunk, maxima_coords, parameterTrafo);
     }
     if (lastChunkSize) {
         srcImage[0]->reshape(Shape3(w, h, lastChunkSize));
@@ -1077,7 +1077,7 @@ void wienerStorm(const MyImportInfo& info, std::vector<std::set<Coord<T> > >& ma
         labelsShape[2] = lastChunkSize;
         auto lastPoissonLabelsView = poissonLabels.subarray(Shape3(0, 0, 0), labelsShape);
         readChunk(info, srcImage, poissonMeansRaw, poissonMeans, lastPoissonLabelsView, chunk, parameterTrafo);
-        processChunk(info, *srcImage[middleChunk], poissonMeans, tF, currframe, middleChunk, maxima_coords, parameterTrafo);
+        processChunk(info, *srcImage[0], poissonMeans, tF, currframe, middleChunk, maxima_coords, parameterTrafo);
     }
     delete srcImage[0];
     for (int c = middleChunk + 1; c < chunksInMemory; ++c) {
