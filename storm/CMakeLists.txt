@@ -7,13 +7,7 @@ FIND_PACKAGE( FFTW REQUIRED )
 FIND_PACKAGE( HDF5 )
 FIND_PACKAGE( OpenMP )
 FIND_PACKAGE( R REQUIRED)
-include_directories(
-${R_INCLUDE_DIRS}
-
-${storm_SOURCE_DIR}
-
-)
-
+FIND_PACKAGE( RudeConfig REQUIRED)
 
 IF(HDF5_FOUND)
 	ADD_DEFINITIONS(-DHDF5_FOUND)
@@ -38,12 +32,12 @@ endif(WIN32)
 file(COPY ${STORM_R_SCRIPT} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 IF(CMAKE_COMPILER_IS_GNUCXX)
-	ADD_EXECUTABLE(storm storm.cpp myimportinfo.cpp util.cpp)
-	ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp myimportinfo.cpp util.cpp)
+	ADD_EXECUTABLE(storm storm.cpp stormparams.cpp dataparams.cpp util.cpp)
+    ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp stormparams.cpp dataparams.cpp util.cpp)
 ELSE(CMAKE_COMPILER_IS_GNUCXX)
 	ADD_DEFINITIONS(-DEMULATE_GETOPT)
-	ADD_EXECUTABLE(storm storm.cpp getoptMSVC.c myimportinfo.cpp util.cpp)
-	ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp getoptMSVC.c myimportinfo.cpp util.cpp)
+    ADD_EXECUTABLE(storm storm.cpp getoptMSVC.c stormparams.cpp dataparams.cpp util.cpp)
+    ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp getoptMSVC.c stormparams.cpp dataparams.cpp util.cpp)
 ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 
 IF(OPENMP_FOUND)
@@ -53,8 +47,8 @@ IF(OPENMP_FOUND)
 	SET_TARGET_PROPERTIES(wienerfilter PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
 ENDIF(OPENMP_FOUND)
 
-TARGET_LINK_LIBRARIES(storm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
-TARGET_LINK_LIBRARIES(wienerfilter vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES})
+TARGET_LINK_LIBRARIES(storm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
+TARGET_LINK_LIBRARIES(wienerfilter vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
 
 IF(HDF5_FOUND)
     TARGET_LINK_LIBRARIES(storm ${HDF5_LIBRARIES}
@@ -70,7 +64,9 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${Vigra_INCLUDE_DIRS}
-    ${FFTW_INCLUDE_DIRS}
+    ${FFTW_INCLUDE_DIR}
+    ${R_INCLUDE_DIRS}
+    ${RUDECONFIG_INCLUDE_DIR}
     )
 
 ADD_SUBDIRECTORY(test)

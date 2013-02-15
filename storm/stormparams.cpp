@@ -49,8 +49,9 @@
 #ifdef HDF5_FOUND
     #include <vigra/hdf5impex.hxx>
 #endif
+#include <rude/config.h>
 
-#include "myimportinfo.h"
+#include "stormparams.h"
 
 using namespace vigra;
 
@@ -86,9 +87,11 @@ inline unsigned long convertToULong(const char* const s) {
     return x;
 }
 
-MyImportInfo::MyImportInfo(int argc, char **argv)
+const std::string StormParams::s_section = "stormparams";
+
+StormParams::StormParams(int argc, char **argv)
 : m_factor(8), m_roilen(9), m_threshold(250), m_pixelsize(1), m_skellamFrames(200), m_xyChunkSize(10),
-  m_tChunkSize(10), m_chunksInMemory(5) {
+  m_tChunkSize(10), m_chunksInMemory(5), m_verbose(false) {
 #ifndef __WIN__
     m_executableDir.append(dirname(argv[0]));
     m_executableName.append(basename(argv[0]));
@@ -102,7 +105,8 @@ MyImportInfo::MyImportInfo(int argc, char **argv)
     m_executableName.append(fname).append(ext);
 #endif
 
-	parseProgramOptions(argc, argv);
+    setSavedBooleans(true);
+    parseProgramOptions(argc, argv);
 
     std::string extension = m_infile.substr( m_infile.find_last_of('.'));
     if(extension==".tif" || extension==".tiff") {
@@ -132,9 +136,12 @@ MyImportInfo::MyImportInfo(int argc, char **argv)
     }
 
     setDefaults();
+    m_config = new rude::Config();
+    m_config->setConfigFile(m_settingsfile.c_str());
+    load();
 }
 
-MyImportInfo::~MyImportInfo() {
+StormParams::~StormParams() {
     switch(m_type) {
         case TIFF:
             delete (ImageImportInfo*)ptr;
@@ -149,34 +156,92 @@ MyImportInfo::~MyImportInfo() {
         #endif // HDF5_FOUND
         default:
             break;
-        }
+    }
+    delete m_config;
 }
 
-int MyImportInfo::getFactor() const {return m_factor;}
-int MyImportInfo::getRoilen() const {return m_roilen;}
-float MyImportInfo::getThreshold() const {return m_threshold;}
-float MyImportInfo::getPixelsize() const {return m_pixelsize;}
-unsigned int MyImportInfo::getSkellamFrames() const {return m_skellamFrames;}
-unsigned int MyImportInfo::getXYChunkSize() const {return m_xyChunkSize;}
-unsigned int MyImportInfo::getTChunkSize() const {return m_tChunkSize;}
-unsigned int MyImportInfo::getChunksInMemory() const {return m_chunksInMemory;}
-const std::string& MyImportInfo::getInfile() const {return m_infile;}
-const std::string& MyImportInfo::getOutfile() const {return m_outfile;}
-const std::string& MyImportInfo::getCoordsfile() const {return m_coordsfile;}
-const std::string& MyImportInfo::getFilterfile() const {return m_filterfile;}
-const std::string& MyImportInfo::getFrameRange() const {return m_frames;}
-char MyImportInfo::getVerbose() const {return verbose;}
+int StormParams::getFactor() const {
+    return m_factor;
+}
+bool StormParams::getFactorSaved() const {
+    return m_factorSaved;
+}
+int StormParams::getRoilen() const {
+    return m_roilen;
+}
+bool StormParams::getRoilenSaved() const {
+    return m_roilenSaved;
+}
+float StormParams::getThreshold() const {
+    return m_threshold;
+}
+bool StormParams::getThresholdSaved() const {
+    return m_thresholdSaved;
+}
+float StormParams::getPixelSize() const {
+    return m_pixelsize;
+}
+bool StormParams::getPixelSizeSaved() const {
+    return m_pixelsizeSaved;
+}
+unsigned int StormParams::getSkellamFrames() const {
+    return m_skellamFrames;
+}
+bool StormParams::getSkellamFramesSaved() const {
+    return m_skellamFramesSaved;
+}
+unsigned int StormParams::getXYChunkSize() const {
+    return m_xyChunkSize;
+}
+bool StormParams::getXYChunkSizeSaved() const {
+    return m_xyChunkSizeSaved;
+}
+unsigned int StormParams::getTChunkSize() const {
+    return m_tChunkSize;
+}
+bool StormParams::getTChunkSizeSaved() const {
+    return m_tChunkSizeSaved;
+}
+unsigned int StormParams::getChunksInMemory() const {
+    return m_chunksInMemory;
+}
+bool StormParams::getChunksInMemorySaved() const {
+    return m_chunksInMemorySaved;
+}
+const std::string& StormParams::getInFile() const {
+    return m_infile;
+}
+const std::string& StormParams::getOutFile() const {
+    return m_outfile;
+}
+const std::string& StormParams::getCoordsFile() const {
+    return m_coordsfile;
+}
+const std::string& StormParams::getSettingsFile() const {
+    return m_settingsfile;
+}
+const std::string& StormParams::getFrameRange() const {
+    return m_frames;
+}
+bool StormParams::getFrameRangeSaved() const {
+    return m_framesSaved;
+}
+bool StormParams::getVerbose() const {
+    return m_verbose;
+}
+const StormParams::Shape & StormParams::shape() const {
+    return m_shape;
+}
+vigra::MultiArrayIndex StormParams::shape(const int dim) const {
+    return m_shape[dim];
+}
+FileType StormParams::type() const { return m_type; };
 
-const MyImportInfo::Shape & MyImportInfo::shape() const { return m_shape; }
-vigra::MultiArrayIndex MyImportInfo::shape(const int dim) const { return m_shape[dim]; }
-FileType MyImportInfo::type() const { return m_type; };
-
-const std::string& MyImportInfo::executableDir() const
-{
+const std::string& StormParams::executableDir() const {
     return m_executableDir;
 }
 
-void MyImportInfo::printUsage() const {
+void StormParams::printUsage() const {
 	std::cout << "Usage: " << m_executableName << " [Options] infile.sif [outfile.png]" << std::endl
 	<< "Allowed Options: " << std::endl
 	<< "  --help                 Print this help message" << std::endl
@@ -197,7 +262,7 @@ void MyImportInfo::printUsage() const {
 	;
 }
 
-void MyImportInfo::printVersion() const {
+void StormParams::printVersion() const {
     std::cout << "STORM analysis software version " << versionString() << std::endl
     << "Copyright (C) 2011 Joachim Schleicher and Ullrich Koethe" << std::endl
     << "This is free software; see the source for copying conditions.  There is NO" << std::endl
@@ -208,7 +273,7 @@ void MyImportInfo::printVersion() const {
 /**
  * Defaults for unset variables are important
  */
-void MyImportInfo::setDefaults() {
+void StormParams::setDefaults() {
     // defaults: save out- and coordsfile into the same folder as input stack
 	size_t pos = m_infile.find_last_of('.');
     if (m_outfile.empty()) {
@@ -219,9 +284,9 @@ void MyImportInfo::setDefaults() {
     	m_coordsfile = m_infile;
     	m_coordsfile.replace(pos, 255, ".txt"); // replace extension
 	}
-    if( m_filterfile.empty()) {
-    	m_filterfile = m_infile;
-    	m_filterfile.replace(pos, 255, "_filter.txt"); // replace extension
+    if( m_settingsfile.empty()) {
+    	m_settingsfile = m_infile;
+    	m_settingsfile.replace(pos, 255, "_settings.txt"); // replace extension
 	}
     if (m_skellamFrames > m_shape[2] || m_skellamFrames <= 0)
         m_skellamFrames = m_shape[2];
@@ -229,10 +294,23 @@ void MyImportInfo::setDefaults() {
         m_chunksInMemory = 3;
 }
 
+void StormParams::setSavedBooleans(bool saved)
+{
+    m_factorSaved = saved;
+    m_roilenSaved = saved;
+    m_thresholdSaved = saved;
+    m_pixelsizeSaved = saved;
+    m_skellamFramesSaved = saved;
+    m_xyChunkSizeSaved = saved;
+    m_tChunkSizeSaved = saved;
+    m_chunksInMemorySaved = saved;
+    m_framesSaved = saved;
+}
+
 /**
  * Parse Options from argv into parameter-maps
  */
-int MyImportInfo::parseProgramOptions(int argc, char **argv)
+int StormParams::parseProgramOptions(int argc, char **argv)
 {
 	int c;
 	int digit_optind = 0;
@@ -265,30 +343,37 @@ int MyImportInfo::parseProgramOptions(int argc, char **argv)
 		switch (c) {
 		case 't': // threshold
 			m_threshold = convertToFloat(optarg);
+            m_thresholdSaved = false;
 			break;
 		case 'g': // factor
 			m_factor = convertToLong(optarg);
+            m_factorSaved = false;
 			break;
         case 'P': // cam-param-frames
-            m_skellamFrames =convertToULong(optarg);
+            m_skellamFrames = convertToULong(optarg);
+            m_skellamFramesSaved = false;
             break;
 		case 'm': // roi-len
 			m_roilen = convertToLong(optarg);
+            m_roilenSaved = false;
 			break;
         case 'p': // pixelsize
         	m_pixelsize = convertToFloat(optarg);
+            m_pixelsizeSaved = false;
         	break;
 		case 'c': // coordsfile
 			m_coordsfile = optarg;
 			break;
 		case 'f': // filter
-			m_filterfile = optarg;
+			m_settingsfile = optarg;
+            m_pixelsizeSaved = false;
 			break;
 		case 'F': // frames
 			m_frames = optarg;
+            m_framesSaved = false;
 			break;
 		case 'v':
-			verbose = 1; // verbose mode
+			m_verbose = true; // verbose mode
 			break;
 		// Option -? and in case of unknown option or missing argument
 		case '?':
@@ -318,7 +403,7 @@ int MyImportInfo::parseProgramOptions(int argc, char **argv)
 }
 
 template <class T>
-bool readTVolume(MultiArrayView<MYIMPORT_N, T> & array, FileType type, void *ptr) {
+bool readTVolume(MultiArrayView<STORMPARAMS_N, T> & array, FileType type, void *ptr) {
     switch(type) {
         case TIFF:
         {
@@ -346,10 +431,10 @@ bool readTVolume(MultiArrayView<MYIMPORT_N, T> & array, FileType type, void *ptr
 }
 
 template <class T>
-bool readTBlock(const MyImportInfo::Shape& blockOffset,
-               const MyImportInfo::Shape& blockShape,
-               MultiArrayView<MYIMPORT_N, T> & array, FileType type,
-               const MyImportInfo::Shape &shape, void *ptr) {
+bool readTBlock(const StormParams::Shape& blockOffset,
+               const StormParams::Shape& blockShape,
+                MultiArrayView<STORMPARAMS_N, T> & array, FileType type,
+               const StormParams::Shape &shape, void *ptr) {
     switch(type) {
         case TIFF:
         {
@@ -381,7 +466,7 @@ bool readTBlock(const MyImportInfo::Shape& blockOffset,
 }
 
 template <class  T>
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, T> & array) const {
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, T> & array) const {
     if (!readTVolume(array, m_type, ptr))
         vigra_fail("decoder for type not implemented.");
 }
@@ -389,9 +474,9 @@ void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, T> & array) const {
 
 
 template <class  T>
-void MyImportInfo::readBlock(const MyImportInfo::Shape& blockOffset,
-               const MyImportInfo::Shape& blockShape,
-               MultiArrayView<MYIMPORT_N, T> & array) const
+void StormParams::readBlock(const StormParams::Shape& blockOffset,
+               const StormParams::Shape& blockShape,
+               MultiArrayView<STORMPARAMS_N, T> & array) const
 {
     if (!readTBlock(blockOffset, blockShape, array, m_type, m_shape, ptr))
         vigra_fail("decoder for type not implemented.");
@@ -400,19 +485,19 @@ void MyImportInfo::readBlock(const MyImportInfo::Shape& blockOffset,
 
 
 template
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, int8_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int8_t>&) const;
 template
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, int16_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int16_t>&) const;
 template
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, int32_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int32_t>&) const;
 template
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, unsigned int8_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
 template
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, unsigned int16_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
 template
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, unsigned int32_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
 template<>
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, float>& array) const {
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, float>& array) const {
     if (!readTVolume(array, m_type, ptr)) {
         if (m_type == SIF) {
             SIFImportInfo* info = reinterpret_cast<SIFImportInfo*>(ptr);
@@ -422,36 +507,36 @@ void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, float>& array) const {
     }
 }
 template
-void MyImportInfo::readVolume(MultiArrayView<MYIMPORT_N, double>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, double>&) const;
 
 template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-               const MyImportInfo::Shape&,
-               MultiArrayView<MYIMPORT_N, int8_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, int8_t>&) const;
 template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-               const MyImportInfo::Shape&,
-               MultiArrayView<MYIMPORT_N, int16_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, int16_t>&) const;
 template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-               const MyImportInfo::Shape&,
-               MultiArrayView<MYIMPORT_N, int32_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, int32_t>&) const;
 template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-               const MyImportInfo::Shape&,
-               MultiArrayView<MYIMPORT_N, unsigned int8_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
 template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-               const MyImportInfo::Shape&,
-               MultiArrayView<MYIMPORT_N, unsigned int16_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
 template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-               const MyImportInfo::Shape&,
-               MultiArrayView<MYIMPORT_N, unsigned int32_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
 template<>
-void MyImportInfo::readBlock(const MyImportInfo::Shape& blockOffset,
-               const MyImportInfo::Shape& blockShape,
-               MultiArrayView<MYIMPORT_N, float>& array) const {
+void StormParams::readBlock(const StormParams::Shape& blockOffset,
+               const StormParams::Shape& blockShape,
+               MultiArrayView<STORMPARAMS_N, float>& array) const {
     if (!readTBlock(blockOffset, blockShape, array, m_type, m_shape, ptr)) {
         if (m_type == SIF) {
             SIFImportInfo* info = reinterpret_cast<SIFImportInfo*>(ptr);
@@ -461,6 +546,58 @@ void MyImportInfo::readBlock(const MyImportInfo::Shape& blockOffset,
     }
 }
 template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-               const MyImportInfo::Shape&,
-               MultiArrayView<MYIMPORT_N, double>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, double>&) const;
+
+void StormParams::save() const
+{
+    m_config->setSection(s_section.c_str());
+    m_config->setIntValue("factor", m_factor);
+    m_config->setIntValue("roilen", m_roilen);
+    m_config->setDoubleValue("threshold", m_threshold);
+    m_config->setDoubleValue("pixelsize", m_pixelsize);
+    m_config->setIntValue("skellamFrames", m_skellamFrames);
+    m_config->setIntValue("xyChunkSize", m_xyChunkSize);
+    m_config->setIntValue("tChunkSize", m_tChunkSize);
+    m_config->setIntValue("chunksInMemory", m_chunksInMemory);
+    m_config->save();
+}
+
+void StormParams::load()
+{
+    m_config->load();
+    m_config->setSection(s_section.c_str());
+    if (m_factorSaved && m_config->exists("factor"))
+        m_factor = m_config->getIntValue("factor");
+    else
+        m_factorSaved = false;
+    if (m_roilenSaved && m_config->exists("roilen"))
+        m_roilenSaved = m_config->getIntValue("roilen");
+    else
+        m_roilenSaved = false;
+    if (m_thresholdSaved && m_config->exists("threshold"))
+        m_threshold = m_config->getDoubleValue("threshold");
+    else
+        m_thresholdSaved = false;
+    if (m_pixelsizeSaved && m_config->exists("pixelsize"))
+        m_pixelsize = m_config->getDoubleValue("pixelsize");
+    else
+        m_pixelsizeSaved = false;
+    if (m_skellamFramesSaved && m_config->exists("skellamFrames"))
+        m_skellamFrames = m_config->getIntValue("skellamFrames");
+    else
+        m_skellamFramesSaved = false;
+    if (m_xyChunkSizeSaved && m_config->exists("xyChunkSize"))
+        m_xyChunkSize = m_config->getIntValue("xyChunkSize");
+    else
+        m_xyChunkSizeSaved = false;
+    if (m_tChunkSizeSaved && m_config->exists("tChunkSize"))
+        m_tChunkSize = m_config->getIntValue("tChunkSize");
+    else
+        m_tChunkSizeSaved = false;
+    if (m_chunksInMemorySaved && m_config->exists("chunksInMemory"))
+        m_chunksInMemory = m_config->getIntValue("chunksInMemory");
+    else
+        m_chunksInMemorySaved = false;
+}

@@ -31,6 +31,9 @@
 /*                                                                      */
 /************************************************************************/
 
+#ifndef STORMPARAMS_H
+#define STORMPARAMS_H
+
 #include <string>
 #include <vigra/impex.hxx>
 #include <vigra/sifImport.hxx>
@@ -38,12 +41,13 @@
     #include <vigra/hdf5impex.hxx>
 #endif
 
-#ifndef MYIMPORTINFO_H
-#define MYIMPORTINFO_H
-
-#define MYIMPORT_N 3 // could eventually be a template parameter later on
+#define STORMPARAMS_N 3 // could eventually be a template parameter later on
 
 #include "configVersion.hxx"
+
+namespace rude {
+class Config;
+}
 
 enum FileType { UNDEFINED, TIFF, HDF5, SIF };
 
@@ -54,29 +58,38 @@ public:
     { }
 };
 
-class MyImportInfo {
+class StormParams {
 public:
-    typedef vigra::MultiArrayShape<MYIMPORT_N>::type Shape;
+    typedef vigra::MultiArrayShape<STORMPARAMS_N>::type Shape;
 
-    MyImportInfo(int argc, char **argv);
-    ~MyImportInfo();
+    StormParams(int argc, char **argv);
+    virtual ~StormParams();
 
     void printUsage() const;
     void printVersion() const;
     int getFactor() const;
+    bool getFactorSaved() const;
     int getRoilen() const;
+    bool getRoilenSaved() const;
     float getThreshold() const;
-    float getPixelsize() const;
+    bool getThresholdSaved() const;
+    float getPixelSize() const;
+    bool getPixelSizeSaved() const;
     unsigned int getSkellamFrames() const;
+    bool getSkellamFramesSaved() const;
     unsigned int getXYChunkSize() const;
+    bool getXYChunkSizeSaved() const;
     unsigned int getTChunkSize() const;
+    bool getTChunkSizeSaved() const;
     unsigned int getChunksInMemory() const;
-    const std::string& getInfile() const;
-    const std::string& getOutfile() const;
-    const std::string& getCoordsfile() const;
-    const std::string& getFilterfile() const;
+    bool getChunksInMemorySaved() const;
+    const std::string& getInFile() const;
+    const std::string& getOutFile() const;
+    const std::string& getCoordsFile() const;
+    const std::string& getSettingsFile() const;
     const std::string& getFrameRange() const;
-    char getVerbose() const;
+    bool getFrameRangeSaved() const;
+    bool getVerbose() const;
 
     const Shape & shape() const;
     vigra::MultiArrayIndex shape(const int dim) const;
@@ -84,86 +97,102 @@ public:
     const std::string& executableDir() const;
 
     template <typename  T>
-    void readVolume(vigra::MultiArrayView<MYIMPORT_N, T> &) const;
+    void readVolume(vigra::MultiArrayView<STORMPARAMS_N, T> &) const;
     template <typename  T>
-    void readBlock(const Shape&, const Shape&, vigra::MultiArrayView<MYIMPORT_N, T>&) const;
+    void readBlock(const Shape&, const Shape&, vigra::MultiArrayView<STORMPARAMS_N, T>&) const;
 
-    char verbose;
+    virtual void save() const;
+    void load();
 
     mutable void * ptr; // hack
+
+protected:
+    mutable rude::Config *m_config;
 
 private:
     int parseProgramOptions(int argc, char **argv);
     void setDefaults();
+    void setSavedBooleans(bool);
 
-    std::string m_filename;
     Shape m_shape;
     FileType m_type;
     std::string m_executableDir;
     std::string m_executableName;
     int m_factor;
+    bool m_factorSaved;
     int m_roilen;
+    bool m_roilenSaved;
     float m_threshold;
+    bool m_thresholdSaved;
     float m_pixelsize;
+    bool m_pixelsizeSaved;
     unsigned int m_skellamFrames;
+    bool m_skellamFramesSaved;
     unsigned int m_xyChunkSize;
+    bool m_xyChunkSizeSaved;
     unsigned int m_tChunkSize;
+    bool m_tChunkSizeSaved;
     unsigned int m_chunksInMemory;
+    bool m_chunksInMemorySaved;
+    bool m_framesSaved;
+    bool m_verbose;
     std::string m_infile;
     std::string m_outfile;
     std::string m_coordsfile;
-    std::string m_filterfile;
+    std::string m_settingsfile;
     std::string m_frames;
+
+    static const std::string s_section;
 };
 
 extern template
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, int8_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, int8_t>&) const;
 extern template
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, int16_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, int16_t>&) const;
 extern template
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, int32_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, int32_t>&) const;
 extern template
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, unsigned int8_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
 extern template
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, unsigned int16_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
 extern template
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, unsigned int32_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
 template<>
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, float>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, float>&) const;
 extern template
-void MyImportInfo::readVolume(vigra::MultiArrayView<MYIMPORT_N, double>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, double>&) const;
 
 extern template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, int8_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, int8_t>&) const;
 extern template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, int16_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, int16_t>&) const;
 extern template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, int32_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, int32_t>&) const;
 extern template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, unsigned int8_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
 extern template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, unsigned int16_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
 extern template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, unsigned int32_t>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
 template<>
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, float>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, float>&) const;
 extern template
-void MyImportInfo::readBlock(const MyImportInfo::Shape&,
-                const MyImportInfo::Shape&,
-                vigra::MultiArrayView<MYIMPORT_N, double>&) const;
+void StormParams::readBlock(const StormParams::Shape&,
+                const StormParams::Shape&,
+                vigra::MultiArrayView<STORMPARAMS_N, double>&) const;
 
-#endif // MYIMPORTINFO_H
+#endif // STORMPARAMS_H

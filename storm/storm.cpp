@@ -24,7 +24,7 @@
 #include "configVersion.hxx"
 
 #include <vigra/impex.hxx>
-#include "myimportinfo.h"
+#include "dataparams.h"
 #ifdef HDF5_FOUND
     #include <vigra/hdf5impex.hxx>
 #endif
@@ -44,22 +44,19 @@ int main(int argc, char** argv) {
     try
     {
 
-        MultiArray<3,float> in;
-        typedef MultiArrayShape<3>::type Shape;
+        DataParams params(argc, argv);
 
-        MyImportInfo info(argc, argv);
-
-        if(info.verbose) {
-		   std::cout << "thr:" << info.getThreshold() << " factor:" << info.getFactor() << std::endl;
+        if(params.getVerbose()) {
+            std::cout << "thr:" << params.getThreshold() << " factor:" << params.getFactor() << std::endl;
 	    }
         //~ in.reshape(info.shape());
         //~ readVolume(info, in);
-        int stacksize = info.shape()[2];
-        Size2D size2 (info.shape(0), info.shape(1)); // isnt' there a slicing operator?
+        int stacksize = params.shape(2);
+        Size2D size2 (params.shape(0), params.shape(1)); // isnt' there a slicing operator?
 
 
-        if(info.verbose) {
-            std::cout << "Images with Shape: " << info.shape() << std::endl;
+        if(params.getVerbose()) {
+            std::cout << "Images with Shape: " << params.shape() << std::endl;
             std::cout << "Processing a stack of " << stacksize << " images..." << std::endl;
         }
 
@@ -68,13 +65,13 @@ int main(int argc, char** argv) {
         // the inner set contains all spots in the image
         std::vector<std::set<Coord<float> > > res_coords(stacksize);
 
-        DImage res((size2-Diff2D(1,1))*info.getFactor()+Diff2D(1,1));
+        DImage res((size2-Diff2D(1,1))*params.getFactor()+Diff2D(1,1));
         // check if outfile is writable, otherwise throw error -> exit
-        exportImage(srcImageRange(res), ImageExportInfo(info.getOutfile().c_str()));
-        if(!info.getCoordsfile().empty()) {
-            std::ofstream cf (info.getCoordsfile().c_str());
+        exportImage(srcImageRange(res), ImageExportInfo(params.getOutFile().c_str()));
+        std::ofstream cf;
+        if(!params.getCoordsFile().empty()) {
+            cf.open(params.getCoordsFile());
             vigra_precondition(cf.is_open(), "Could not open coordinate-file for writing.");
-            cf.close();
         }
 
         USETICTOC;
@@ -84,31 +81,31 @@ int main(int argc, char** argv) {
         //printIntensities(info);
 
         float a,offset, intercept;
-        std::vector<float> parameterTrafo(6);
-        findCorrectionCoefficients(info, parameterTrafo); 	//first 3 entries are parameters for the raw signal to poisson transformation
+        findCorrectionCoefficients<float>(params); 	//first 3 entries are parameters for the raw signal to poisson transformation
         													//the last 3 entries are parameters for the poission to gaussian with sigma = 1 transformation
         //parameterTrafo[0] = 1.5;
 		//parameterTrafo[1] = 40;
 //		parameterTrafo[2] = 0;
-        std::cout<<"a: "<<parameterTrafo[0]<<" b: "<<parameterTrafo[1]<<" intercept: "<<parameterTrafo[2]<<std::endl;
+        std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept()<<std::endl;
         //showPoisson(info, parameterTrafo);
 
         //parameterTrafo[4] = 0;
         //parameterTrafo[5] = 3./8.;
 
-        int w= info.shape(0), h =info.shape(1);
+        int w = params.shape(0), h = params.shape(1);
         int vecw[] = {16,30,40,50,60,16,26};
         int vech[] = {39,10,10,10,10,40,20};
-        printIntensities(info, vecw, vech, 7, parameterTrafo[0],parameterTrafo[1]);
+        printIntensities(params, vecw, vech, 7);
 
-        wienerStorm(info, res_coords,parameterTrafo);
+        wienerStorm(params, res_coords);
 
         // resulting image
         drawCoordsToImage<Coord<float> >(res_coords, res);
 
         int numSpots = 0;
-        if(!info.getCoordsfile().empty()) {
-            numSpots = saveCoordsFile(info.getCoordsfile(), res_coords, info.shape(), info.getFactor(), info.getPixelsize());
+        if(cf.is_open()) {
+            numSpots = saveCoordsFile(params, cf, res_coords);
+            cf.close();
         }
 
         // end: done.
@@ -122,8 +119,9 @@ int main(int argc, char** argv) {
         if(maxlim > minlim) {
             transformImage(srcImageRange(res), destImage(res), ifThenElse(Arg1()>Param(maxlim), Param(maxlim), Arg1()));
         }
-        exportImage(srcImageRange(res), ImageExportInfo(info.getOutfile().c_str()));
-
+        exportImage(srcImageRange(res), ImageExportInfo(params.getOutFile().c_str()));
+        if (!params.getSettingsFile().empty())
+            params.save();
 
 
     }
