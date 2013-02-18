@@ -90,8 +90,11 @@ inline unsigned long convertToULong(const char* const s) {
 const std::string StormParams::s_section = "stormparams";
 
 StormParams::StormParams(int argc, char **argv)
-: m_factor(8), m_roilen(9), m_threshold(250), m_pixelsize(1), m_skellamFrames(200), m_xyChunkSize(10),
-  m_tChunkSize(10), m_chunksInMemory(5), m_verbose(false) {
+: m_factor(8), m_factorSaved(true), m_roilen(9), m_roilenSaved(true), m_threshold(250),
+  m_thresholdSaved(true), m_pixelsize(1), m_pixelsizeSaved(true), m_skellamFrames(200),
+  m_skellamFramesSaved(true), m_xyChunkSize(10), m_xyChunkSizeSaved(true),
+  m_tChunkSize(10), m_tChunkSizeSaved(true), m_chunksInMemory(5), m_chunksInMemorySaved(true),
+  m_verbose(false) {
 #ifndef __WIN__
     m_executableDir.append(dirname(argv[0]));
     m_executableName.append(basename(argv[0]));
@@ -105,7 +108,6 @@ StormParams::StormParams(int argc, char **argv)
     m_executableName.append(fname).append(ext);
 #endif
 
-    setSavedBooleans(true);
     parseProgramOptions(argc, argv);
 
     std::string extension = m_infile.substr( m_infile.find_last_of('.'));
@@ -292,19 +294,6 @@ void StormParams::setDefaults() {
         m_skellamFrames = m_shape[2];
     if (m_chunksInMemory < 4)
         m_chunksInMemory = 3;
-}
-
-void StormParams::setSavedBooleans(bool saved)
-{
-    m_factorSaved = saved;
-    m_roilenSaved = saved;
-    m_thresholdSaved = saved;
-    m_pixelsizeSaved = saved;
-    m_skellamFramesSaved = saved;
-    m_xyChunkSizeSaved = saved;
-    m_tChunkSizeSaved = saved;
-    m_chunksInMemorySaved = saved;
-    m_framesSaved = saved;
 }
 
 /**

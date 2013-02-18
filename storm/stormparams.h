@@ -112,7 +112,6 @@ protected:
 private:
     int parseProgramOptions(int argc, char **argv);
     void setDefaults();
-    void setSavedBooleans(bool);
 
     Shape m_shape;
     FileType m_type;
