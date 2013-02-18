@@ -16,7 +16,7 @@ ELSE(HDF5_FOUND)
 ENDIF(HDF5_FOUND)
 
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -fpermissive -std=c++11"
+    "${CMAKE_CXX_FLAGS} -std=c++11"
 )
 
 set(STORM_R_SCRIPT_DIR ${CMAKE_INSTALL_PREFIX}/share/simpleStorm/)

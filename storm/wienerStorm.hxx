@@ -684,6 +684,155 @@ void calculateSkellamParameters(const DataParams &params, int listPixelCoordinat
 
 }
 
+
+/**
+ * Estimate Background level and subtract it from the image
+ */
+template <class Image>
+void subtractBackground(Image& im) {
+    float sigma = 10.; // todo: estimate from data
+    BasicImage<typename Image::value_type> bg(im.size());
+    vigra::recursiveSmoothX(srcImageRange(im), destImage(bg), sigma);
+    vigra::recursiveSmoothY(srcImageRange(bg), destImage(bg), sigma);
+    vigra::combineTwoImages(srcImageRange(im), srcImage(bg), destImage(im), Arg1()-Arg2());
+}
+
+
+
+//--------------------------------------------------------------------------
+// GENERATE WIENER FILTER
+//--------------------------------------------------------------------------
+// Since the algorithms work on single-frames only, there is no need to
+// put the complete dataset into RAM but every frame can be read from disk
+// when needed. The class MyImportInfo transparently handles hdf5 and sif
+// input file pointers.
+
+/**
+ * Estimate Noise Power
+ */
+template <class SrcIterator, class SrcAccessor>
+typename SrcIterator::value_type estimateNoisePower(int w, int h,
+        SrcIterator is, SrcIterator end, SrcAccessor as)
+{
+    typedef double sum_type; // use double here since the sum can get larger than float range
+
+    vigra::FindSum<sum_type> sum;   // init functor
+    vigra::FindSum<sum_type> sumROI;   // init functor
+    vigra::BImage mask(w,h);
+    mask = 0;
+    // TODO: this size should depend on image dimensions!
+    int borderWidth = 10;
+    for(int y = borderWidth; y < h-borderWidth; y++) {  // select center of the fft image
+        for(int x = borderWidth; x < w-borderWidth; x++) {
+            mask(x,y) = 1;
+        }
+    }
+    vigra::inspectImage(is, end, as, sum);
+    vigra::inspectImageIf(is, end, as, mask.upperLeft(), mask.accessor(), sumROI);
+
+    sum_type s = sum() - sumROI();
+    return s / (w*h - (w-2*borderWidth)*(h-2*borderWidth));
+}
+
+
+template <class SrcIterator, class SrcAccessor>
+inline
+typename SrcIterator::value_type estimateNoisePower(int w, int h,
+                   triple<SrcIterator, SrcIterator, SrcAccessor> ps)
+{
+    return estimateNoisePower(w, h, ps.first, ps.second, ps.third);
+}
+
+/**
+ * Construct Wiener Filter using noise power estimated
+ * at high frequencies.
+ */
+// Wiener filter is defined as
+// H(f) = (|X(f)|)^2/[(|X(f)|)^2 + (|N(f)|)^2]
+// where X(f) is the power of the signal and
+// N(f) is the power of the noise
+// (e.g., see http://cnx.org/content/m12522/latest/)
+template <class T>
+void constructWienerFilter(DataParams &params, BasicImage<T> &ps) {
+
+    int w = params.shape(0);
+    int h = params.shape(1);
+    std::cout<<w<< "  "<<h<<std::endl;
+
+    std::ofstream ostreamPS;
+    bool writeMatrices = false;
+    if(writeMatrices){
+        char fnamePS[1000];
+
+        //sprintf(fnamePS, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/meanPS.txt");
+
+        ostreamPS.open(fnamePS);}
+    for(int i=0;i<w;i++){
+        for(int j=0;j<h;j++){
+            //std::cout<<i<<" 2 "<<j<<std::endl;
+            ostreamPS << i<<"  "<< j<<"  "<< ps(i,j)<<std::endl;
+        }
+    }
+    ostreamPS.close();
+
+    std::cout<<std::endl;
+
+    //vigra::exportImage(srcImageRange(ps), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/meanPS.png");
+
+    T noise = estimateNoisePower(w,h,srcImageRange(ps));
+    std::cout<<"noise: "<<noise<<std::endl;
+
+
+    transformImage(srcImageRange(ps),destImage(ps),
+                ifThenElse(Arg1()-Param(noise)>Param(0.), Arg1()-Param(noise), Param(0.)));
+
+    double totvar = 0;
+    double dx;
+    double dy;
+
+    double sum = 0;
+    std::cout<<std::endl;
+
+    for (int i = 0; i < w; i++) {
+        for (int j = 0; j < h; j++) {
+            sum += ps(i,j);
+            dx = (i - w/2.)/(w/2.);
+            dy = (j - h/2.)/(h/2.);
+            //std::cout<<"dx: "<<dx<<" dy: "<<dy<<std::endl;
+            totvar += ps(i,j) * (dx * dx + dy*dy);
+            if(i == w/2){std::cout<<ps(i,j)<<" ,";}
+        }
+    }
+    std::cout<<std::endl;
+
+    double varx = 0;
+    double sum2 = 0;
+    double vary = 0;
+    double sum3 = 0;
+
+    for(int i = 0; i< w; i++){
+        sum2 += ps(i, h/2);
+        dx = ((i-w/2.)/(w/2.));
+        varx += ps(i,h/2) * dx *dx;
+
+        sum3 += ps(w/2, i);
+        dy = ((i-h/2.)/(h/2.));
+        vary += ps(w/2,i) * dy *dy;
+    }
+    varx = varx / (sum2-ps(w/2,h/2));
+    vary = vary / (sum3-ps(w/2,h/2));
+
+    std::cout<<"Variance: "<< varx<<" Sigma spatial domain 1D: "<<1/(2*3.14*std::sqrt(varx/2.)) <<std::endl;
+    std::cout<<"Variance: "<< vary<<" Sigma spatial domain 1Dy: "<<1/(2*3.14*std::sqrt(vary/2.)) <<std::endl;
+
+    totvar = totvar / ((sum-ps(w/2,h/2)) *2.); //totvar is the sum of varx and vary in case of symmetric signal
+    double sigmaSpatial = 1/(2*3.14*std::sqrt(totvar/2.));
+    params.setSigma(sigmaSpatial);
+
+    std::cout<<"Variance: "<< totvar<<" Sigma spatial domain: "<<sigmaSpatial <<" sum:"<<sum<<"ps(w,h/2): "<<ps(w/2,h/2)<<std::endl;
+}
+
+
 //To estimate the gain factor points with different mean intensities are needed. This functions searches for
 //good candidates, it tries to find pixels with as much different mean values as possible.
 template <class T>
@@ -780,153 +929,8 @@ void applyMask(BasicImage<T>& img, MultiArrayView<2, T>& mask, int frnr){
 }
 
 //--------------------------------------------------------------------------
-// GENERATE WIENER FILTER
-//--------------------------------------------------------------------------
-// Since the algorithms work on single-frames only, there is no need to
-// put the complete dataset into RAM but every frame can be read from disk
-// when needed. The class MyImportInfo transparently handles hdf5 and sif
-// input file pointers.
-
-/**
- * Estimate Noise Power
- */
-template <class SrcIterator, class SrcAccessor>
-typename SrcIterator::value_type estimateNoisePower(int w, int h,
-        SrcIterator is, SrcIterator end, SrcAccessor as)
-{
-    typedef double sum_type; // use double here since the sum can get larger than float range
-
-    vigra::FindSum<sum_type> sum;   // init functor
-    vigra::FindSum<sum_type> sumROI;   // init functor
-    vigra::BImage mask(w,h);
-    mask = 0;
-    // TODO: this size should depend on image dimensions!
-    int borderWidth = 10;
-    for(int y = borderWidth; y < h-borderWidth; y++) {  // select center of the fft image
-        for(int x = borderWidth; x < w-borderWidth; x++) {
-            mask(x,y) = 1;
-        }
-    }
-    vigra::inspectImage(is, end, as, sum);
-    vigra::inspectImageIf(is, end, as, mask.upperLeft(), mask.accessor(), sumROI);
-
-    sum_type s = sum() - sumROI();
-    return s / (w*h - (w-2*borderWidth)*(h-2*borderWidth));
-}
-
-
-template <class SrcIterator, class SrcAccessor>
-inline
-typename SrcIterator::value_type estimateNoisePower(int w, int h,
-                   triple<SrcIterator, SrcIterator, SrcAccessor> ps)
-{
-    return estimateNoisePower(w, h, ps.first, ps.second, ps.third);
-}
-
-/**
- * Construct Wiener Filter using noise power estimated
- * at high frequencies.
- */
-// Wiener filter is defined as
-// H(f) = (|X(f)|)^2/[(|X(f)|)^2 + (|N(f)|)^2]
-// where X(f) is the power of the signal and
-// N(f) is the power of the noise
-// (e.g., see http://cnx.org/content/m12522/latest/)
-template <class T>
-void constructWienerFilter(DataParams &params, BasicImage<T> &ps) {
-
-    int w = params.shape(0);
-    int h = params.shape(1);
-    std::cout<<w<< "  "<<h<<std::endl;
-
-    std::ofstream ostreamPS;
-	bool writeMatrices = false;
-	if(writeMatrices){
-		char fnamePS[1000];
-
-		//sprintf(fnamePS, "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/meanPS.txt");
-
-		ostreamPS.open(fnamePS);}
-	for(int i=0;i<w;i++){
-		for(int j=0;j<h;j++){
-			//std::cout<<i<<" 2 "<<j<<std::endl;
-			ostreamPS << i<<"  "<< j<<"  "<< ps(i,j)<<std::endl;
-		}
-	}
-	ostreamPS.close();
-
-	std::cout<<std::endl;
-
-	//vigra::exportImage(srcImageRange(ps), "/home/herrmannsdoerfer/master/workspace/myStorm/storm/build/output/meanPS.png");
-
-    T noise = estimateNoisePower(w,h,srcImageRange(ps));
-    std::cout<<"noise: "<<noise<<std::endl;
-
-
-    transformImage(srcImageRange(ps),destImage(ps),
-        		ifThenElse(Arg1()-Param(noise)>Param(0.), Arg1()-Param(noise), Param(0.)));
-
-    double totvar = 0;
-	double dx;
-	double dy;
-
-	double sum = 0;
-	std::cout<<std::endl;
-
-	for (int i = 0; i < w; i++) {
-		for (int j = 0; j < h; j++) {
-			sum += ps(i,j);
-			dx = (i - w/2.)/(w/2.);
-			dy = (j - h/2.)/(h/2.);
-			//std::cout<<"dx: "<<dx<<" dy: "<<dy<<std::endl;
-			totvar += ps(i,j) * (dx * dx + dy*dy);
-			if(i == w/2){std::cout<<ps(i,j)<<" ,";}
-		}
-	}
-	std::cout<<std::endl;
-
-	double varx = 0;
-	double sum2 = 0;
-	double vary = 0;
-	double sum3 = 0;
-
-	for(int i = 0; i< w; i++){
-		sum2 += ps(i, h/2);
-		dx = ((i-w/2.)/(w/2.));
-		varx += ps(i,h/2) * dx *dx;
-
-		sum3 += ps(w/2, i);
-		dy = ((i-h/2.)/(h/2.));
-		vary += ps(w/2,i) * dy *dy;
-	}
-	varx = varx / (sum2-ps(w/2,h/2));
-	vary = vary / (sum3-ps(w/2,h/2));
-
-	std::cout<<"Variance: "<< varx<<" Sigma spatial domain 1D: "<<1/(2*3.14*std::sqrt(varx/2.)) <<std::endl;
-	std::cout<<"Variance: "<< vary<<" Sigma spatial domain 1Dy: "<<1/(2*3.14*std::sqrt(vary/2.)) <<std::endl;
-
-	totvar = totvar / ((sum-ps(w/2,h/2)) *2.); //totvar is the sum of varx and vary in case of symmetric signal
-	double sigmaSpatial = 1/(2*3.14*std::sqrt(totvar/2.));
-    params.setSigma(sigmaSpatial);
-
-	std::cout<<"Variance: "<< totvar<<" Sigma spatial domain: "<<sigmaSpatial <<" sum:"<<sum<<"ps(w,h/2): "<<ps(w/2,h/2)<<std::endl;
-}
-
-//--------------------------------------------------------------------------
 // STORM DATA PROCESSING
 //--------------------------------------------------------------------------
-
-/**
- * Estimate Background level and subtract it from the image
- */
-template <class Image>
-void subtractBackground(Image& im) {
-    float sigma = 10.; // todo: estimate from data
-    BasicImage<typename Image::value_type> bg(im.size());
-    vigra::recursiveSmoothX(srcImageRange(im), destImage(bg), sigma);
-    vigra::recursiveSmoothY(srcImageRange(bg), destImage(bg), sigma);
-    vigra::combineTwoImages(srcImageRange(im), srcImage(bg), destImage(im), Arg1()-Arg2());
-}
 
 /**
  * Prefilter for BSpline-Interpolation
@@ -1178,7 +1182,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     vigra::copyImage(srcImageRange(input), destImage(unfiltered));
 
-    gaussianSmoothing(srcImageRange(input), destImage(filteredView), params.getSigma()/2.);
+    gaussianSmoothing(srcImageRange(input), destImage(filteredView), std::pow(std::pow(params.getSigma(), 2)-std::pow(0.85, 2), .5));
 
     vigra::exportImage(srcImageRange(input), "/home/herrmannsdoerfer/tmpOutput/Beforefiltered.png");
     //std::cout<<"hi:"<<parameterTrafo[3]/2.<<std::endl;
