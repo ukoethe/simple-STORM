@@ -322,7 +322,7 @@ void determineSNR(SrcIterator srcUpperLeft,
 class transformationFunctor {
 public:
 	transformationFunctor(float a, float intercept, float minInt = 0): a(a), intercept(intercept), C(-2/a*std::sqrt(a*minInt+ intercept)){}
-	float operator()(float poissInt){return 2/a*std::sqrt(a*poissInt + intercept)+ C;}
+	float operator()(float poissInt) const {return 2/a*std::sqrt(a*poissInt + intercept)+ C;}
 
 private:
 	float a;
@@ -524,7 +524,7 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
 
 	std::ofstream origimg, maski, poissmeans;
 
-	bool writeMatrices = true;
+	bool writeMatrices = false;
 	if(writeMatrices){
 		//vigra::exportImage(srcImageRange(makeBasicImageView(PoissonMeans)), "/home/herrmannsdoerfer/tmpOutput/PoissonMeans1.tif");
 		char origimgname[1000], maskname[1000], pname[1000];
@@ -553,13 +553,13 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
 			    origimg << i<<"  "<< j<<"  "<< array(i,j)<<std::endl;
 			    poissmeans << i<<"  "<< j<<"  "<< PoissonMeans(i,j)<<std::endl;
 			}
-				
+
 		}
 	}
 	if (writeMatrices){
 	origimg.close();
 	maski.close();
-	poissmeans.close();  
+	poissmeans.close();
 	}
 
     vigra::IImage labels(w,h);
@@ -569,7 +569,7 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
     vigra::inspectImage(srcImageRange(labels), fun);
     //vigra::transformImage(srcImageRange(labels), destImage(mask),
     //    ifThenElse(bins[(int)Arg1()]>Param(3.), Param(1.), Param(0.)));
-    
+
     for (int i = 0; i < w; i++) {
         for (int j = 0; j < h; j++){
             if (labels(i,j) == 0 or bins[labels(i,j)] < 5){
@@ -580,7 +580,7 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
         }
     }
 
-    
+
     //vigra::exportImage(srcImageRange(labels), "/home/herrmannsdoerfer/tmpOutput/labels.tif");
 
 
@@ -982,16 +982,17 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
                   MultiArrayView<3, T> &poissonMeans, F tF, int &currframe, int middleChunk,
                   std::vector<std::set<Coord<T>>>& maxima_coords) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
-    for (int f = 0; f < srcImage.shape()[2]; ++f, ++currframe) {
+    #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, maxima_coords)
+    for (int f = 0; f < srcImage.shape()[2]; ++f) {
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         MultiArray<2, T> mask(Shape2(params.shape(0), params.shape(1)));
-        getMask(params, currSrc, currPoisson, currframe, mask);
+        getMask(params, currSrc, currPoisson, currframe + f, mask);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
                                      [&tF](T srcPixel, T poissonPixel){return tF(srcPixel) - tF(poissonPixel);});
-        wienerStormSingleFrame(params, currSrc, mask, maxima_coords[currframe], currframe);
-
+        wienerStormSingleFrame(params, currSrc, mask, maxima_coords[currframe + f], currframe + f);
     }
+    currframe += srcImage.shape()[2];
 }
 
 template <class T, class L>
@@ -1062,7 +1063,10 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
     #ifndef STORM_QT // silence stdout
     std::cout << "Finding the maximum spots in the images..." << std::endl;
     #endif // STORM_QT
-    helper::progress(-1,-1); // reset progress5
+    helper::progress(-1,-1); // reset progress
+#ifdef OPENMP_FOUND
+    omp_set_schedule(omp_sched_dynamic, omp_get_num_threads / params.getTChunkSize());
+#endif
 
     transformationFunctor tF(1, 3./8,0);
 
@@ -1087,6 +1091,7 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
     vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
     for (int c = 0; c <= middleChunk; ++c) {
         processChunk(params, *srcImage[c], poissonMeans, tF, currframe, middleChunk, maxima_coords);
+        helper::progress(currframe, i_end);
     }
     if (chunksInMemory % 2) {
         for (int c = 0; c < middleChunk; ++c) {
@@ -1106,6 +1111,7 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
     for (; chunk < (lastChunkSize ? tChunks - 1 : tChunks); ++chunk) {
         readChunk(params, srcImage, poissonMeansRaw, poissonMeans, poissonLabels, chunk);
         processChunk(params, *srcImage[0], poissonMeans, tF, currframe, middleChunk, maxima_coords);
+        helper::progress(currframe, i_end);
     }
     if (lastChunkSize) {
         srcImage[0]->reshape(Shape3(w, h, lastChunkSize));
@@ -1114,46 +1120,16 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
         auto lastPoissonLabelsView = poissonLabels.subarray(Shape3(0, 0, 0), labelsShape);
         readChunk(params, srcImage, poissonMeansRaw, poissonMeans, lastPoissonLabelsView, chunk);
         processChunk(params, *srcImage[0], poissonMeans, tF, currframe, middleChunk, maxima_coords);
+        helper::progress(currframe, i_end);
     }
     delete srcImage[0];
     for (int c = middleChunk + 1; c < chunksInMemory; ++c) {
         int cIndex = c - middleChunk;
         processChunk(params, *srcImage[cIndex], poissonMeans, tF, currframe, c, maxima_coords);
+        helper::progress(currframe, i_end);
         delete srcImage[cIndex];
     }
     std::free(srcImage);
-
-    //over all images in stack
-    //#pragma omp parallel for schedule(static, CHUNKSIZE) firstprivate(im)
-    /*for(int i = i_beg; i < i_end; i+=i_stride) {
-     p arams*.readBlock(Shape3(0,0,i), Shape3(w,h,1), im);
-        MultiArrayView <2, T> array = im.bindOuter(0); // select current image
-
-        for(int x0 = 0; x0 < w; x0++){
-        	for(int x1 = 0; x1 < h; x1++){array(x0,x1) = (array(x0,x1) - parameterTrafo[1])/parameterTrafo[0];}
-        }
-
-        MultiArray<2, T> mask(Shape2(w,h));
-        MultiArrayView<2, T> poissView = PoissonMeans.bindOuter(i);
-        getMask(array, w,h,stacksize, poissView, i, mask, parameterTrafo);
-        subtractMeans(array, poissView);
-        for(int x0 = 0; x0 < w; x0++){
-
-			for(int x1 = 0; x1 < h; x1++){array(x0,x1) = tF(array(x0,x1));}
-		}
-
-		wienerStormSingleFrame(params, array, maxima_coords[i], mask, i, parameterTrafo);
-        #ifdef OPENMP_FOUND
-        if(omp_get_thread_num()==0) { // master thread
-            helper::progress(i+1, i_end); // update progress bar
-        }
-        #else
-            helper::progress(i+1, i_end); // update progress bar
-        #endif //OPENMP_FOUND
-    }
-    #ifndef STORM_QT // silence stdout
-    std::cout << std::endl;
-    #endif // STORM_QT*/
 }
 
 template <class T>
@@ -1184,11 +1160,11 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), std::pow(std::pow(params.getSigma(), 2)-std::pow(0.85, 2), .5));
 
-    vigra::exportImage(srcImageRange(input), "/home/herrmannsdoerfer/tmpOutput/Beforefiltered.png");
+    //vigra::exportImage(srcImageRange(input), "/home/herrmannsdoerfer/tmpOutput/Beforefiltered.png");
     //std::cout<<"hi:"<<parameterTrafo[3]/2.<<std::endl;
 
     //gaussianSmoothing(srcImageRange(input), destImage(filteredView), 1.4);
-    vigra::exportImage(srcImageRange(filteredView), "/home/herrmannsdoerfer/tmpOutput/filtered.png");
+    //vigra::exportImage(srcImageRange(filteredView), "/home/herrmannsdoerfer/tmpOutput/filtered.png");
 
     applyMask(filtered, mask, framenumber);
 
@@ -1211,7 +1187,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     for(it2=maxima_candidates_vect.begin(); it2 != maxima_candidates_vect.end(); it2++) {
             Coord<float> c = *it2;
-            
+
             if(unfiltered(c.x,c.y)<3) { // skip very low signals with SNR lower 3
                 //std::cout<<"value skipped: "<<unfiltered(c.x,c.y)<<std::endl;
                 continue;

@@ -74,8 +74,9 @@ int main(int argc, char** argv) {
             vigra_precondition(cf.is_open(), "Could not open coordinate-file for writing.");
         }
 
-        USETICTOC;
-        TIC;  // measure the time
+        USE_NESTED_TICTOC;
+        //USETICTOC;
+        TICPUSH;  // measure the time
 
         // STORM Algorithmut
         //printIntensities(info);
@@ -109,7 +110,7 @@ int main(int argc, char** argv) {
         }
 
         // end: done.
-        TOC;
+        std::cout << std::endl << TOCS;
         std::cout << "detected " << numSpots << " spots." << std::endl;
 
         // some maxima are very strong so we scale the image as appropriate :
