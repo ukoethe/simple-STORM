@@ -330,59 +330,6 @@ private:
 	float C;
 };
 
-
-template <class T>
-void findCorrectionCoefficients(DataParams &params, bool second = false) {
-    bool needFilter = !(params.getSkellamFramesSaved() && params.getSigmaSaved());
-    bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
-    if (!needFilter && !needSkellam)
-        return;
-    unsigned int stacksize = params.shape(2);
-    unsigned int w = params.shape(0);
-    unsigned int h = params.shape(1);
-
-    int maxNumberPoints = 2000;
-    int listPixelCoordinates[maxNumberPoints];
-    T b;
-
-    int numberPoints = findGoodPixelsForScellamApproach(params, b, maxNumberPoints, listPixelCoordinates);
-    if (!needSkellam)
-        return;
-    //std::cout<<"skellam candidates found"<<std::endl;
-    //for(int n = 0; n < numberPoints;n++){
-    //	std::cout<<listPixelCoordinates[n]<<'\n';
-    //}
-    T meanValues[numberPoints];
-    T skellamParameters[numberPoints];
-    T minVal;
-    //std::cout<<"before skellam found"<<std::endl;
-
-    calculateSkellamParameters(params, listPixelCoordinates, meanValues, skellamParameters, numberPoints, minVal);
-
-    std::ofstream selectedPoints;
-
-	char filename[1000];
-	sprintf(filename, "/home/herrmannsdoerfer/tmpOutput/selectedPoints.txt");
-	selectedPoints.open(filename);
-
-	std::cout<<"[";
-	for(int n = 0; n < numberPoints;n++){
-		selectedPoints<<meanValues[n]<<" "<<skellamParameters[n]<<std::endl;
-	}
-	selectedPoints.close();
-
-
-    findBestFit(params, meanValues, skellamParameters, numberPoints);
-
-	if(params.getIntercept()>0) {
-        params.setIntercept(std::min(minVal,params.getIntercept()));
-    } else {
-        params.setIntercept(minVal);
-    }
-	//parameterTrafo[1] = minVal;   // sets offset to the minimum of all pixels, to avoid negative values during calculation of Poisson distributions
-	std::cout<<"minimum: "<< minVal<<std::endl;
-}
-
 template <class T>
 void findBestFit(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
     int nbins = 10;
@@ -638,53 +585,6 @@ T isSignal_fast(T corrInt, T lamb_,T factor2ndDist){
 	return prob;
 }
 
-
-//calcuates the skellam parameters (in principle variances) for the pixels chosen previously.
-template <class T>
-void calculateSkellamParameters(const DataParams &params, int listPixelCoordinates[],T meanValues[],T skellamParameters[],
-		int numberPoints, T &minVal){
-
-    unsigned int stacksize = params.getSkellamFrames();
-    unsigned int w = params.shape(0);
-    unsigned int h = params.shape(1);
-
-	std::vector< std::vector <T> > intensities(numberPoints, std::vector<T>(stacksize));
-	MultiArray<3, T> temp_arr(Shape3(w,h,1));
-
-    minVal = std::numeric_limits<T>::max();
-	for(int f = 0; f < stacksize; f++) {
-        params.readBlock(Shape3(0,0,f),Shape3(w,h,1), temp_arr);
-		for(int i = 0; i < numberPoints; i++){
-			intensities[i][f] = temp_arr[listPixelCoordinates[i]];
-		}
-		FindMinMax<T> minmax;
-        inspectMultiArray(srcMultiArrayRange(temp_arr), minmax);
-        if(minVal > minmax.min){
-            minVal = minmax.min;
-
-        }
-	}
-
-	for(int i = 0; i < numberPoints; i++){
-		meanValues[i] = 0;
-		for(int f = 0; f < stacksize; f++){meanValues[i] += intensities[i][f];}
-		meanValues[i] /= stacksize;
-	}
-	T sigma[numberPoints];
-	for(int i = 0; i < numberPoints; i++){
-		skellamParameters[i] = (intensities[i][stacksize-1] - intensities[i][0])/stacksize;
-		sigma[i] = 0;
-		//std::cout<<"before "<<skellamParameters[i]<<" "<< intensities[i][0]<<"  "<< intensities[i][1]<<'\n';
-		for(int f = 0; f < stacksize-1; f++){
-			sigma[i] += std::pow((skellamParameters[i] - intensities[i][f] + intensities[i][f+1]),2);
-		}
-		skellamParameters[i]+= sigma[i];
-		skellamParameters[i] /= 2*(stacksize - 1);
-	}
-
-}
-
-
 /**
  * Estimate Background level and subtract it from the image
  */
@@ -836,63 +736,113 @@ void constructWienerFilter(DataParams &params, BasicImage<T> &ps) {
 //To estimate the gain factor points with different mean intensities are needed. This functions searches for
 //good candidates, it tries to find pixels with as much different mean values as possible.
 template <class T>
-int findGoodPixelsForScellamApproach(DataParams &params, T & tmpType,int maxNumberPoints, int listPixelCoordinates[]){
+void estimateParameters(DataParams &params) {
+    bool needFilter = !(params.getSkellamFramesSaved() && params.getSigmaSaved());
+    bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
+    if (!needFilter && !needSkellam)
+        return;
     unsigned int stacksize = params.getSkellamFrames();
     unsigned int w = params.shape(0);
     unsigned int h = params.shape(1);
 
-	MultiArray<3, T> mean_im_temp(Shape3(w,h,1)), mean_im_temp2(Shape3(w,h,1));
+    int maxNumberPoints = 2000;
 
-	int pixelPerFrame = w*h;
+    T minVal;
+    MultiArray<3, T> img(Shape3(w,h,1)), meanArr, lastVal;
+    MultiArray<2, vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::Sum, vigra::acc::Variance>>> skellamArr(Shape2(w, h));
+    unsigned int passes;
+    int *listPixelCoordinates;
+    T *meanValues;
+    T *skellamParameters;
+    if (needSkellam) {
+        meanArr.reshape(Shape3(w, h, 1));
+        lastVal.reshape(Shape3(w, h, 1));
+        skellamArr.reshape(Shape2(w, h));
+        passes = skellamArr(0, 0).passesRequired();
+        minVal = std::numeric_limits<T>::max();
+        listPixelCoordinates = (int*)std::malloc(maxNumberPoints * sizeof(int));
+        meanValues = (T*)std::malloc(maxNumberPoints * sizeof(T));
+        skellamParameters = (T*)std::malloc(maxNumberPoints * sizeof(T));
+    }
 
     transformationFunctor tF(1, 3./8., 0);
-    vigra::DImage ps(w, h, 0.0);
-    vigra::DImage ps_center(w, h);
+    vigra::DImage ps;
+    vigra::DImage ps_center;
+    if (needFilter) {
+        ps.resize(w, h, 0.0);
+        ps_center.resize(w, h);
+    }
 
     for(int f = 0; f< stacksize;f++){
-        params.readBlock(Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
-    	vigra::combineTwoMultiArrays(srcMultiArrayRange(mean_im_temp2),
-    						srcMultiArray(mean_im_temp),
-    						destMultiArray(mean_im_temp),
-    		                std::plus<int>());
+        params.readBlock(Shape3(0,0,f),Shape3(w,h,1), img);
+        vigra::combineTwoMultiArrays(srcMultiArrayRange(img), srcMultiArray(meanArr), destMultiArray(meanArr), std::plus<T>());
+        if (needSkellam) {
+            if (f > 0) {
+                FindMinMax<T> minmax;
+                inspectMultiArray(srcMultiArrayRange(img), minmax);
+                if(minVal > minmax.min)
+                minVal = minmax.min;
+                vigra::combineTwoMultiArrays(srcMultiArrayRange(lastVal), srcMultiArrayRange(img), destMultiArrayRange(lastVal), std::minus<T>());
+                auto imgIter = lastVal.begin(), imgEnd = lastVal.end();
+                auto skellamIter = skellamArr.begin(), skellamEnd = skellamArr.end();
+                for (; imgIter != imgEnd && skellamIter != skellamEnd; ++imgIter, ++skellamIter) {
+                    for (int n = 1; n <= passes; ++n) {
+                        skellamIter->updatePassN(*imgIter, n);
+                    }
+                }
+            }
+            lastVal = img;
+        }
 
-        // calculate PowerSpectrum
-        vigra::transformMultiArray(srcMultiArrayRange(mean_im_temp2), destMultiArrayRange(mean_im_temp2), tF);
-        MultiArrayView <2, T> array = mean_im_temp2.bindOuter(0);
-        auto arrayView = makeBasicImageView(array);
-        subtractBackground(arrayView);
-        vigra::FFTWComplexImage fourier(w, h);
-        fourierTransform(srcImageRange(array), destImage(fourier));
-        vigra::combineTwoImages(srcImageRange(ps),
-                                srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
-                                destImage(ps), Arg1()+Arg2());
-
-    }
-    moveDCToCenter(srcImageRange(ps), destImage(ps_center));
-    vigra::transformImage(srcImageRange(ps_center), destImage(ps),
-                          Arg1() / Param(stacksize));
-    constructWienerFilter(params, ps);
-
-    for(int i = 0; i< pixelPerFrame;i++){mean_im_temp[i] = mean_im_temp[i]/stacksize;}
-    FindMinMax<T> minmax;
-
-    inspectMultiArray(srcMultiArrayRange(mean_im_temp), minmax);
-    if(params.getVerbose()){
-    std::cout<<"min: "<<minmax.min<<" max: "<<minmax.max<<std::endl;}
-
-    std::vector<int> iter(pixelPerFrame); //contains information permutation from sort
-	linearSequence(iter.begin(), iter.end());
-	indexSort(mean_im_temp.begin(), mean_im_temp.end(), iter.begin());
-
-    int intervalCounter = 0;
-    T intervalDistance = (minmax.max - minmax.min)/ maxNumberPoints;
-    for(int i = 0; i< pixelPerFrame && intervalCounter < maxNumberPoints; i++) {
-        if(mean_im_temp[iter[i]] > minmax.min + intervalDistance * intervalCounter) {
-            listPixelCoordinates[intervalCounter] = iter[i];
-            intervalCounter += 1;
+        if (needFilter) {
+            // calculate PowerSpectrum
+            vigra::transformMultiArray(srcMultiArrayRange(img), destMultiArrayRange(img), tF);
+            MultiArrayView <2, T> array = img.bindOuter(0);
+            auto arrayView = makeBasicImageView(array);
+            subtractBackground(arrayView);
+            vigra::FFTWComplexImage fourier(w, h);
+            fourierTransform(srcImageRange(array), destImage(fourier));
+            vigra::combineTwoImages(srcImageRange(ps),
+                                    srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
+                                    destImage(ps), Arg1()+Arg2());
         }
     }
-    return intervalCounter;
+    if (needFilter) {
+        moveDCToCenter(srcImageRange(ps), destImage(ps_center));
+        vigra::transformImage(srcImageRange(ps_center), destImage(ps),
+                            Arg1() / Param(stacksize));
+        constructWienerFilter(params, ps);
+    }
+    if (needSkellam) {
+        vigra::transformMultiArray(srcMultiArrayRange(meanArr), destMultiArrayRange(meanArr), [&stacksize](T p){return p / stacksize;});
+
+        FindMinMax<T> minmax;
+        inspectMultiArray(srcMultiArrayRange(meanArr), minmax);
+        if(params.getVerbose()){
+        std::cout<<"min: "<<minmax.min<<" max: "<<minmax.max<<std::endl;}
+
+        std::vector<int> iter(w * h); //contains information permutation from sort
+        linearSequence(iter.begin(), iter.end());
+        indexSort(meanArr.begin(), meanArr.end(), iter.begin());
+
+        int intervalCounter = 0;
+        T intervalDistance = (minmax.max - minmax.min)/ maxNumberPoints;
+
+        for(int i = 0; i< w * h && intervalCounter < maxNumberPoints; i++) {
+            if(meanArr[iter[i]] > minmax.min + intervalDistance * intervalCounter) {
+                listPixelCoordinates[intervalCounter] = iter[i];
+                meanValues[intervalCounter] = meanArr[iter[i]];
+                skellamParameters[intervalCounter] = 0.5 * (vigra::acc::get<vigra::acc::Sum>(skellamArr[iter[i]]) / stacksize + vigra::acc::get<vigra::acc::Variance>(skellamArr[iter[i]]));
+                ++intervalCounter;
+            }
+        }
+        findBestFit(params, meanValues, skellamParameters, intervalCounter);
+
+        if(params.getIntercept() > 0)
+            params.setIntercept(std::min(minVal, params.getIntercept()));
+        else
+            params.setIntercept(minVal);
+    }
 }
 
 template <class T>

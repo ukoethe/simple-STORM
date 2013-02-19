@@ -82,11 +82,8 @@ int main(int argc, char** argv) {
         //printIntensities(info);
 
         float a,offset, intercept;
-        findCorrectionCoefficients<float>(params); 	//first 3 entries are parameters for the raw signal to poisson transformation
-        													//the last 3 entries are parameters for the poission to gaussian with sigma = 1 transformation
-        //parameterTrafo[0] = 1.5;
-		//parameterTrafo[1] = 40;
-//		parameterTrafo[2] = 0;
+        estimateParameters<float>(params);
+
         std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept()<<std::endl;
         //showPoisson(info, parameterTrafo);
 
@@ -110,7 +107,7 @@ int main(int argc, char** argv) {
         }
 
         // end: done.
-        std::cout << std::endl << TOCS;
+        std::cout << std::endl << TOCS << std::endl;
         std::cout << "detected " << numSpots << " spots." << std::endl;
 
         // some maxima are very strong so we scale the image as appropriate :
