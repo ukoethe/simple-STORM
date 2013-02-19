@@ -15,6 +15,13 @@
 #include <fstream>
 #include <set>
 
+#include <cstdlib>
+#ifdef __WIN__
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
 #define R_INTERFACE_PTRS
 #define R_NO_REMAP
 #include <Rembedded.h>
@@ -35,9 +42,50 @@ void preventRConsoleWrite(const char* buf, int buflen)
 {}
 
 // MAIN
-int main(int argc, char** argv) {
-
-    char *Rargv[] = {"REmbeddedStorm", "--silent", "--no-save"};
+int main(int argc, char* argv[]) {
+    if (std::getenv("R_HOME") == nullptr) {
+        char **args = (char**)std::malloc((argc + 3) * sizeof(char*));
+        args[0] = (char*)"R";
+        args[1] = (char*)"CMD";
+        for (int i = 0, j = 2; i < argc; ++i, ++j)
+            args[j] = argv[i];
+        args[argc + 2] = nullptr;
+        int ret = execvp(args[0], args);
+        std::string reason;
+        switch (errno) {
+            case ENOENT:
+                reason << "ENOENT";
+                break;
+            case ENOTDIR:
+                reason << "ENOTDIR";
+                break;
+            case E2BIG:
+                reason << "E2BIG";
+                break;
+            case EACCES:
+                reason << "EACCES";
+                break;
+            case EINVAL:
+                reason << "EINVAL";
+                break;
+            case ELOOP:
+                reason << "ELOOP";
+                break;
+            case ENOMEM:
+                reason << "ENOMEM";
+                break;
+            case ETXTBSY:
+                reason << "ETXTBSY";
+                break;
+            default:
+                reason << "unknown";
+                break;
+        }
+        std::cerr << "Could not execute R: execvp returned " << ret << " due to reason: " << reason << std::endl
+        << "You probably do not have R installed or do not have it in your PATH." << std::endl;
+        return 1;
+    }
+    char *Rargv[] = {(char*)"REmbeddedStorm", (char*)"--silent", (char*)"--no-save"};
     R_SignalHandlers = FALSE;
     Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
 
