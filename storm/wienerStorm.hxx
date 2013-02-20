@@ -171,12 +171,12 @@ class Coord{
 // a target image.
 // This is used as an accessor although it doesn't access the pixel values ;-)
 // To work on ROIs, a global offset can be set with setOffset().
-template <class T, class ITERATOR>
+template <class T, class S, class ITERATOR>
 class VectorPushAccessor{
     public:
         typedef typename T::value_type value_type;
-        VectorPushAccessor(std::set<T>& arr, ITERATOR it_start)
-            : m_arr(arr), m_it_start(it_start), m_offset() {        }
+        VectorPushAccessor(std::set<T>& arr, ITERATOR it_start, int factor, const MultiArrayView<2, S> &mask)
+            : m_arr(arr), m_it_start(it_start), m_offset(), m_factor(factor), m_mask(mask) {}
 
         T const &   operator() (ITERATOR const &i) const {
             return NumericTraits<T>::zero();
@@ -185,9 +185,9 @@ class VectorPushAccessor{
         void    set (V const & /*value*/, ITERATOR const &i) {
             int x = i.x+m_offset.x;
             int y = i.y-m_it_start.y+m_offset.y;
-            typename T::value_type val = *i;
-            T c (x,y,val);
-            m_arr.insert(c);
+            if (m_mask(std::round(x / m_factor), std::round(y / m_factor)) > 0) {
+                m_arr.insert(T(x, y, *i));
+            }
         }
         void setOffset(Diff2D offset) {
             m_offset = offset;
@@ -197,6 +197,8 @@ class VectorPushAccessor{
         std::set<T>& m_arr;
         ITERATOR m_it_start;
         Diff2D m_offset;
+        float m_factor; //needs to be float for division, avoids casting
+        const MultiArrayView<2, S> &m_mask;
 };
 
 /**
@@ -1129,10 +1131,10 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     std::set<Coord<T> > maxima_candidates_vect;  // we use a set for the coordinates to automatically squeeze duplicates
                                                  // (from overlapping ROIs)
-    VectorPushAccessor<Coord<T>, typename BasicImage<T>::const_traverser> maxima_candidates(maxima_candidates_vect, filtered.upperLeft());
+    VectorPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_candidates(maxima_candidates_vect, filtered.upperLeft(), 1, mask);
     vigra::localMaxima(srcImageRange(filtered), destImage(filtered, maxima_candidates), vigra::LocalMinmaxOptions().threshold(0));
 
-    VectorPushAccessor<Coord<T>, typename BasicImage<T>::const_traverser> maxima_acc(maxima_coords, im_xxl.upperLeft());
+    VectorPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_acc(maxima_coords, im_xxl.upperLeft(), factor, mask);
     //upscale filtered image regions with spline interpolation
     std::set<Coord<float> >::iterator it2;
 
