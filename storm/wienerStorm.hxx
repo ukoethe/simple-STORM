@@ -748,7 +748,7 @@ void estimateParameters(DataParams &params) {
     int maxNumberPoints = 2000;
 
     T minVal;
-    MultiArray<3, T> img(Shape3(w,h,1)), meanArr, lastVal;
+    MultiArray<3, T> meanArr, *img = new MultiArray<3, T>(Shape3(w, h, 1)), *lastVal, anscombeTransf;
     MultiArray<2, vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::Sum, vigra::acc::Variance>>> skellamArr(Shape2(w, h));
     unsigned int passes;
     int *listPixelCoordinates;
@@ -756,7 +756,7 @@ void estimateParameters(DataParams &params) {
     T *skellamParameters;
     if (needSkellam) {
         meanArr.reshape(Shape3(w, h, 1));
-        lastVal.reshape(Shape3(w, h, 1));
+        lastVal = new MultiArray<3, T>(Shape3(w, h, 1));
         skellamArr.reshape(Shape2(w, h));
         passes = skellamArr(0, 0).passesRequired();
         minVal = std::numeric_limits<T>::max();
@@ -764,6 +764,8 @@ void estimateParameters(DataParams &params) {
         meanValues = (T*)std::malloc(maxNumberPoints * sizeof(T));
         skellamParameters = (T*)std::malloc(maxNumberPoints * sizeof(T));
     }
+    if (needFilter)
+        anscombeTransf.reshape(Shape3(w, h, 1));
 
     transformationFunctor tF(1, 3./8., 0);
     vigra::DImage ps;
@@ -774,30 +776,12 @@ void estimateParameters(DataParams &params) {
     }
 
     for(int f = 0; f< stacksize;f++){
-        params.readBlock(Shape3(0,0,f),Shape3(w,h,1), img);
-        vigra::combineTwoMultiArrays(srcMultiArrayRange(img), srcMultiArray(meanArr), destMultiArray(meanArr), std::plus<T>());
-        if (needSkellam) {
-            if (f > 0) {
-                FindMinMax<T> minmax;
-                inspectMultiArray(srcMultiArrayRange(img), minmax);
-                if(minVal > minmax.min)
-                minVal = minmax.min;
-                vigra::combineTwoMultiArrays(srcMultiArrayRange(lastVal), srcMultiArrayRange(img), destMultiArrayRange(lastVal), std::minus<T>());
-                auto imgIter = lastVal.begin(), imgEnd = lastVal.end();
-                auto skellamIter = skellamArr.begin(), skellamEnd = skellamArr.end();
-                for (; imgIter != imgEnd && skellamIter != skellamEnd; ++imgIter, ++skellamIter) {
-                    for (int n = 1; n <= passes; ++n) {
-                        skellamIter->updatePassN(*imgIter, n);
-                    }
-                }
-            }
-            lastVal = img;
-        }
-
+        params.readBlock(Shape3(0,0,f),Shape3(w,h,1), *img);
+        vigra::combineTwoMultiArrays(srcMultiArrayRange(*img), srcMultiArray(meanArr), destMultiArray(meanArr), std::plus<T>());
         if (needFilter) {
             // calculate PowerSpectrum
-            vigra::transformMultiArray(srcMultiArrayRange(img), destMultiArrayRange(img), tF);
-            MultiArrayView <2, T> array = img.bindOuter(0);
+            vigra::transformMultiArray(srcMultiArrayRange(*img), destMultiArrayRange(anscombeTransf), tF);
+            MultiArrayView <2, T> array = anscombeTransf.bindOuter(0);
             auto arrayView = makeBasicImageView(array);
             subtractBackground(arrayView);
             vigra::FFTWComplexImage fourier(w, h);
@@ -805,6 +789,25 @@ void estimateParameters(DataParams &params) {
             vigra::combineTwoImages(srcImageRange(ps),
                                     srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
                                     destImage(ps), Arg1()+Arg2());
+        }
+        if (needSkellam) {
+            if (f > 0) {
+                FindMinMax<T> minmax;
+                inspectMultiArray(srcMultiArrayRange(*img), minmax);
+                if(minVal > minmax.min)
+                minVal = minmax.min;
+                vigra::combineTwoMultiArrays(srcMultiArrayRange(*lastVal), srcMultiArrayRange(*img), destMultiArrayRange(*lastVal), std::minus<T>());
+                auto imgIter = lastVal->begin(), imgEnd = lastVal->end();
+                auto skellamIter = skellamArr.begin(), skellamEnd = skellamArr.end();
+                for (; imgIter != imgEnd && skellamIter != skellamEnd; ++imgIter, ++skellamIter) {
+                    for (int n = 1; n <= passes; ++n) {
+                        skellamIter->updatePassN(*imgIter, n);
+                    }
+                }
+            }
+            auto *tmp = lastVal;
+            lastVal = img;
+            img = tmp;
         }
     }
     if (needFilter) {
@@ -842,7 +845,9 @@ void estimateParameters(DataParams &params) {
             params.setIntercept(std::min(minVal, params.getIntercept()));
         else
             params.setIntercept(minVal);
+        delete lastVal;
     }
+    delete img;
 }
 
 template <class T>
