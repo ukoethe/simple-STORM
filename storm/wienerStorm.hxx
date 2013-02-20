@@ -467,19 +467,19 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
 
     int w = array.shape()[0], h = array.shape()[1];
 
-	T alpha = 0.0001;
+	T alpha = 0.001;
 
 	T factor2ndDist; //= 1+arrMinmax.max/muMin/10; // should be dependent of snr
 
-	std::ofstream origimg, maski, poissmeans;
-
 	bool writeMatrices = false;
+    std::ofstream origimg, maski, poissmeans;
 	if(writeMatrices){
+
 		//vigra::exportImage(srcImageRange(makeBasicImageView(PoissonMeans)), "/home/herrmannsdoerfer/tmpOutput/PoissonMeans1.tif");
-		char origimgname[1000], maskname[1000], pname[1000];
-		sprintf(origimgname, "/home/herrmannsdoerfer/tmpOutput/frameData/origimgbeforefilter%d.txt", framenumber);
-		sprintf(maskname, "/home/herrmannsdoerfer/tmpOutput/frameData/maskPoiss%d.txt", framenumber);
-		sprintf(pname, "/home/herrmannsdoerfer/tmpOutput/frameData/poissmeans%d.txt", framenumber);
+        char origimgname[1000], maskname[1000], pname[1000];
+        sprintf(origimgname, "/home/herrmannsdoerfer/tmpOutput/frameData/origimgbeforefilter%d.txt", framenumber);
+        sprintf(maskname, "/home/herrmannsdoerfer/tmpOutput/frameData/maskPoiss%d.txt", framenumber);
+        sprintf(pname, "/home/herrmannsdoerfer/tmpOutput/frameData/poissmeans%d.txt", framenumber);
 
 		origimg.open (origimgname);
 		maski.open (maskname);
@@ -492,10 +492,10 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
 //			factor2ndDist = 1+arrMinmax.max/PoissonMeans(i,j)/10;
 //			mask(i,j) = isSignal_fast(array(i,j), muMin, factor2ndDist);
 			cdf = ppois(array(i,j), PoissonMeans(i,j), 0,0);
-			if (cdf < alpha){
+			if (cdf <= alpha)
 				mask(i,j) = 1;//-cdf/alpha;
-			}
-			else if (cdf > alpha){mask(i,j) = 0;}
+			else
+                mask(i,j) = 0;
             //std::cout<<"i: "<<i<<" j: "<<j<<" array(i,j): "<<array(i,j)<<" PoissonMeans: "<<PoissonMeans(i,j)<<" cdf: "<<cdf<<std::endl;
 			if (writeMatrices){
 			    maski << i<<"  "<< j<<"  "<< mask(i,j) <<std::endl;
@@ -521,7 +521,7 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
 
     for (int i = 0; i < w; i++) {
         for (int j = 0; j < h; j++){
-            if (labels(i,j) == 0 or bins[labels(i,j)] < 5){
+            if (labels(i,j) == 0 or bins[labels(i,j)] < 3.14*std::pow(params.getSigma(), 2)){
                 mask(i,j) = 0;
             } else {
                 mask(i,j) = 1;
@@ -538,9 +538,10 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
 	//transformImage(srcImageRange(mask),destImage(mask),
 	//        		ifThenElse(Arg1()>Param(numberNeighboursRequired/(2*3.14*params.getSigma())), Param(1.), Param(0.)));
 
-	std::ofstream maskafter;
-	bool writeMatrices2 = true;
-	if(writeMatrices2){
+
+
+	if(writeMatrices){
+        std::ofstream maskafter;
 		char maskaftername[1000];
 
 		sprintf(maskaftername, "/home/herrmannsdoerfer/tmpOutput/frameData/maskafterGraphcutPoiss%d.txt", framenumber);
@@ -548,8 +549,7 @@ void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const 
 
 	for(int i = 0; i< w; i++){
 		for(int j = 0; j < h; j++){
-			if (writeMatrices2){
-			maskafter << i<<"  "<< j<<"  "<< mask(i,j)<<std::endl;}
+			maskafter << i<<"  "<< j<<"  "<< mask(i,j)<<std::endl;
 		}
 	}
 	maskafter.close();
@@ -1047,7 +1047,7 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
     }
     vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
     for (int c = 0; c <= middleChunk; ++c) {
-        processChunk(params, *srcImage[c], poissonMeans, tF, currframe, middleChunk, maxima_coords);
+        processChunk(params, *srcImage[c], poissonMeans, tF, currframe, c, maxima_coords);
         helper::progress(currframe, i_end);
     }
     if (chunksInMemory % 2) {
@@ -1095,6 +1095,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     int w = params.shape(0); // width
     int h = params.shape(1); // height
 
+    //std::cout<<"frame: "<<framenumber<<std::endl;
 
     BasicImage<T> filtered(w,h);
 
@@ -1115,24 +1116,36 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     vigra::copyImage(srcImageRange(input), destImage(unfiltered));
 
+    std::ofstream beforeimg, afterimg;
+    char beforefilter[1000], afterfilter[1000];
+    sprintf(beforefilter, "/home/herrmannsdoerfer/tmpOutput/frameData/beforefilter%d.txt", framenumber);
+    sprintf(afterfilter, "/home/herrmannsdoerfer/tmpOutput/frameData/afterfilter%d.txt", framenumber);
+
+
+//     beforeimg.open (beforefilter);
+//     for (int i = 0; i < w; i++) {
+//         for( int j = 0; j< h; j++) {
+//             beforeimg <<i<<" "<<j<<" "<< input(i,j)<<std::endl;
+//         }
+//     }
+//     beforeimg.close();
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), std::pow(std::pow(params.getSigma(), 2)-std::pow(0.85, 2), .5));
 
-    //vigra::exportImage(srcImageRange(input), "/home/herrmannsdoerfer/tmpOutput/Beforefiltered.png");
-    //std::cout<<"hi:"<<parameterTrafo[3]/2.<<std::endl;
-
-    //gaussianSmoothing(srcImageRange(input), destImage(filteredView), 1.4);
-    //vigra::exportImage(srcImageRange(filteredView), "/home/herrmannsdoerfer/tmpOutput/filtered.png");
-
-    applyMask(filtered, mask, framenumber);
+//     afterimg.open (afterfilter);
+//     for (int i = 0; i < w; i++) {
+//         for( int j = 0; j< h; j++) {
+//             afterimg <<i<<"  "<<j<<"  "<< filteredView(i,j)<<std::endl;
+//         }
+//     }
+//     afterimg.close();
 
     vigra::FindMinMax<T> filteredMinMax;
     inspectImage(srcImageRange(filtered), filteredMinMax);
-    //T thresh = (filteredMinMax.max - filteredMinMax.min)*0.10+ filteredMinMax.min;
 
     std::set<Coord<T> > maxima_candidates_vect;  // we use a set for the coordinates to automatically squeeze duplicates
                                                  // (from overlapping ROIs)
     VectorPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_candidates(maxima_candidates_vect, filtered.upperLeft(), 1, mask);
-    vigra::localMaxima(srcImageRange(filtered), destImage(filtered, maxima_candidates), vigra::LocalMinmaxOptions().threshold(0));
+    vigra::localMaxima(srcImageRange(filtered), destImage(filtered, maxima_candidates), vigra::LocalMinmaxOptions().neighborhood(4));
 
     VectorPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_acc(maxima_coords, im_xxl.upperLeft(), factor, mask);
     //upscale filtered image regions with spline interpolation
@@ -1144,8 +1157,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     for(it2=maxima_candidates_vect.begin(); it2 != maxima_candidates_vect.end(); it2++) {
             Coord<float> c = *it2;
-
-            if(unfiltered(c.x,c.y)<3) { // skip very low signals with SNR lower 3
+            if(unfiltered(c.x,c.y)<0.5 or mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
                 //std::cout<<"value skipped: "<<unfiltered(c.x,c.y)<<std::endl;
                 continue;
             }
@@ -1183,7 +1195,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
             maxima_acc.setOffset(Diff2D(factor*(c.x-mylen2), factor*(c.y-mylen2)));
             //std::cout<<roi_ul<<"  "<<roi_lr<<"  "<<xxl_ul<<"  "<<xxl_lr<<"  "<< framenumber<<std::endl;
             vigra::localMaxima(srcIterRange(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), im_xxl.lowerRight()+xxl_lr-Diff2D(factor,factor)),
-                    destIter(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), maxima_acc), vigra::LocalMinmaxOptions().threshold(0));
+                               destIter(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), maxima_acc), vigra::LocalMinmaxOptions().neighborhood(4));
     }
     determineAsymmetry(srcImageRange(unfiltered), maxima_coords, factor);
     determineSNR(srcImageRange(unfiltered), maxima_coords, factor);
