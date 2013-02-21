@@ -50,6 +50,7 @@
     #include <vigra/hdf5impex.hxx>
 #endif
 #include <rude/config.h>
+#include <Rmath.h>
 
 #include "stormparams.h"
 
@@ -94,7 +95,7 @@ StormParams::StormParams(int argc, char **argv)
   m_thresholdSaved(true), m_pixelsize(1), m_pixelsizeSaved(true), m_skellamFrames(200),
   m_skellamFramesSaved(true), m_xyChunkSize(10), m_xyChunkSizeSaved(true),
   m_tChunkSize(10), m_tChunkSizeSaved(true), m_chunksInMemory(5), m_chunksInMemorySaved(true),
-  m_verbose(false) {
+  m_alpha(0.001), m_thresholdMask(0), m_verbose(false) {
 #ifndef __WIN__
     m_executableDir.append(dirname(argv[0]));
     m_executableName.append(basename(argv[0]));
@@ -141,6 +142,7 @@ StormParams::StormParams(int argc, char **argv)
     m_config = new rude::Config();
     m_config->setConfigFile(m_settingsfile.c_str());
     load();
+    m_thresholdMask = qnorm(m_alpha, 0, 1, 0, 0);
 }
 
 StormParams::~StormParams() {
@@ -227,6 +229,12 @@ const std::string& StormParams::getFrameRange() const {
 }
 bool StormParams::getFrameRangeSaved() const {
     return m_framesSaved;
+}
+float StormParams::getAlpha() const {
+    return m_alpha;
+}
+double StormParams::getMaskThreshold() const {
+    return m_thresholdMask;
 }
 bool StormParams::getVerbose() const {
     return m_verbose;
@@ -550,6 +558,7 @@ void StormParams::save() const
     m_config->setIntValue("xyChunkSize", m_xyChunkSize);
     m_config->setIntValue("tChunkSize", m_tChunkSize);
     m_config->setIntValue("chunksInMemory", m_chunksInMemory);
+    m_config->setDoubleValue("alpha", m_alpha);
     m_config->save();
 }
 
@@ -589,4 +598,6 @@ void StormParams::load()
         m_chunksInMemory = m_config->getIntValue("chunksInMemory");
     else
         m_chunksInMemorySaved = false;
+    if (m_config->exists("alpha"))
+        m_alpha = m_config->getDoubleValue("alpha");
 }

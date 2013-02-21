@@ -463,97 +463,16 @@ void printIntensities(const DataParams &params, int* vecw, int* vech, int nbrPoi
 //get Mask calculates the probabilities for each pixel of the current frame to be foreground,
 //there are two different methods available: logliklihood, based on cumulative distribution function
 template <class T>
-void getMask(const DataParams &params, const MultiArrayView<2,T >& array, const MultiArrayView<2, T>& PoissonMeans ,int framenumber,MultiArray<2,T>& mask){
+void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
+	double cdf = params.getMaskThreshold();
+    vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
 
-    int w = array.shape()[0], h = array.shape()[1];
-
-	T alpha = 0.001;
-
-	T factor2ndDist; //= 1+arrMinmax.max/muMin/10; // should be dependent of snr
-
-	bool writeMatrices = false;
-    std::ofstream origimg, maski, poissmeans;
-	if(writeMatrices){
-
-		//vigra::exportImage(srcImageRange(makeBasicImageView(PoissonMeans)), "/home/herrmannsdoerfer/tmpOutput/PoissonMeans1.tif");
-        char origimgname[1000], maskname[1000], pname[1000];
-        sprintf(origimgname, "/home/herrmannsdoerfer/tmpOutput/frameData/origimgbeforefilter%d.txt", framenumber);
-        sprintf(maskname, "/home/herrmannsdoerfer/tmpOutput/frameData/maskPoiss%d.txt", framenumber);
-        sprintf(pname, "/home/herrmannsdoerfer/tmpOutput/frameData/poissmeans%d.txt", framenumber);
-
-		origimg.open (origimgname);
-		maski.open (maskname);
-		poissmeans.open (pname);
-	}
-	double cdf = 0;
-	for(int i = 0; i< w; i++){
-
-		for(int j = 0; j < h; j++){
-//			factor2ndDist = 1+arrMinmax.max/PoissonMeans(i,j)/10;
-//			mask(i,j) = isSignal_fast(array(i,j), muMin, factor2ndDist);
-			cdf = ppois(array(i,j), PoissonMeans(i,j), 0,0);
-			if (cdf <= alpha)
-				mask(i,j) = 1;//-cdf/alpha;
-			else
-                mask(i,j) = 0;
-            //std::cout<<"i: "<<i<<" j: "<<j<<" array(i,j): "<<array(i,j)<<" PoissonMeans: "<<PoissonMeans(i,j)<<" cdf: "<<cdf<<std::endl;
-			if (writeMatrices){
-			    maski << i<<"  "<< j<<"  "<< mask(i,j) <<std::endl;
-			    origimg << i<<"  "<< j<<"  "<< array(i,j)<<std::endl;
-			    poissmeans << i<<"  "<< j<<"  "<< PoissonMeans(i,j)<<std::endl;
-			}
-
-		}
-	}
-	if (writeMatrices){
-	origimg.close();
-	maski.close();
-	poissmeans.close();
-	}
-
-    vigra::IImage labels(w,h);
+    vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
-    //vigra::transformImage(srcImageRange(labels), destImage(mask),
-    //    ifThenElse(bins[(int)Arg1()]>Param(3.), Param(1.), Param(0.)));
-
-    for (int i = 0; i < w; i++) {
-        for (int j = 0; j < h; j++){
-            if (labels(i,j) == 0 or bins[labels(i,j)] < 3.14*std::pow(params.getSigma(), 2)){
-                mask(i,j) = 0;
-            } else {
-                mask(i,j) = 1;
-            }
-        }
-    }
-
-
-    //vigra::exportImage(srcImageRange(labels), "/home/herrmannsdoerfer/tmpOutput/labels.tif");
-
-
-    //double numberNeighboursRequired = 2; //if more than numberNeighboursRequired pixels are close together they wont be smoothed out
-	//gaussianSmoothing(srcImageRange(mask), destImage(mask), params.getSigma());
-	//transformImage(srcImageRange(mask),destImage(mask),
-	//        		ifThenElse(Arg1()>Param(numberNeighboursRequired/(2*3.14*params.getSigma())), Param(1.), Param(0.)));
-
-
-
-	if(writeMatrices){
-        std::ofstream maskafter;
-		char maskaftername[1000];
-
-		sprintf(maskaftername, "/home/herrmannsdoerfer/tmpOutput/frameData/maskafterGraphcutPoiss%d.txt", framenumber);
-		maskafter.open (maskaftername);
-
-	for(int i = 0; i< w; i++){
-		for(int j = 0; j < h; j++){
-			maskafter << i<<"  "<< j<<"  "<< mask(i,j)<<std::endl;
-		}
-	}
-	maskafter.close();
-	}
+    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < 3.14 * std::pow(params.getSigma(), 2)) return 0; else return 1;});
 }
 
 //two poisson distributions are compared, the two distributions are, the distribution around
@@ -943,11 +862,9 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
-        MultiArray<2, T> mask(Shape2(params.shape(0), params.shape(1)));
-        getMask(params, currSrc, currPoisson, currframe + f, mask);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
                                      [&tF](T srcPixel, T poissonPixel){return tF(srcPixel) - tF(poissonPixel);});
-        wienerStormSingleFrame(params, currSrc, mask, maxima_coords[currframe + f], currframe + f);
+        wienerStormSingleFrame(params, currSrc, maxima_coords[currframe + f], currframe + f);
     }
     currframe += srcImage.shape()[2];
 }
@@ -1090,7 +1007,7 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
 }
 
 template <class T>
-void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>& in, MultiArray<2, T> &mask, std::set<Coord<T> >& maxima_coords, int framenumber)
+void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>& in, std::set<Coord<T> >& maxima_coords, int framenumber)
 {
     int w = params.shape(0); // width
     int h = params.shape(1); // height
@@ -1141,7 +1058,8 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     vigra::FindMinMax<T> filteredMinMax;
     inspectImage(srcImageRange(filtered), filteredMinMax);
-
+    MultiArray<2, T> mask(Shape2(w, h));
+    getMask(params, filtered, framenumber, mask);
     std::set<Coord<T> > maxima_candidates_vect;  // we use a set for the coordinates to automatically squeeze duplicates
                                                  // (from overlapping ROIs)
     VectorPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_candidates(maxima_candidates_vect, filtered.upperLeft(), 1, mask);

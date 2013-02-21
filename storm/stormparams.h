@@ -89,6 +89,8 @@ public:
     const std::string& getSettingsFile() const;
     const std::string& getFrameRange() const;
     bool getFrameRangeSaved() const;
+    float getAlpha() const;
+    double getMaskThreshold() const;
     bool getVerbose() const;
 
     const Shape & shape() const;
@@ -134,6 +136,8 @@ private:
     unsigned int m_chunksInMemory;
     bool m_chunksInMemorySaved;
     bool m_framesSaved;
+    float m_alpha;
+    double m_thresholdMask;
     bool m_verbose;
     std::string m_infile;
     std::string m_outfile;
