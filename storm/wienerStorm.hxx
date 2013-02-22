@@ -863,7 +863,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
-                                     [&tF](T srcPixel, T poissonPixel){return tF(srcPixel) - tF(poissonPixel);});
+                                     [&tF](T srcPixel, T poissonPixel){T val = tF(srcPixel) - tF(poissonPixel); return (val < 0 || std::isnan(val)) ? 0 : val;});
         wienerStormSingleFrame(params, currSrc, maxima_coords[currframe + f], currframe + f);
     }
     currframe += srcImage.shape()[2];
