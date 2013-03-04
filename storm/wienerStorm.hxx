@@ -467,12 +467,12 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
 	double cdf = params.getMaskThreshold();
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
 
-    vigra::IImage labels(array.width(), array.height());
-    unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
-    std::valarray<int> bins(0, nbrCC + 1);
-    auto fun = [&bins](int32_t p){++bins[p];};
-    vigra::inspectImage(srcImageRange(labels), fun);
-    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < 3.14 * std::pow(params.getSigma(), 2)) return 0; else return 1;});
+//     vigra::IImage labels(array.width(), array.height());
+//     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
+//     std::valarray<int> bins(0, nbrCC + 1);
+//     auto fun = [&bins](int32_t p){++bins[p];};
+//     vigra::inspectImage(srcImageRange(labels), fun);
+//     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < /*3.14 * std::pow(params.getSigma(), 2)*/3) return 0; else return 1;});
 }
 
 //two poisson distributions are compared, the two distributions are, the distribution around
@@ -1046,7 +1046,8 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 //         }
 //     }
 //     beforeimg.close();
-    gaussianSmoothing(srcImageRange(input), destImage(filteredView), std::pow(std::pow(params.getSigma(), 2)-std::pow(0.85, 2), .5));
+    float kernelWidth = params.getSigma() < 0.85 ? 0.0 : std::sqrt(std::pow(params.getSigma(), 2)-std::pow(0.85, 2));
+    gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
 
 //     afterimg.open (afterfilter);
 //     for (int i = 0; i < w; i++) {
@@ -1113,7 +1114,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
             maxima_acc.setOffset(Diff2D(factor*(c.x-mylen2), factor*(c.y-mylen2)));
             //std::cout<<roi_ul<<"  "<<roi_lr<<"  "<<xxl_ul<<"  "<<xxl_lr<<"  "<< framenumber<<std::endl;
             vigra::localMaxima(srcIterRange(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), im_xxl.lowerRight()+xxl_lr-Diff2D(factor,factor)),
-                               destIter(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), maxima_acc), vigra::LocalMinmaxOptions().neighborhood(4));
+                               destIter(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), maxima_acc), vigra::LocalMinmaxOptions().neighborhood(8));
     }
     determineAsymmetry(srcImageRange(unfiltered), maxima_coords, factor);
     determineSNR(srcImageRange(unfiltered), maxima_coords, factor);
