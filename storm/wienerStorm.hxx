@@ -848,14 +848,14 @@ void getPoissonMeansForChunk(const DataParams &params, const MultiArrayView<3, L
     vigra::acc::extractFeatures(iter, iterEnd, accChain);
     for (int x = 0, i = 0; x < regionMeans.shape()[0]; ++x) {
         for (int y = 0; y < regionMeans.shape()[1]; ++y, ++i) {
-            regionMeans(x, y) = vigra::acc::get<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>(accChain, i)[3] - 0.3333;
+            regionMeans(x, y) = vigra::acc::get<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>(accChain, i)[3];
         }
     }
 }
 
-template <class T, class F>
+template <class T>
 void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
-                  MultiArrayView<3, T> &poissonMeans, F tF, int &currframe, int middleChunk,
+                  MultiArrayView<3, T> &poissonMeans, int &currframe, int middleChunk,
                   std::vector<std::set<Coord<T>>>& maxima_coords) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
     #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, maxima_coords)
@@ -863,16 +863,16 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
-                                     [&tF](T srcPixel, T poissonPixel){T val = tF(srcPixel) - tF(poissonPixel); return (val < 0 || std::isnan(val)) ? 0 : val;});
+                                     [](T srcPixel, T poissonPixel){T val = srcPixel - poissonPixel; return (val < 0 || std::isnan(val)) ? 0 : val;});
         wienerStormSingleFrame(params, currSrc, maxima_coords[currframe + f], currframe + f);
     }
     currframe += srcImage.shape()[2];
 }
 
-template <class T, class L>
+template <class T, class L, class F>
 void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
                MultiArrayView<3, T> &poissonMeansRaw, MultiArrayView<3, T> &poissonMeans,
-               const MultiArrayView<3, L> &poissonLabels, int chunk) {
+               const MultiArrayView<3, L> &poissonLabels, int chunk, F &tF) {
     unsigned int xChunks = std::ceil(params.shape(0) / (float)params.getXYChunkSize());
     unsigned int yChunks = std::ceil(params.shape(1) / (float)params.getXYChunkSize());
     unsigned int chunksInMemory = params.getChunksInMemory();
@@ -883,7 +883,7 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     }
     srcImage[middleChunk] = tmp;
     params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), tmp->shape(), *tmp);
-    vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
+    vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params, &tF](T p){return tF((p - params.getIntercept()) / params.getSlope());});
     for (int z = 0; z < chunksInMemory - 1; ++z) {
         for (int x = 0; x < xChunks; ++x) {
             for (int y = 0; y < yChunks; ++y) {
@@ -958,13 +958,13 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
     for (chunk = 0; chunk < chunksInMemory; ++chunk) {
         params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), srcImage[chunk]->shape(), *srcImage[chunk]);
         auto currRawMean = poissonMeansRaw.bindOuter(chunk);
-        vigra::transformMultiArray(srcMultiArrayRange(*srcImage[chunk]), destMultiArrayRange(*srcImage[chunk]), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
+        vigra::transformMultiArray(srcMultiArrayRange(*srcImage[chunk]), destMultiArrayRange(*srcImage[chunk]), [&params, &tF](T p){return tF((p - params.getIntercept()) / params.getSlope());});
         getPoissonMeansForChunk(params, poissonLabels, *srcImage[chunk], currRawMean);
 
     }
     vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
     for (int c = 0; c <= middleChunk; ++c) {
-        processChunk(params, *srcImage[c], poissonMeans, tF, currframe, c, maxima_coords);
+        processChunk(params, *srcImage[c], poissonMeans, currframe, c, maxima_coords);
         helper::progress(currframe, i_end);
     }
     if (chunksInMemory % 2) {
@@ -983,8 +983,8 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
 
     int lastChunkSize = stacksize % params.getTChunkSize();
     for (; chunk < (lastChunkSize ? tChunks - 1 : tChunks); ++chunk) {
-        readChunk(params, srcImage, poissonMeansRaw, poissonMeans, poissonLabels, chunk);
-        processChunk(params, *srcImage[0], poissonMeans, tF, currframe, middleChunk, maxima_coords);
+        readChunk(params, srcImage, poissonMeansRaw, poissonMeans, poissonLabels, chunk, tF);
+        processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, maxima_coords);
         helper::progress(currframe, i_end);
     }
     if (lastChunkSize) {
@@ -992,14 +992,14 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
         Shape3 labelsShape = poissonLabels.shape();
         labelsShape[2] = lastChunkSize;
         auto lastPoissonLabelsView = poissonLabels.subarray(Shape3(0, 0, 0), labelsShape);
-        readChunk(params, srcImage, poissonMeansRaw, poissonMeans, lastPoissonLabelsView, chunk);
-        processChunk(params, *srcImage[0], poissonMeans, tF, currframe, middleChunk, maxima_coords);
+        readChunk(params, srcImage, poissonMeansRaw, poissonMeans, lastPoissonLabelsView, chunk, tF);
+        processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, maxima_coords);
         helper::progress(currframe, i_end);
     }
     delete srcImage[0];
     for (int c = middleChunk + 1; c < chunksInMemory; ++c) {
         int cIndex = c - middleChunk;
-        processChunk(params, *srcImage[cIndex], poissonMeans, tF, currframe, c, maxima_coords);
+        processChunk(params, *srcImage[cIndex], poissonMeans, currframe, c, maxima_coords);
         helper::progress(currframe, i_end);
         delete srcImage[cIndex];
     }
