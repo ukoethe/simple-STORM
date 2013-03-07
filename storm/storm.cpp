@@ -138,11 +138,6 @@ int main(int argc, char* argv[]) {
         //parameterTrafo[4] = 0;
         //parameterTrafo[5] = 3./8.;
 
-        int w = params.shape(0), h = params.shape(1);
-        int vecw[] = {16,30,40,50,60,16,26};
-        int vech[] = {39,10,10,10,10,40,20};
-        printIntensities(params, vecw, vech, 7);
-
         wienerStorm(params, res_coords);
 
         // resulting image
