@@ -890,7 +890,7 @@ void estimatePSFParameters(DataParams &params) {
     if (!needFilter)
         return;
     unsigned int stacksize = params.getSkellamFrames();
-    int roiwidth = /*3 * params.getRoilen()*/15;
+    int roiwidth = 3 * params.getRoilen();
     int nbrRoisPerFrame = 20;
     int rois = 0;
 
