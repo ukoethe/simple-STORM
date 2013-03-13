@@ -87,9 +87,6 @@ int main(int argc, char* argv[]) {
         DataParams params(argc, argv);
         initR(params);
 
-        if(params.getVerbose()) {
-            std::cout << "thr:" << params.getThreshold() << " factor:" << params.getFactor() << std::endl;
-	    }
         //~ in.reshape(info.shape());
         //~ readVolume(info, in);
         int stacksize = params.shape(2);

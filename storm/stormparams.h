@@ -71,8 +71,6 @@ public:
     bool getFactorSaved() const;
     int getRoilen() const;
     bool getRoilenSaved() const;
-    float getThreshold() const;
-    bool getThresholdSaved() const;
     float getPixelSize() const;
     bool getPixelSizeSaved() const;
     unsigned int getSkellamFrames() const;
@@ -123,8 +121,6 @@ private:
     bool m_factorSaved;
     int m_roilen;
     bool m_roilenSaved;
-    float m_threshold;
-    bool m_thresholdSaved;
     float m_pixelsize;
     bool m_pixelsizeSaved;
     unsigned int m_skellamFrames;

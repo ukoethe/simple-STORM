@@ -91,8 +91,7 @@ inline unsigned long convertToULong(const char* const s) {
 const std::string StormParams::s_section = "stormparams";
 
 StormParams::StormParams(int argc, char **argv)
-: m_factor(8), m_factorSaved(true), m_roilen(9), m_roilenSaved(true), m_threshold(250),
-  m_thresholdSaved(true), m_pixelsize(1), m_pixelsizeSaved(true), m_skellamFrames(200),
+: m_factor(8), m_factorSaved(true), m_roilen(9), m_roilenSaved(true), m_pixelsize(1), m_pixelsizeSaved(true), m_skellamFrames(200),
   m_skellamFramesSaved(true), m_xyChunkSize(10), m_xyChunkSizeSaved(true),
   m_tChunkSize(10), m_tChunkSizeSaved(true), m_chunksInMemory(5), m_chunksInMemorySaved(true),
   m_alpha(0.001), m_thresholdMask(0), m_verbose(false) {
@@ -176,12 +175,6 @@ int StormParams::getRoilen() const {
 bool StormParams::getRoilenSaved() const {
     return m_roilenSaved;
 }
-float StormParams::getThreshold() const {
-    return m_threshold;
-}
-bool StormParams::getThresholdSaved() const {
-    return m_thresholdSaved;
-}
 float StormParams::getPixelSize() const {
     return m_pixelsize;
 }
@@ -259,7 +252,6 @@ void StormParams::printUsage() const {
 	<< "  --factor=Arg           Resize factor equivalent to the subpixel-precision" << std::endl
 	<< "  --cam-param-frames=Arg Number of frames to use for estimation of gain and offset." << std::endl
     << "                         Set to 0 to use the whole stack." << std::endl
-	<< "  --threshold=Arg        Threshold for background suppression" << std::endl
 	<< "  --coordsfile=Arg       filename for output of the found Coordinates" << std::endl
 	<< "  --pixelsize=Arg        Pixel size in nanometers. If set, the coordinates" << std::endl
 	<< "                         will be in nanometers, otherwise in pixels" << std::endl
@@ -321,7 +313,6 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 			{"version",          no_argument,       0,  'V'},
 			{"factor",           required_argument, 0,  'g'},
             {"cam-param-frames", required_argument, 0,  'P'},
-			{"threshold",        required_argument, 0,  't'},
 			{"coordsfile",       required_argument, 0,  'c'},
             {"pixelsize",        required_argument, 0,  'p'},
 			{"filter",           required_argument, 0,  'f'},
@@ -338,10 +329,6 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 			break;
 
 		switch (c) {
-		case 't': // threshold
-			m_threshold = convertToFloat(optarg);
-            m_thresholdSaved = false;
-			break;
 		case 'g': // factor
 			m_factor = convertToLong(optarg);
             m_factorSaved = false;
@@ -552,7 +539,6 @@ void StormParams::save() const
     m_config->setSection(s_section.c_str());
     m_config->setIntValue("factor", m_factor);
     m_config->setIntValue("roilen", m_roilen);
-    m_config->setDoubleValue("threshold", m_threshold);
     m_config->setDoubleValue("pixelsize", m_pixelsize);
     m_config->setIntValue("skellamFrames", m_skellamFrames);
     m_config->setIntValue("xyChunkSize", m_xyChunkSize);
@@ -574,10 +560,6 @@ void StormParams::load()
         m_roilenSaved = m_config->getIntValue("roilen");
     else
         m_roilenSaved = false;
-    if (m_thresholdSaved && m_config->exists("threshold"))
-        m_threshold = m_config->getDoubleValue("threshold");
-    else
-        m_thresholdSaved = false;
     if (m_pixelsizeSaved && m_config->exists("pixelsize"))
         m_pixelsize = m_config->getDoubleValue("pixelsize");
     else
