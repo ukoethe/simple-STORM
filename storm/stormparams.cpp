@@ -90,11 +90,14 @@ inline unsigned long convertToULong(const char* const s) {
 
 const std::string StormParams::s_section = "stormparams";
 
+StormParams::StormParams()
+: m_config(new rude::Config()) {
+    setDefaults();
+}
+
 StormParams::StormParams(int argc, char **argv)
-: m_factor(8), m_factorSaved(true), m_roilen(9), m_roilenSaved(true), m_pixelsize(1), m_pixelsizeSaved(true), m_skellamFrames(200),
-  m_skellamFramesSaved(true), m_xyChunkSize(10), m_xyChunkSizeSaved(true),
-  m_tChunkSize(10), m_tChunkSizeSaved(true), m_chunksInMemory(5), m_chunksInMemorySaved(true),
-  m_alpha(0.001), m_thresholdMask(0), m_verbose(false) {
+: m_config(new rude::Config()) {
+    setDefaults();
 #ifndef __WIN__
     m_executableDir.append(dirname(argv[0]));
     m_executableName.append(basename(argv[0]));
@@ -109,6 +112,122 @@ StormParams::StormParams(int argc, char **argv)
 #endif
 
     parseProgramOptions(argc, argv);
+}
+
+StormParams::~StormParams() {
+    switch(m_type) {
+        case TIFF:
+            delete (ImageImportInfo*)ptr;
+            break;
+        case SIF:
+            delete (SIFImportInfo*)ptr;
+            break;
+        #ifdef HDF5_FOUND
+        case HDF5:
+            delete (HDF5File*)ptr;
+            break;
+        #endif // HDF5_FOUND
+        default:
+            break;
+    }
+    delete m_config;
+}
+
+int StormParams::getFactor() const {
+    return m_factor;
+}
+void StormParams::setFactor(int factor) {
+    if (factor != m_factor) {
+        m_factor = factor;
+        m_factorSaved = false;
+    }
+}
+bool StormParams::getFactorSaved() const {
+    return m_factorSaved;
+}
+
+int StormParams::getRoilen() const {
+    return m_roilen;
+}
+void StormParams::setRoilen(int roilen) {
+    if (roilen != m_roilen) {
+        m_roilen = roilen;
+        m_roilenSaved = false;
+    }
+}
+bool StormParams::getRoilenSaved() const {
+    return m_roilenSaved;
+}
+
+float StormParams::getPixelSize() const {
+    return m_pixelsize;
+}
+void StormParams::setPixelSize(float pixelsize) {
+    if (pixelsize != m_pixelsize) {
+        m_pixelsize = pixelsize;
+        m_pixelsizeSaved = false;
+    }
+}
+bool StormParams::getPixelSizeSaved() const {
+    return m_pixelsizeSaved;
+}
+
+unsigned int StormParams::getSkellamFrames() const {
+    return m_skellamFrames;
+}
+void StormParams::setSkellamFrames(unsigned int frames) {
+    if (frames != m_skellamFrames) {
+        m_skellamFrames = frames;
+        m_skellamFramesSaved = false;
+    }
+}
+bool StormParams::getSkellamFramesSaved() const {
+    return m_skellamFramesSaved;
+}
+
+unsigned int StormParams::getXYChunkSize() const {
+    return m_xyChunkSize;
+}
+void StormParams::setXYChunkSize(unsigned int chunksize) {
+    if (chunksize != m_xyChunkSize) {
+        m_xyChunkSize = chunksize;
+        m_xyChunkSizeSaved = false;
+    }
+}
+bool StormParams::getXYChunkSizeSaved() const {
+    return m_xyChunkSizeSaved;
+}
+
+unsigned int StormParams::getTChunkSize() const {
+    return m_tChunkSize;
+}
+void StormParams::setTChunkSize(unsigned int chunksize) {
+    if (chunksize != m_tChunkSize) {
+        m_tChunkSize = chunksize;
+        m_tChunkSizeSaved = false;
+    }
+}
+bool StormParams::getTChunkSizeSaved() const {
+    return m_tChunkSizeSaved;
+}
+
+unsigned int StormParams::getChunksInMemory() const {
+    return m_chunksInMemory;
+}
+void StormParams::setChunksInMemory(unsigned int chunks) {
+    if (chunks != m_chunksInMemory) {
+        m_chunksInMemory = chunks;
+        m_chunksInMemorySaved = false;
+    }
+}
+bool StormParams::getChunksInMemorySaved() const {
+    return m_chunksInMemorySaved;
+}
+const std::string& StormParams::getInFile() const {
+    return m_infile;
+}
+void StormParams::setInFile(const std::string& infile) {
+    m_infile = infile;
 
     std::string extension = m_infile.substr( m_infile.find_last_of('.'));
     if(extension==".tif" || extension==".tiff") {
@@ -137,101 +256,70 @@ StormParams::StormParams(int argc, char **argv)
         vigra_precondition(false, "Wrong infile-extension given. Currently supported: .sif .h5 .hdf .hdf5 .tif .tiff");
     }
 
-    setDefaults();
-    m_config = new rude::Config();
-    m_config->setConfigFile(m_settingsfile.c_str());
-    load();
-    m_thresholdMask = qnorm(m_alpha, 0, 1, 0, 0);
+    setDefaultFileNames();
 }
 
-StormParams::~StormParams() {
-    switch(m_type) {
-        case TIFF:
-            delete (ImageImportInfo*)ptr;
-            break;
-        case SIF:
-            delete (SIFImportInfo*)ptr;
-            break;
-        #ifdef HDF5_FOUND
-        case HDF5:
-            delete (HDF5File*)ptr;
-            break;
-        #endif // HDF5_FOUND
-        default:
-            break;
-    }
-    delete m_config;
-}
-
-int StormParams::getFactor() const {
-    return m_factor;
-}
-bool StormParams::getFactorSaved() const {
-    return m_factorSaved;
-}
-int StormParams::getRoilen() const {
-    return m_roilen;
-}
-bool StormParams::getRoilenSaved() const {
-    return m_roilenSaved;
-}
-float StormParams::getPixelSize() const {
-    return m_pixelsize;
-}
-bool StormParams::getPixelSizeSaved() const {
-    return m_pixelsizeSaved;
-}
-unsigned int StormParams::getSkellamFrames() const {
-    return m_skellamFrames;
-}
-bool StormParams::getSkellamFramesSaved() const {
-    return m_skellamFramesSaved;
-}
-unsigned int StormParams::getXYChunkSize() const {
-    return m_xyChunkSize;
-}
-bool StormParams::getXYChunkSizeSaved() const {
-    return m_xyChunkSizeSaved;
-}
-unsigned int StormParams::getTChunkSize() const {
-    return m_tChunkSize;
-}
-bool StormParams::getTChunkSizeSaved() const {
-    return m_tChunkSizeSaved;
-}
-unsigned int StormParams::getChunksInMemory() const {
-    return m_chunksInMemory;
-}
-bool StormParams::getChunksInMemorySaved() const {
-    return m_chunksInMemorySaved;
-}
-const std::string& StormParams::getInFile() const {
-    return m_infile;
-}
 const std::string& StormParams::getOutFile() const {
     return m_outfile;
 }
+void StormParams::setOutFile(const std::string &file) {
+    m_outfile = file;
+}
+
 const std::string& StormParams::getCoordsFile() const {
     return m_coordsfile;
 }
+void StormParams::setCoordsFile(const std::string &file) {
+    m_coordsfile = file;
+}
+
 const std::string& StormParams::getSettingsFile() const {
     return m_settingsfile;
 }
+void StormParams::setSettingsFile(const std::string &file) {
+    if (file != m_settingsfile) {
+        m_settingsfile = file;
+        m_config->clear();
+        m_config->setConfigFile(m_settingsfile.c_str());
+        load();
+    }
+}
+
 const std::string& StormParams::getFrameRange() const {
     return m_frames;
 }
+void StormParams::setFrameRange(const std::string &frames) {
+    if (frames != m_frames) {
+        m_frames = frames;
+        m_framesSaved = false;
+    }
+}
+
 bool StormParams::getFrameRangeSaved() const {
     return m_framesSaved;
 }
+
 float StormParams::getAlpha() const {
     return m_alpha;
 }
+void StormParams::setAlpha(float alpha) {
+    if (alpha != m_alpha) {
+        m_alpha = alpha;
+        m_thresholdMask = qnorm(m_alpha, 0, 1, 0, 0);
+    }
+}
+
 double StormParams::getMaskThreshold() const {
     return m_thresholdMask;
 }
+
 bool StormParams::getVerbose() const {
     return m_verbose;
 }
+void StormParams::setVerbose(bool verbose) {
+    m_verbose = verbose;
+}
+
 const StormParams::Shape & StormParams::shape() const {
     return m_shape;
 }
@@ -242,6 +330,9 @@ FileType StormParams::type() const { return m_type; };
 
 const std::string& StormParams::executableDir() const {
     return m_executableDir;
+}
+void StormParams::setExecutableDir(const std::string &dir) {
+    m_executableDir = dir;
 }
 
 void StormParams::printUsage() const {
@@ -276,6 +367,26 @@ void StormParams::printVersion() const {
  * Defaults for unset variables are important
  */
 void StormParams::setDefaults() {
+    m_factor = 8;
+    m_factorSaved = true;
+    m_roilen = 9;
+    m_roilenSaved = true;
+    m_pixelsize = 1;
+    m_pixelsizeSaved = true;
+    m_skellamFrames = 200;
+    m_skellamFramesSaved = true;
+    m_xyChunkSize = 10;
+    m_xyChunkSizeSaved = true;
+    m_tChunkSize = 10;
+    m_tChunkSizeSaved = true;
+    m_chunksInMemory = 5;
+    m_chunksInMemorySaved = true;
+    setAlpha(0.001);
+    m_thresholdMask = 0;
+    m_verbose = false;
+}
+
+void StormParams::setDefaultFileNames() {
     // defaults: save out- and coordsfile into the same folder as input stack
 	size_t pos = m_infile.find_last_of('.');
     if (m_outfile.empty()) {
@@ -315,7 +426,7 @@ int StormParams::parseProgramOptions(int argc, char **argv)
             {"cam-param-frames", required_argument, 0,  'P'},
 			{"coordsfile",       required_argument, 0,  'c'},
             {"pixelsize",        required_argument, 0,  'p'},
-			{"filter",           required_argument, 0,  'f'},
+			{"settings",         required_argument, 0,  's'},
 			{"roi-len",          required_argument, 0,  'm'},
 			{"frames",           required_argument, 0,  'F'},
 			{0, 0, 0, 0 }
@@ -323,41 +434,35 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 		};
 
 		// valid options: "vc:" => -v option without parameter, c flag requires parameter
-		c = getopt_long(argc, argv, "?vVg:P:t:c:f:p:m:F:",
+		c = getopt_long(argc, argv, "?vVg:P:t:c:s:p:m:F:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
 
 		switch (c) {
 		case 'g': // factor
-			m_factor = convertToLong(optarg);
-            m_factorSaved = false;
+            setFactor(convertToLong(optarg));
 			break;
         case 'P': // cam-param-frames
-            m_skellamFrames = convertToULong(optarg);
-            m_skellamFramesSaved = false;
+            setSkellamFrames(convertToULong(optarg));
             break;
 		case 'm': // roi-len
-			m_roilen = convertToLong(optarg);
-            m_roilenSaved = false;
+			setRoilen(convertToLong(optarg));
 			break;
         case 'p': // pixelsize
-        	m_pixelsize = convertToFloat(optarg);
-            m_pixelsizeSaved = false;
+        	setPixelSize(convertToFloat(optarg));
         	break;
 		case 'c': // coordsfile
-			m_coordsfile = optarg;
+            setCoordsFile(optarg);
 			break;
-		case 'f': // filter
-			m_settingsfile = optarg;
-            m_pixelsizeSaved = false;
+		case 's': // settingsfile
+			setSettingsFile(optarg);
 			break;
 		case 'F': // frames
-			m_frames = optarg;
-            m_framesSaved = false;
+			setFrameRange(optarg);
 			break;
 		case 'v':
-			m_verbose = true; // verbose mode
+			setVerbose(true); // verbose mode
 			break;
 		// Option -? and in case of unknown option or missing argument
 		case '?':
@@ -371,14 +476,15 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 		}
 	}
 
-	while (optind < argc) {
-		if(m_infile == "") m_infile = argv[optind++];
-		else if (m_outfile == "") m_outfile = argv[optind++];
-		else std::cout << "unrecognized non-option Argument: " << argv[optind++] << std::endl;
-	}
+	if (optind < argc)
+        setInFile(argv[optind++]);
+    if (optind < argc)
+        m_outfile = argv[optind++];
+    if (optind < argc)
+        std::cout << "unrecognized non-option Argument: " << argv[optind++] << std::endl;
 
 	// if no input file given
-	if(m_infile == "" ) {
+	if(m_infile.empty()) {
 		std::cerr << "error: no input file given" << std::endl;
 		printUsage();
 		std::exit(-1);

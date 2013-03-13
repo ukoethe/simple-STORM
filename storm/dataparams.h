@@ -5,6 +5,7 @@
 
 class DataParams : public StormParams {
 public:
+    DataParams();
     DataParams(int argc, char **argv);
     ~DataParams();
 

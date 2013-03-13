@@ -62,39 +62,55 @@ class StormParams {
 public:
     typedef vigra::MultiArrayShape<STORMPARAMS_N>::type Shape;
 
+    StormParams();
     StormParams(int argc, char **argv);
     virtual ~StormParams();
 
     void printUsage() const;
     void printVersion() const;
     int getFactor() const;
+    void setFactor(int);
     bool getFactorSaved() const;
     int getRoilen() const;
+    void setRoilen(int);
     bool getRoilenSaved() const;
     float getPixelSize() const;
+    void setPixelSize(float);
     bool getPixelSizeSaved() const;
     unsigned int getSkellamFrames() const;
+    void setSkellamFrames(unsigned int);
     bool getSkellamFramesSaved() const;
     unsigned int getXYChunkSize() const;
+    void setXYChunkSize(unsigned int);
     bool getXYChunkSizeSaved() const;
     unsigned int getTChunkSize() const;
+    void setTChunkSize(unsigned int);
     bool getTChunkSizeSaved() const;
     unsigned int getChunksInMemory() const;
+    void setChunksInMemory(unsigned int);
     bool getChunksInMemorySaved() const;
     const std::string& getInFile() const;
+    void setInFile(const std::string&);
     const std::string& getOutFile() const;
+    void setOutFile(const std::string&);
     const std::string& getCoordsFile() const;
+    void setCoordsFile(const std::string&);
     const std::string& getSettingsFile() const;
+    void setSettingsFile(const std::string&);
     const std::string& getFrameRange() const;
+    void setFrameRange(const std::string&);
     bool getFrameRangeSaved() const;
     float getAlpha() const;
+    void setAlpha(float);
     double getMaskThreshold() const;
     bool getVerbose() const;
+    void setVerbose(bool);
 
     const Shape & shape() const;
     vigra::MultiArrayIndex shape(const int dim) const;
     FileType type() const;
     const std::string& executableDir() const;
+    void setExecutableDir(const std::string&);
 
     template <typename  T>
     void readVolume(vigra::MultiArrayView<STORMPARAMS_N, T> &) const;
@@ -111,6 +127,7 @@ protected:
 
 private:
     int parseProgramOptions(int argc, char **argv);
+    void setDefaultFileNames();
     void setDefaults();
 
     Shape m_shape;

@@ -4,6 +4,10 @@
 
 const std::string DataParams::s_section = "dataparams";
 
+DataParams::DataParams()
+: StormParams(), m_slopeSaved(false), m_interceptSaved(false), m_sigmaSaved(false)
+{}
+
 DataParams::DataParams(int argc, char **argv)
 : StormParams(argc, argv), m_slopeSaved(false), m_interceptSaved(false), m_sigmaSaved(false)
 {
