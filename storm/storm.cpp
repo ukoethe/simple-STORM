@@ -38,9 +38,6 @@
 
 #include <vigra/timing.hxx>
 
-void preventRConsoleWrite(const char* buf, int buflen)
-{}
-
 // MAIN
 int main(int argc, char* argv[]) {
     if (std::getenv("R_HOME") == nullptr) {
@@ -85,14 +82,10 @@ int main(int argc, char* argv[]) {
         << "You probably do not have R installed or do not have it in your PATH." << std::endl;
         return 1;
     }
-    char *Rargv[] = {(char*)"REmbeddedStorm", (char*)"--silent", (char*)"--no-save"};
-    R_SignalHandlers = FALSE;
-    Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
-
     try
     {
-
         DataParams params(argc, argv);
+        initR(params);
 
         if(params.getVerbose()) {
             std::cout << "thr:" << params.getThreshold() << " factor:" << params.getFactor() << std::endl;
@@ -130,9 +123,10 @@ int main(int argc, char* argv[]) {
         //printIntensities(info);
 
         float a,offset, intercept;
-        estimateParameters<float>(params);
+        estimateCameraParameters<float>(params);
+        estimatePSFParameters<float>(params);
 
-        std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept()<<std::endl;
+        std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept() << " sigma: " << params.getSigma()<<std::endl;
         //showPoisson(info, parameterTrafo);
 
         //parameterTrafo[4] = 0;
@@ -141,7 +135,7 @@ int main(int argc, char* argv[]) {
         int w = params.shape(0), h = params.shape(1);
         int vecw[] = {16,30,40,50,60,16,26};
         int vech[] = {39,10,10,10,10,40,20};
-        printIntensities(params, vecw, vech, 7);
+        //printIntensities(params, vecw, vech, 7);
 
         wienerStorm(params, res_coords);
 
@@ -178,14 +172,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // prevent printing of R warnings
-    void (*ptr_R_WriteConsole_old)(const char *, int) = ptr_R_WriteConsole;
-    FILE *R_Consolefile_old = R_Consolefile;
-    ptr_R_WriteConsole = preventRConsoleWrite;
-    R_Consolefile = NULL;
-    Rf_endEmbeddedR(0);
-    ptr_R_WriteConsole = ptr_R_WriteConsole_old;
-    R_Consolefile = R_Consolefile_old;
+    endR();
 
     return 0;
 }
