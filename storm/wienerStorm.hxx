@@ -48,6 +48,7 @@
 #include <vector>
 #include <valarray>
 #include <limits>
+#include <atomic>
 
 //#include <algorithm>
 #ifdef OPENMP_FOUND
@@ -84,6 +85,22 @@ using namespace vigra::functor;
  *
  * @date 2010-2011 Diploma thesis J. Schleicher
  */
+
+enum WienerStormStage{CameraParameters, PSFWidth, Localization};
+class ProgressFunctor
+{
+public:
+    ProgressFunctor() : m_abort(false) {};
+    virtual ~ProgressFunctor(){};
+    virtual void setStage(WienerStormStage) = 0;
+    virtual void setStackSize(int) = 0;
+    virtual void setFrame(int) = 0;
+    void abort() {m_abort = true;};
+    bool getAbort() {return m_abort;};
+
+protected:
+    std::atomic<bool> m_abort;
+};
 
 //--------------------------------------------------------------------------
 // helper classes and functions
@@ -362,42 +379,6 @@ void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],in
     UNPROTECT(4);
 }
 
-void printIntensities(const DataParams &params, int* vecw, int* vech, int nbrPoints){
-    unsigned int stacksize2 = params.shape(2);
-    unsigned int w = params.shape(0);
-    unsigned int h = params.shape(1);
-    float a = params.getSlope(), b = params.getIntercept();
-	//std::cout<<"w: "<<w<<" h: "<<h<<std::endl;
-	//std::cin.get();
-	MultiArray<3, float> mean_im_temp(Shape3(w,h,1));
-	MultiArray<3, float> mean_im_temp2(Shape3(w,h,1));
-
-
-	std::ofstream origimg[nbrPoints];
-
-	char temp[1000];
-	for(int i = 0;i < nbrPoints; i++){
-		sprintf(temp, "/home/herrmannsdoerfer/tmpOutput/pos0_%d_pos1_%d.txt", vecw[i], vech[i]);
-		origimg[i].open(temp);
-		std::cout<<"vecw["<<i<<"]="<<vecw[i]<<" vech["<<i<<"]="<<vech[i]<<std::endl;
-		std::cout<<"a:"<< a<<" b" <<b<<std::endl;
-	}
-
-
-
-	for(int f = 0; f< stacksize2;f++){
-        params.readBlock(Shape3(0,0,f),Shape3(w,h,1), mean_im_temp2);
-		for(int i = 0; i <nbrPoints; i++){
-			origimg[i]<< (mean_im_temp2(vecw[i], vech[i])-b)/a<<std::endl;
-		}
-	}
-
-	for(int i=0; i<nbrPoints; i++){
-		origimg[i].close();
-	}
-	std::cout<<"coordinates saved"<<std::endl;
-}
-
 //get Mask calculates the probabilities for each pixel of the current frame to be foreground,
 //there are two different methods available: logliklihood, based on cumulative distribution function
 template <class T>
@@ -416,7 +397,7 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
 //To estimate the gain factor points with different mean intensities are needed. This functions searches for
 //good candidates, it tries to find pixels with as much different mean values as possible.
 template <class T>
-void estimateCameraParameters(DataParams &params) {
+void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
     if (!needSkellam)
         return;
@@ -424,6 +405,8 @@ void estimateCameraParameters(DataParams &params) {
     unsigned int w = params.shape(0);
     unsigned int h = params.shape(1);
 
+    progressFunc.setStage(CameraParameters);
+    progressFunc.setStackSize(stacksize);
     int maxNumberPoints = 2000;
 
     T minVal = std::numeric_limits<T>::max();
@@ -434,7 +417,9 @@ void estimateCameraParameters(DataParams &params) {
     T *meanValues = (T*)std::malloc(maxNumberPoints * sizeof(T));
     T *skellamParameters = (T*)std::malloc(maxNumberPoints * sizeof(T));
 
-    for(int f = 0; f< stacksize;f++){
+    for(int f = 0; f< stacksize; ++f) {
+        if (progressFunc.getAbort())
+            return;
         params.readBlock(Shape3(0,0,f),Shape3(w,h,1), *img);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(*img), srcMultiArray(meanArr), destMultiArray(meanArr), std::plus<T>());
         if (f > 0) {
@@ -454,6 +439,7 @@ void estimateCameraParameters(DataParams &params) {
         auto *tmp = lastVal;
         lastVal = img;
         img = tmp;
+        progressFunc.setFrame(f);
     }
     vigra::transformMultiArray(srcMultiArrayRange(meanArr), destMultiArrayRange(meanArr), [&stacksize](T p){return p / stacksize;});
 
@@ -521,15 +507,16 @@ void getPoissonMeansForChunk(const DataParams &params, const MultiArrayView<3, L
 template <class T, class Func>
 void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
                   MultiArrayView<3, T> &poissonMeans, int &currframe, int middleChunk,
-                  Func& functor) {
+                  Func& functor, ProgressFunctor &progressFunc) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
-    #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor)
+    #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
                                      [](T srcPixel, T poissonPixel){T val = srcPixel - poissonPixel; return (std::isnan(val)) ? 0 : val;});
         functor(params, currSrc, currframe + f);
+        progressFunc.setFrame(currframe + f);
     }
     currframe += srcImage.shape()[2];
 }
@@ -562,7 +549,7 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
 }
 
 template <class T, class Func>
-void processStack(const DataParams &params, Func& functor, std::string message = std::string(), unsigned int stacksize = 0) {
+void processStack(const DataParams &params, Func& functor, ProgressFunctor &progressFunc, unsigned int stacksize = 0) {
 
     if (!stacksize)
         stacksize = params.shape(2);
@@ -587,13 +574,10 @@ void processStack(const DataParams &params, Func& functor, std::string message =
 
     // TODO: Precondition: res must have size (params.getFactor()*(w-1)+1, params.getFactor()*(h-1)+1)
     // filter must have the size of input
+    progressFunc.setStackSize(stacksize);
 
-    #ifndef STORM_QT // silence stdout
-    std::cout << message << std::endl;
-    #endif // STORM_QT
-    helper::progress(-1,-1); // reset progress
     #ifdef OPENMP_FOUND
-    omp_set_schedule(omp_sched_dynamic, omp_get_num_threads / params.getTChunkSize());
+    omp_set_schedule(omp_sched_dynamic, omp_get_num_threads() / params.getTChunkSize());
     #endif
 
     transformationFunctor tF(1, 3./8,0);
@@ -618,8 +602,9 @@ void processStack(const DataParams &params, Func& functor, std::string message =
     }
     vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
     for (int c = 0; c <= middleChunk; ++c) {
-        processChunk(params, *srcImage[c], poissonMeans, currframe, c, functor);
-        helper::progress(currframe, i_end);
+        if (progressFunc.getAbort())
+            return;
+        processChunk(params, *srcImage[c], poissonMeans, currframe, c, functor, progressFunc);
     }
     if (chunksInMemory % 2) {
         for (int c = 0; c < middleChunk; ++c) {
@@ -637,23 +622,27 @@ void processStack(const DataParams &params, Func& functor, std::string message =
 
     int lastChunkSize = stacksize % params.getTChunkSize();
     for (; chunk < (lastChunkSize ? tChunks - 1 : tChunks); ++chunk) {
+        if (progressFunc.getAbort())
+            return;
         readChunk(params, srcImage, poissonMeansRaw, poissonMeans, poissonLabels, chunk, tF);
-        processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, functor);
-        helper::progress(currframe, i_end);
+        processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, functor, progressFunc);
     }
     if (lastChunkSize) {
+        if (progressFunc.getAbort())
+            return;
         srcImage[0]->reshape(Shape3(w, h, lastChunkSize));
         Shape3 labelsShape = poissonLabels.shape();
         labelsShape[2] = lastChunkSize;
         auto lastPoissonLabelsView = poissonLabels.subarray(Shape3(0, 0, 0), labelsShape);
         readChunk(params, srcImage, poissonMeansRaw, poissonMeans, lastPoissonLabelsView, chunk, tF);
-        processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, functor);
-        helper::progress(currframe, i_end);
+        processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, functor, progressFunc);
     }
     delete srcImage[0];
     for (int c = middleChunk + 1; c < chunksInMemory; ++c) {
+        if (progressFunc.getAbort())
+            return;
         int cIndex = c - middleChunk;
-        processChunk(params, *srcImage[cIndex], poissonMeans, currframe, c, functor);
+        processChunk(params, *srcImage[cIndex], poissonMeans, currframe, c, functor, progressFunc);
         helper::progress(currframe, i_end);
         delete srcImage[cIndex];
     }
@@ -730,11 +719,12 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
 }
 
 template <class T>
-void estimatePSFParameters(DataParams &params) {
+void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
     std::srand(42);
     bool needFilter = !(params.getSkellamFramesSaved() && params.getSigmaSaved());
     if (!needFilter)
         return;
+    progressFunc.setStage(PSFWidth);
     unsigned int stacksize = params.getSkellamFrames();
     int roiwidth = 3 * params.getRoilen();
     int nbrRoisPerFrame = 20;
@@ -745,7 +735,7 @@ void estimatePSFParameters(DataParams &params) {
     MultiArray<2, FFTWComplex<double>> filterInit(Shape2(roiwidth, roiwidth));
     FFTWPlan<2, double> fplan(filterInit, filterInit, FFTW_FORWARD, FFTW_MEASURE);
     auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
-    processStack<T>(params, func, "Estimating PSF width...", stacksize);
+    processStack<T>(params, func, progressFunc, stacksize);
     moveDCToCenter(ps);
     vigra::transformMultiArray(srcMultiArrayRange(ps), destMultiArray(ps),
                           [&stacksize, &roiwidth, &rois](double p){return p / (rois * roiwidth * roiwidth);});
@@ -764,11 +754,12 @@ void estimatePSFParameters(DataParams &params) {
  */
 
 template <class T>
-void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_coords) {
-    estimateCameraParameters<T>(params);
-    estimatePSFParameters<T>(params);
+void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_coords, ProgressFunctor &progressFunc) {
+    estimateCameraParameters<T>(params, progressFunc);
+    estimatePSFParameters<T>(params, progressFunc);
     auto func = [&maxima_coords](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {wienerStormSingleFrame(params, currSrc, maxima_coords[currframe], currframe);};
-    processStack<T>(params, func, "Finding the maximum spots in the images...");
+    progressFunc.setStage(Localization);
+    processStack<T>(params, func, progressFunc);
 }
 
 template <class T>

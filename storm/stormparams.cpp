@@ -402,8 +402,9 @@ void StormParams::setDefaultFileNames() {
     	m_coordsfile.replace(pos, 255, ".txt"); // replace extension
 	}
     if( m_settingsfile.empty()) {
-    	m_settingsfile = m_infile;
-    	m_settingsfile.replace(pos, 255, "_settings.txt"); // replace extension
+        std::string tmp = m_infile;
+    	tmp.replace(pos, 255, "_settings.txt"); // replace extension#
+        setSettingsFile(tmp);
 	}
     if (m_skellamFrames > m_shape[2] || m_skellamFrames <= 0)
         m_skellamFrames = m_shape[2];

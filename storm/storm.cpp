@@ -38,6 +38,50 @@
 
 #include <vigra/timing.hxx>
 
+class CliProgressFunctor : public ProgressFunctor
+{
+public:
+    CliProgressFunctor() : ProgressFunctor(), m_stacksize(0), m_frame(0) {};
+    ~CliProgressFunctor() {};
+    virtual void setStage(WienerStormStage stage)
+    {
+        m_stage = stage;
+        switch (m_stage) {
+            case CameraParameters:
+                std::cout << std::endl << "Estimating camera gain and offset..." << std::endl;
+                break;
+            case PSFWidth:
+                std::cout << std::endl << "Estimating PSF width..." << std::endl;
+                break;
+            case Localization:
+                std::cout << std::endl << "Localizing molecules..." << std::endl;
+                break;
+        }
+    }
+
+    virtual void setStackSize(int stacksize)
+    {
+        m_stacksize = stacksize;
+        helper::progress(-1, -1);
+    }
+
+    virtual void setFrame(int frame)
+    {
+        m_frame = frame;
+#ifdef OPENMP_FOUND
+        if(omp_get_thread_num()==0) { // master thread
+            helper::progress(m_frame, m_stacksize);
+        }
+#else
+        helper::progress(m_frame, m_stacksize);
+#endif
+    }
+private:
+    WienerStormStage m_stage;
+    int m_stacksize;
+    std::atomic<int> m_frame;
+};
+
 // MAIN
 int main(int argc, char* argv[]) {
     try
@@ -80,7 +124,8 @@ int main(int argc, char* argv[]) {
 
         // STORM Algorithmut
 
-        wienerStorm(params, res_coords);
+        CliProgressFunctor func;
+        wienerStorm(params, res_coords, func);
         std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept() << " sigma: " << params.getSigma()<<std::endl;
 
         // resulting image
