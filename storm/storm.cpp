@@ -40,52 +40,14 @@
 
 // MAIN
 int main(int argc, char* argv[]) {
-    if (std::getenv("R_HOME") == nullptr) {
-        char **args = (char**)std::malloc((argc + 3) * sizeof(char*));
-        args[0] = (char*)"R";
-        args[1] = (char*)"CMD";
-        for (int i = 0, j = 2; i < argc; ++i, ++j)
-            args[j] = argv[i];
-        args[argc + 2] = nullptr;
-        int ret = execvp(args[0], args);
-        std::string reason;
-        switch (errno) {
-            case ENOENT:
-                reason << "ENOENT";
-                break;
-            case ENOTDIR:
-                reason << "ENOTDIR";
-                break;
-            case E2BIG:
-                reason << "E2BIG";
-                break;
-            case EACCES:
-                reason << "EACCES";
-                break;
-            case EINVAL:
-                reason << "EINVAL";
-                break;
-            case ELOOP:
-                reason << "ELOOP";
-                break;
-            case ENOMEM:
-                reason << "ENOMEM";
-                break;
-            case ETXTBSY:
-                reason << "ETXTBSY";
-                break;
-            default:
-                reason << "unknown";
-                break;
-        }
-        std::cerr << "Could not execute R: execvp returned " << ret << " due to reason: " << reason << std::endl
-        << "You probably do not have R installed or do not have it in your PATH." << std::endl;
-        return 1;
-    }
     try
     {
         DataParams params(argc, argv);
-        initR(params);
+        if (!initR(params, argc, argv)) {
+            std::cerr << "Could not initialize R" << std::endl
+            << "You probably do not have R installed or do not have it in your PATH." << std::endl;
+            return 1;
+        }
 
         //~ in.reshape(info.shape());
         //~ readVolume(info, in);
@@ -117,24 +79,9 @@ int main(int argc, char* argv[]) {
         TICPUSH;  // measure the time
 
         // STORM Algorithmut
-        //printIntensities(info);
-
-        float a,offset, intercept;
-        estimateCameraParameters<float>(params);
-        estimatePSFParameters<float>(params);
-
-        std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept() << " sigma: " << params.getSigma()<<std::endl;
-        //showPoisson(info, parameterTrafo);
-
-        //parameterTrafo[4] = 0;
-        //parameterTrafo[5] = 3./8.;
-
-        int w = params.shape(0), h = params.shape(1);
-        int vecw[] = {16,30,40,50,60,16,26};
-        int vech[] = {39,10,10,10,10,40,20};
-        //printIntensities(params, vecw, vech, 7);
 
         wienerStorm(params, res_coords);
+        std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept() << " sigma: " << params.getSigma()<<std::endl;
 
         // resulting image
         drawCoordsToImage<Coord<float> >(res_coords, res);

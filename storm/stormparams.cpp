@@ -99,8 +99,12 @@ StormParams::StormParams(int argc, char **argv)
 : m_config(new rude::Config()) {
     setDefaults();
 #ifndef __WIN__
-    m_executableDir.append(dirname(argv[0]));
-    m_executableName.append(basename(argv[0]));
+    char *buf = (char*)std::malloc((strlen(argv[0]) + 1) * sizeof(char)); // dirname and basename modify their argument
+    strcpy(buf, argv[0]);
+    m_executableDir.append(dirname(buf));
+    strcpy(buf, argv[0]);
+    m_executableName.append(basename(buf));
+    std::free(buf);
 #else
     char drive[_MAX_DRIVE];
     char dir[_MAXDIR];
@@ -381,8 +385,8 @@ void StormParams::setDefaults() {
     m_tChunkSizeSaved = true;
     m_chunksInMemory = 5;
     m_chunksInMemorySaved = true;
-    setAlpha(0.001);
     m_thresholdMask = 0;
+    setAlpha(0.001);
     m_verbose = false;
 }
 

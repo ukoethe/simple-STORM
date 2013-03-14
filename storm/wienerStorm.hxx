@@ -31,13 +31,10 @@
 /*                                                                      */
 /************************************************************************/
 
-#include <vigra/stdconvolution.hxx>
 #include <vigra/convolution.hxx>
-#include <vigra/recursiveconvolution.hxx>
 #include <vigra/resizeimage.hxx>
 #include <vigra/multi_array.hxx>
 #include <vigra/inspectimage.hxx>
-#include <vigra/fftw3.hxx>
 #include <vigra/localminmax.hxx>
 #include <vigra/splineimageview.hxx>
 #include <vigra/multi_fft.hxx>
@@ -45,23 +42,19 @@
 #include <vigra/multi_resize.hxx>
 #include <vigra/multi_impex.hxx>
 
-#include <ctime>
-//#include <set>
+#include <set>
 #include <fstream>
-//#include <iomanip>
+#include <iomanip>
 #include <vector>
 #include <valarray>
 #include <limits>
-#include <typeinfo>
 
 //#include <algorithm>
 #ifdef OPENMP_FOUND
     #include <omp.h>
 #endif //OPENMP_FOUND
 #include "util.h"
-#include "fftfilter.hxx"
 #include "dataparams.h"
-//#include <iostream>
 
 #define R_INTERFACE_PTRS
 #define R_NO_REMAP
@@ -99,33 +92,6 @@ using namespace vigra::functor;
 /**
  * BSpline coefficients but no prefiltering
  */
-
-double factorial_log(double in){
-	double erg = 0;
-	for(int i = 1; i<=in;i++){
-		erg +=log((double)i);
-	}
-	return erg;
-}
-
-
-template <class T>
-void poissonlastValue_log(T xmax, T& y_lastout, T lamb){
-	xmax = (int)xmax;
-	double p1 = xmax * log(lamb);//log(pow(lamb, xin[i]));
-	//std::cout<<"p1: "<<p1<<" ";
-	double p2 = factorial_log(xmax);
-	//std::cout<<"p2: "<<p2<<" ";
-	double p3 = -lamb;//exp(-lamb);
-	//std::cout<<"p3: "<<p3<<" ";
-	double p4 = p1 - p2;
-	//std::cout<<"p4: "<<p4<<" ";
-	//double p5 = p4;//exp(p4);
-	//std::cout<<"p5: "<<p5<<" ";
-	y_lastout = p4 + p3;//(p5+p3);
-	//std::cout<<"p5 * p3: "<<p5 * p3<<" ";
-
-}
 
 template <int ORDER, class T>
 class BSplineWOPrefilter
@@ -396,31 +362,6 @@ void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],in
     UNPROTECT(4);
 }
 
-template <class T>
-T median(MultiArray<3, T> array){
-	int size = 0;
-	typename MultiArray<3,T>::iterator it;
-	for(it = array.begin(); it != array.end(); it++){size += 1;}
-	std::vector<int> iter(size); //contains information permutation from sort
-	linearSequence(iter.begin(), iter.end());
-	indexSort(array.begin(), array.end(), iter.begin());
-	if(size == 1){return array[0];}
-	if(size%2 == 0){return (array[iter[size/2]] + array[iter[size/2-1]])/2;}
-	if(size%2 == 1){return array[iter[size/2]];}
-}
-template <class T>
-T median(MultiArray<2, T> array){
-	int size = 0;
-	typename MultiArray<2,T>::iterator it;
-	for(it = array.begin(); it != array.end(); it++){size += 1;}
-	std::vector<int> iter(size); //contains information permutation from sort
-	linearSequence(iter.begin(), iter.end());
-	indexSort(array.begin(), array.end(), iter.begin());
-	if(size == 1){return array[0];}
-	if(size%2 == 0){return (array[iter[size/2]] + array[iter[size/2-1]])/2;}
-	if(size%2 == 1){return array[iter[size/2]];}
-}
-
 void printIntensities(const DataParams &params, int* vecw, int* vech, int nbrPoints){
     unsigned int stacksize2 = params.shape(2);
     unsigned int w = params.shape(0);
@@ -470,95 +411,6 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
 //     auto fun = [&bins](int32_t p){++bins[p];};
 //     vigra::inspectImage(srcImageRange(labels), fun);
 //     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < /*3.14 * std::pow(params.getSigma(), 2)*/3) return 0; else return 1;});
-}
-
-//two poisson distributions are compared, the two distributions are, the distribution around
-//the estimated mean for the background pixels and a second distribution with a mean scaled with the
-//factor factor2ndDist, each intensity  is explained better by either the background or the
-//"foreground" distribution.
-template <class T>
-T isSignal_fast(T corrInt, T lamb_,T factor2ndDist){
-	if(int(corrInt)== 0){return 0;}
-	T lamb = lamb_;
-	T prob = 0;
-	T factor = 5;
-	T limit = .5*factor;		//determines the value in case signal/no signal for sure
-	T y1,y2;
-
-	poissonlastValue_log(corrInt, y1, lamb);
-	poissonlastValue_log(corrInt, y2, lamb * factor2ndDist);
-
-	//if(corrInt < 1){prob =  -limit;} // is done by if(int(corrInt) == 0
-	if(y1 == 0 && y2 > 0){prob = limit;}
-	else if(y2 == 0 && y1 > 0){prob =  -limit;}
-	else if(y2 == 0 && y1 == 0){prob =  limit;}
-	//else{prob = -log(y1[lasty]/y2[lasty]);}
-	else{prob = y2 - y1;}
-
-	if(prob > limit or std::isnan(prob)){prob =  limit;}
-	if(prob < -limit or std::isnan(-prob)){prob = -limit;}
-
-	prob = (prob + limit)/(2*limit);
-	//if(prob < 0.7){prob = 0;}
-	return prob;
-}
-
-/**
- * Estimate Background level and subtract it from the image
- */
-template <class Image>
-void subtractBackground(Image& im) {
-    float sigma = 10.; // todo: estimate from data
-    BasicImage<typename Image::value_type> bg(im.size());
-    vigra::recursiveSmoothX(srcImageRange(im), destImage(bg), sigma);
-    vigra::recursiveSmoothY(srcImageRange(bg), destImage(bg), sigma);
-    vigra::combineTwoImages(srcImageRange(im), srcImage(bg), destImage(im), Arg1()-Arg2());
-}
-
-
-
-//--------------------------------------------------------------------------
-// GENERATE WIENER FILTER
-//--------------------------------------------------------------------------
-// Since the algorithms work on single-frames only, there is no need to
-// put the complete dataset into RAM but every frame can be read from disk
-// when needed. The class MyImportInfo transparently handles hdf5 and sif
-// input file pointers.
-
-/**
- * Estimate Noise Power
- */
-template <class SrcIterator, class SrcAccessor>
-typename SrcIterator::value_type estimateNoisePower(int w, int h,
-        SrcIterator is, SrcIterator end, SrcAccessor as)
-{
-    typedef double sum_type; // use double here since the sum can get larger than float range
-
-    vigra::FindSum<sum_type> sum;   // init functor
-    vigra::FindSum<sum_type> sumROI;   // init functor
-    vigra::BImage mask(w,h);
-    mask = 0;
-    // TODO: this size should depend on image dimensions!
-    int borderWidth = 10;
-    for(int y = borderWidth; y < h-borderWidth; y++) {  // select center of the fft image
-        for(int x = borderWidth; x < w-borderWidth; x++) {
-            mask(x,y) = 1;
-        }
-    }
-    vigra::inspectImage(is, end, as, sum);
-    vigra::inspectImageIf(is, end, as, mask.upperLeft(), mask.accessor(), sumROI);
-
-    sum_type s = sum() - sumROI();
-    return s / (w*h - (w-2*borderWidth)*(h-2*borderWidth));
-}
-
-
-template <class SrcIterator, class SrcAccessor>
-inline
-typename SrcIterator::value_type estimateNoisePower(int w, int h,
-                   triple<SrcIterator, SrcIterator, SrcAccessor> ps)
-{
-    return estimateNoisePower(w, h, ps.first, ps.second, ps.third);
 }
 
 //To estimate the gain factor points with different mean intensities are needed. This functions searches for
@@ -807,15 +659,6 @@ void processStack(const DataParams &params, Func& functor, std::string message =
     }
     std::free(srcImage);
 }
-template <class PixelType, class Accessor>
-inline std::pair<ImageIterator<PixelType>, Accessor>
-destImage(MultiArrayView<2, PixelType, UnstridedArrayTag> & img, Accessor a)
-{
-    ImageIterator<PixelType>
-    ul(img.data(), img.stride(0));
-    return std::pair<ImageIterator<PixelType>, Accessor>
-    (ul, a);
-}
 
 template <class T, class S>
 void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
@@ -909,57 +752,6 @@ void estimatePSFParameters(DataParams &params) {
     fitPSF(params, ps);
 }
 
-template <class T>
-void applyMask(BasicImage<T>& img, MultiArrayView<2, T>& mask, int frnr){
-	int w = mask.shape(0);
-	int h = mask.shape(1);
-
-	std::ofstream imgAfterMaskFile, imgBeforeMaskFile;
-	bool writeMatrices = frnr == 1;
-	if(writeMatrices){
-
-		char imgAfterMask[1000];
-		char imgBeforeMask[1000];
-
-		sprintf(imgAfterMask, "/home/herrmannsdoerfer/tmpOutput/filterdImgAfterMask%d.txt", frnr);
-		sprintf(imgBeforeMask, "/home/herrmannsdoerfer/tmpOutput/filterdImgBeforeMask%d.txt", frnr);
-
-		imgAfterMaskFile.open(imgAfterMask);
-		imgBeforeMaskFile.open(imgBeforeMask);}
-
-	for(int i = 0; i< w; i++){
-		for(int j = 0; j<h; j++){
-			if(writeMatrices){imgBeforeMaskFile << i<<"  "<< j<<"  "<< img(i,j)<<std::endl;}
-			if(mask(i,j)== 0.0){img(i,j)= 0;}
-			if(writeMatrices){imgAfterMaskFile << i<<"  "<< j<<"  "<< img(i,j)<<std::endl;}
-
-		}
-	}
-	if (writeMatrices){
-		imgAfterMaskFile.close();
-		imgBeforeMaskFile.close();}
-	//std::cin.get();
-
-}
-
-//--------------------------------------------------------------------------
-// STORM DATA PROCESSING
-//--------------------------------------------------------------------------
-
-/**
- * Prefilter for BSpline-Interpolation
- */
-template <int ORDER, class Image>
-void prefilterBSpline(Image& im) {
-    ArrayVector<double> const & b = BSpline<ORDER, double>().prefilterCoefficients();
-
-    for(unsigned int i=0; i<b.size(); ++i)
-    {
-        recursiveFilterX(srcImageRange(im), destImage(im), b[i], BORDER_TREATMENT_REFLECT);
-        recursiveFilterY(srcImageRange(im), destImage(im), b[i], BORDER_TREATMENT_REFLECT);
-    }
-}
-
 /**
  * Localize Maxima of the spots and return a list with coordinates
  *
@@ -972,7 +764,9 @@ void prefilterBSpline(Image& im) {
  */
 
 template <class T>
-void wienerStorm(const DataParams &params, std::vector<std::set<Coord<T> > >& maxima_coords) {
+void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_coords) {
+    estimateCameraParameters<T>(params);
+    estimatePSFParameters<T>(params);
     auto func = [&maxima_coords](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {wienerStormSingleFrame(params, currSrc, maxima_coords[currframe], currframe);};
     processStack<T>(params, func, "Finding the maximum spots in the images...");
 }
@@ -1094,8 +888,51 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 void preventRConsoleWrite(const char* buf, int buflen)
 {}
 
-void initR(const StormParams &params)
+bool initR(const StormParams &params, int argc, char **argv, bool withRestart = true)
 {
+    if (std::getenv("R_HOME") == nullptr) {
+        if (!withRestart)
+            return false;
+        char **args = (char**)std::malloc((argc + 3) * sizeof(char*));
+        args[0] = (char*)"R";
+        args[1] = (char*)"CMD";
+        for (int i = 0, j = 2; i < argc; ++i, ++j)
+            args[j] = argv[i];
+        args[argc + 2] = nullptr;
+        int ret = execvp(args[0], args);
+        /*std::string reason;
+        switch (errno) {
+            case ENOENT:
+                reason << "ENOENT";
+                break;
+            case ENOTDIR:
+                reason << "ENOTDIR";
+                break;
+            case E2BIG:
+                reason << "E2BIG";
+                break;
+            case EACCES:
+                reason << "EACCES";
+                break;
+            case EINVAL:
+                reason << "EINVAL";
+                break;
+            case ELOOP:
+                reason << "ELOOP";
+                break;
+            case ENOMEM:
+                reason << "ENOMEM";
+                break;
+            case ETXTBSY:
+                reason << "ETXTBSY";
+                break;
+            default:
+                reason << "unknown";
+                break;
+        }*/
+        std::free(args);
+        return false;
+    }
     char *Rargv[] = {(char*)"REmbeddedStorm", (char*)"--silent", (char*)"--no-save"};
     R_SignalHandlers = FALSE;
     Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
@@ -1130,6 +967,7 @@ void initR(const StormParams &params)
         Rf_eval(VECTOR_ELT(tmp2, i), R_GlobalEnv);
     }
     UNPROTECT(3);
+    return true;
 }
 
 void endR()
