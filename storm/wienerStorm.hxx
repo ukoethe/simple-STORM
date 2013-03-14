@@ -671,7 +671,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
                   MultiArrayView<3, T> &poissonMeans, int &currframe, int middleChunk,
                   Func& functor) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
-    //#pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor)
+    #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor)
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
@@ -817,8 +817,8 @@ destImage(MultiArrayView<2, PixelType, UnstridedArrayTag> & img, Accessor a)
     (ul, a);
 }
 
-template <class T>
-void accumulatePowerSpectrum(const DataParams &params, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
+template <class T, class S>
+void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
     int w = params.shape(0), h = params.shape(1);
     int roiwidth2 = roiwidth / 2;
 
@@ -852,12 +852,16 @@ void accumulatePowerSpectrum(const DataParams &params, MultiArrayView<2, T>& in,
             continue;
         Shape2 roi_ul(maximum.x - roiwidth2, maximum.y - roiwidth2);
         Shape2 roi_lr(maximum.x - roiwidth2 + roiwidth, maximum.y - roiwidth2 + roiwidth);
-        vigra::FFTWComplexImage fourier(roiwidth, roiwidth);
-        fourierTransform(srcImageRange(in.subarray(roi_ul, roi_lr)), destImage(fourier));
 
-        vigra::combineTwoImages(srcImageRange(ps),
-                                     srcImage(fourier, FFTWSquaredMagnitudeAccessor<double>()),
-                                     destImage(ps), std::plus<double>());
+        MultiArray<2, FFTWComplex<S>> fourier(ps.shape());
+
+        MultiArray<2, FFTWComplex<S>> workImage(ps.shape()); //libfftw needs continuous memory
+        vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul,  roi_lr)), destMultiArray(workImage, FFTWWriteRealAccessor<S>()));
+        fplan.execute(workImage, fourier);
+
+        vigra::combineTwoMultiArrays(srcMultiArrayRange(ps),
+                                     srcMultiArray(fourier, FFTWSquaredMagnitudeAccessor<double>()),
+                                     destMultiArray(ps), std::plus<double>());
         ++roi;
         ++rois;
     }
@@ -866,7 +870,6 @@ void accumulatePowerSpectrum(const DataParams &params, MultiArrayView<2, T>& in,
 void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
     SEXP mat, fun, t;
     PROTECT(mat = Rf_allocMatrix(REALSXP, ps.shape(1), ps.shape(0)));
-    std::cout << ps.size() << std::endl;
     std::memcpy(REAL(mat), ps.data(), ps.size() * sizeof(double));
     PROTECT(fun = t = Rf_allocList(2));
     SET_TYPEOF(fun, LANGSXP);
@@ -896,8 +899,9 @@ void estimatePSFParameters(DataParams &params) {
 
     MultiArray<2, double> ps(Shape2(roiwidth, roiwidth));
     ps.init(0.0);
-    MultiArray<2, double> ps_center(Shape2(roiwidth, roiwidth));
-    auto func = [&ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
+    MultiArray<2, FFTWComplex<double>> filterInit(Shape2(roiwidth, roiwidth));
+    FFTWPlan<2, double> fplan(filterInit, filterInit, FFTW_FORWARD, FFTW_MEASURE);
+    auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
     processStack<T>(params, func, "Estimating PSF width...", stacksize);
     moveDCToCenter(ps);
     vigra::transformMultiArray(srcMultiArrayRange(ps), destMultiArray(ps),
