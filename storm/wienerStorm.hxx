@@ -49,6 +49,7 @@
 #include <valarray>
 #include <limits>
 #include <atomic>
+#include <algorithm>
 
 //#include <algorithm>
 #ifdef OPENMP_FOUND
@@ -399,8 +400,11 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
 template <class T>
 void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
-    if (!needSkellam)
+    if (!needSkellam) {
+        std::cout<<"Values from settings-file:"<<std::endl;
+        std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
         return;
+    }
     unsigned int stacksize = params.getSkellamFrames();
     unsigned int w = params.shape(0);
     unsigned int h = params.shape(1);
@@ -471,6 +475,8 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
         params.setIntercept(minVal);
     delete lastVal;
     delete img;
+    std::cout<<"Estimated values:"<<std::endl;
+    std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
 }
 
 template <class T>
@@ -493,15 +499,22 @@ void getPoissonLabelsArray(const DataParams &params, MultiArray<3, T> &labels) {
 
 template <class T, class L>
 void getPoissonMeansForChunk(const DataParams &params, const MultiArrayView<3, L> &labels, const MultiArrayView<3, T> &img, MultiArrayView<2, T> &regionMeans) {
-    vigra::acc::AccumulatorChainArray<typename CoupledIteratorType<3, T, L>::type::value_type, vigra::acc::Select<vigra::acc::DataArg<1>, vigra::acc::LabelArg<2>, vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
-    auto iter = vigra::createCoupledIterator(img, labels);
-    auto iterEnd = iter.getEndIterator();
-    vigra::acc::extractFeatures(iter, iterEnd, accChain);
-    for (int x = 0, i = 0; x < regionMeans.shape()[0]; ++x) {
-        for (int y = 0; y < regionMeans.shape()[1]; ++y, ++i) {
-            regionMeans(x, y) = vigra::acc::get<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>(accChain, i)[3];
+    unsigned int w = params.shape(0);
+    unsigned int h = params.shape(1);
+    unsigned int tChunkSize = params.getTChunkSize();
+    unsigned int xyChunkSize = params.getXYChunkSize();
+    unsigned int xChunks = std::ceil(w / (float)xyChunkSize);
+    unsigned int yChunks = std::ceil(h / (float)xyChunkSize);
+    for (int x = 0, n = 0; x < xChunks; ++x) {
+        for (int y = 0; y < yChunks; ++y, ++n) {
+            vigra::Shape3 index(std::min((x + 1) * xyChunkSize, w), std::min((y + 1) * xyChunkSize, h), tChunkSize);
+            auto nthroi = img.subarray(vigra::Shape3(x * xyChunkSize, y * xyChunkSize, 0), index);
+            std::vector<T> vec(nthroi.begin(), nthroi.end());
+            std::nth_element(vec.begin(), vec.begin() + vec.size()/2, vec.end());
+            regionMeans(x, y) = vec[vec.size()/2];
         }
     }
+
 }
 
 template <class T, class Func>
@@ -722,8 +735,10 @@ template <class T>
 void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
     std::srand(42);
     bool needFilter = !(params.getSkellamFramesSaved() && params.getSigmaSaved());
-    if (!needFilter)
-        return;
+    if (!needFilter) {
+        std::cout<<"Values from settings-file:"<<std::endl;
+        std::cout<<"Sigma: "<<params.getSigma();
+        return;}
     progressFunc.setStage(PSFWidth);
     unsigned int stacksize = params.getSkellamFrames();
     int roiwidth = 3 * params.getRoilen();
@@ -740,6 +755,8 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
     vigra::transformMultiArray(srcMultiArrayRange(ps), destMultiArray(ps),
                           [&stacksize, &roiwidth, &rois](double p){return p / (rois * roiwidth * roiwidth);});
     fitPSF(params, ps);
+    std::cout<<"Estimated value:"<<std::endl;
+    std::cout<<"Sigma: "<<params.getSigma()<<std::endl;
 }
 
 /**
