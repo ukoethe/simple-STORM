@@ -53,6 +53,9 @@ public:
             case PSFWidth:
                 std::cout << std::endl << "Estimating PSF width..." << std::endl;
                 break;
+            case ParameterCheck:
+                std::cout << std::endl << "Checking parameter..." << std::endl;
+                break;
             case Localization:
                 std::cout << std::endl << "Localizing molecules..." << std::endl;
                 break;
@@ -126,7 +129,6 @@ int main(int argc, char* argv[]) {
 
         CliProgressFunctor func;
         wienerStorm(params, res_coords, func);
-        std::cout<<"a: "<<params.getSlope()<<" b: "<<params.getIntercept() << " sigma: " << params.getSigma()<<std::endl;
 
         // resulting image
         drawCoordsToImage<Coord<float> >(res_coords, res);
