@@ -1,66 +1,108 @@
-/*
- * Copyright (C) 2011 Joachim Schleicher <J.Schleicher@stud.uni-heidelberg.de>
- * 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301, USA.
- */
-
 #include "mainwindow.h"
-#include <QSettings>
+#include "inputwidget.h"
+#include "resultwidget.h"
+#include "version.h"
+
+#include <QDesktopWidget>
+#include <QApplication>
+#include <QMessageBox>
 #include <QCloseEvent>
+#include <QPushButton>
+#include <QTabWidget>
+#include <QFileInfo>
+#include <QTabBar>
+#include <QStyle>
 
-MainWindow::MainWindow() 
+MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags)
+: QMainWindow(parent, flags), m_widget(new QTabWidget(this))
 {
-    setupUi(this);
-    readSettings();
-    connect(actionCreate_Filter, SIGNAL(triggered()), SIGNAL(action_createFilter_triggered()));
-    connect(actionOpen_Coordinates_List, SIGNAL(triggered()), SIGNAL(action_openCoordinatesList_triggered()));
-    connect(actionProcess_Raw_Measurement, SIGNAL(triggered()), SIGNAL(action_showStormparamsDialog_triggered()));
-    connect(actionAbout, SIGNAL(triggered()), SIGNAL(action_showAboutDialog_triggered()));
-    connect(actionSettings, SIGNAL(triggered()), SIGNAL(action_showSettingsDialog_triggered()));
+    setCentralWidget(m_widget);
+    m_widget->setTabsClosable(true);
+    connect(m_widget, SIGNAL(tabCloseRequested(int)), this, SLOT(tabClosed(int)));
+    InputWidget *in = new InputWidget(this);
+    m_widget->addTab(in, "I&nput");
+    connect(in, SIGNAL(run(const GuiParams&)), this, SLOT(run(const GuiParams&)));
 
-    actionQuit->setShortcuts(QKeySequence::Quit);
-    connect(actionQuit, SIGNAL(triggered()), this, SLOT(close()));
+    QPushButton *aboutButton = new QPushButton(this);
+    aboutButton->setFlat(true);
+    aboutButton->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
+    aboutButton->setToolTip("About simpleSTORM");
+#ifdef Q_WS_X11
+    aboutButton->setIcon(QIcon::fromTheme("help-about"));
+#else
+    aboutButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_MessageBoxInformation));
+#endif
+    m_widget->setCornerWidget(aboutButton, Qt::TopRightCorner);
+    connect(aboutButton, SIGNAL(clicked()), this, SLOT(aboutClicked()));
+
+    QTabBar *tabBar = m_widget->findChild<QTabBar *>();
+    tabBar->adjustSize();
+    tabBar->setTabButton(0, (QTabBar::ButtonPosition)tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition), 0);
+    connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), this, SLOT(onApplicationClose()));
+    adjustSize();
+    QSize s = size();
+    s.setWidth(s.height());
+    setGeometry(QStyle::alignedRect(Qt::LeftToRight, Qt::AlignCenter, s, QApplication::desktop()->availableGeometry()));
+
 }
 
-MainWindow::~MainWindow() {
-
+MainWindow::~MainWindow()
+{
 }
 
-void MainWindow::writeSettings()
+void MainWindow::aboutClicked()
 {
-    QSettings settings;
-
-    settings.beginGroup("mainwindow");
-    settings.setValue("size", size());
-    settings.setValue("pos", pos());
-    settings.endGroup();
+    QMessageBox::about(this, "About simpleSTORM",
+                       QString("simpleSTORM © 2011 Joachim Schleicher, © 2012-2013 Frank Herrmannsdörfer, © 2013 Ilia Kats\n"
+                       "simpleSTORM GUI © 2013 Ilia Kats\n"
+                       "GUI Version %1, STORM Version %2").arg(STORMGUI_VERSION_STRING).arg(STORM_VERSION_STRING));
 }
 
-void MainWindow::readSettings()
+void MainWindow::run(const GuiParams &params)
 {
-    QSettings settings;
+    ResultWidget *result = new ResultWidget(this);
+    m_widget->setCurrentIndex(m_widget->addTab(result, QFileInfo(QString::fromStdString(params.getInFile())).fileName()));
+    connect(result, SIGNAL(userAttentionRequired(QWidget*)), m_widget, SLOT(setCurrentWidget(QWidget*)));
+    result->start(params);
+}
 
-    settings.beginGroup("mainwindow");
-    resize(settings.value("size", QSize(600, 400)).toSize());
-    move(settings.value("pos", QPoint(40, 40)).toPoint());
-    settings.endGroup();
+bool MainWindow::tabClosed(int index)
+{
+    ResultWidget *result = static_cast<ResultWidget*>(m_widget->widget(index));
+    if (result->canBeClosed()) {
+        m_widget->removeTab(index);
+        if (result->canBeDeleted())
+            delete result;
+        else {
+            connect(result, SIGNAL(finished(ResultWidget*)), this, SLOT(deletedResultFinished(ResultWidget*)));
+            m_removedJobs.insert(result);
+        }
+        return true;
+    }
+    return false;
+}
+
+void MainWindow::deletedResultFinished(ResultWidget *result)
+{
+    m_removedJobs.remove(result);
+    delete result;
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    writeSettings();
+    for (int i = 1; i < m_widget->count(); ++i) {
+        if (!tabClosed(i)){
+            event->ignore();
+            return;
+        }
+    }
     event->accept();
+}
+
+void MainWindow::onApplicationClose()
+{
+    for (ResultWidget *job : m_removedJobs) {
+        job->waitFor();
+        delete job;
+    }
 }
