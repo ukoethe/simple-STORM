@@ -41,6 +41,7 @@ set(SRCS
     inputwidget.cpp
     resultwidget.cpp
     previewwidget.cpp
+    zoomablescrollarea.cpp
     filenamelineedit.cpp
     globals.cpp
     guiparams.cpp

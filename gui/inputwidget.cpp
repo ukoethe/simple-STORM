@@ -29,8 +29,7 @@ InputWidget::InputWidget(QWidget *parent)
     connect(m_ui->btn_run, SIGNAL(clicked()), this, SLOT(runClicked()));
     connect(m_ui->chk_advancedSettings, SIGNAL(toggled(bool)), this, SLOT(advancedSettingsToggled(bool)));
     advancedSettingsToggled(m_ui->chk_advancedSettings->isChecked());
-    setFieldsFromDefaults();
-    m_ui->btn_run->setEnabled(false);
+    enableInput(false);
 }
 
 InputWidget::~InputWidget()
@@ -43,18 +42,22 @@ InputWidget::~InputWidget()
 void InputWidget::inputFileButtonClicked()
 {
     QString file = QFileDialog::getOpenFileName(this, "Select input file", fileOpenDialogDirectory, "Accepted Files (*.sif *.h5 *.hdf *.hdf5 *.tif *.tiff)");
-    fileOpenDialogDirectory = QFileInfo(file).absoluteDir().absolutePath();
-    inputFileEdited(file);
+    if (!file.isEmpty()) {
+        fileOpenDialogDirectory = QFileInfo(file).absoluteDir().absolutePath();
+        inputFileEdited(file);
+    }
 }
 
 void InputWidget::settingsFileButtonClicked()
 {
     QString file = QFileDialog::getOpenFileName(this, "Select settings file", fileOpenDialogDirectory, "INI-style text files (*.txt *.ini)");
-    fileOpenDialogDirectory = QFileInfo(file).absoluteDir().absolutePath();
-    m_ui->lne_inputFile->setText(file);
-    m_params.setSettingsFile(file.toStdString());
-    m_ui->lne_settingsFile->setText(file);
-    setFieldsFromDefaults();
+    if (!file.isEmpty()) {
+        fileOpenDialogDirectory = QFileInfo(file).absoluteDir().absolutePath();
+        m_ui->lne_inputFile->setText(file);
+        m_params.setSettingsFile(file.toStdString());
+        m_ui->lne_settingsFile->setText(file);
+        setFieldsFromDefaults();
+    }
 }
 
 void InputWidget::inputFileEdited(const QString &file)
@@ -64,8 +67,10 @@ void InputWidget::inputFileEdited(const QString &file)
         m_params.setInFile(file.toStdString(), true);
         m_ui->lne_settingsFile->setText(QString::fromStdString(m_params.getSettingsFile()));
         setFieldsFromDefaults();
+        enableInput(true);
         m_ui->btn_run->setEnabled(true);
     } else {
+        enableInput(false);
         m_ui->btn_run->setEnabled(false);
     }
 }
@@ -136,4 +141,15 @@ void InputWidget::setFieldsFromDefaults()
         m_ui->spn_offset->setValue(m_params.getIntercept());
     if (m_params.getSigmaSaved())
         m_ui->spn_sigma->setValue(m_params.getSigma());
+}
+
+void InputWidget::enableInput(bool enable)
+{
+    m_ui->btn_run->setEnabled(enable);
+    m_ui->lne_settingsFile->setEnabled(enable);
+    m_ui->btn_settingsFile->setEnabled(enable);
+    m_ui->chk_advancedSettings->setEnabled(enable);
+    m_ui->grp_general->setEnabled(enable);
+    m_ui->stck_advancedSettings->setEnabled(enable);
+    m_ui->grp_data->setEnabled(enable);
 }

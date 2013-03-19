@@ -15,7 +15,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QScrollArea" name="scrl_preview">
+    <widget class="ZoomableScrollArea" name="scrl_preview">
      <property name="frameShape">
       <enum>QFrame::NoFrame</enum>
      </property>
@@ -135,6 +135,14 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ZoomableScrollArea</class>
+   <extends>QScrollArea</extends>
+   <header>zoomablescrollarea.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

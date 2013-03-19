@@ -25,6 +25,7 @@ Q_SIGNALS:
 
 private:
     void setFieldsFromDefaults();
+    void enableInput(bool);
 
     Ui::InputWidget *m_ui;
     Ui::AdvancedSettingsGroupBox *m_uiAdvancedSettings;

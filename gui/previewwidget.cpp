@@ -18,6 +18,8 @@ PreviewWidget::PreviewWidget(QWidget *parent)
     connect(m_ui->btn_zoomOut, SIGNAL(clicked()), this, SLOT(zoomOutClicked()));
     connect(m_ui->btn_scaleToFit, SIGNAL(clicked()), this, SLOT(autoZoom()));
     connect(m_ui->spn_zoom, SIGNAL(editingFinished()), this, SLOT(zoomValueChanged()));
+    connect(m_ui->scrl_preview, SIGNAL(zoomIn()), this, SLOT(zoomInClicked()));
+    connect(m_ui->scrl_preview, SIGNAL(zoomOut()), this, SLOT(zoomOutClicked()));
 #ifdef Q_WS_X11
     m_ui->btn_scaleToFit->setIcon(QIcon::fromTheme("zoom-fit-best"));
     m_ui->btn_scaleToFit->setToolTip("Scale to fit");
