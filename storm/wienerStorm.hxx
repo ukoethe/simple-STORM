@@ -360,12 +360,6 @@ private:
 
 template <class T>
 void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
-    std::ofstream ostr;
-    ostr.open("/home/herrmannsdoerfer/tmpOutput/selectedPoints.txt");
-    for (int i=0; i< numberPoints; ++i) {
-        ostr<<meanValues[i]<<" "<<skellamParameters[i]<<std::endl;
-    }
-    ostr.close();
     int nbins = 10;
     SEXP fun, t, tmp;
     PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
@@ -407,24 +401,13 @@ template <class T>
 void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
 	//double cdf = params.getMaskThreshold();
     double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
-    char imgarr[1000];
-    sprintf(imgarr, "/home/herrmannsdoerfer/tmpOutput/frameData/bildinmask%d.tif", framenumber);
-    vigra::exportImage(srcImageRange(array),imgarr);
-//     std::cout<<"cdf: "<<cdf<<" alpha: "<<params.getAlpha()<<" BGVar: "<<params.getBackgroundVariance()<<" framenr: "<<framenumber<<std::endl;
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
-    char maskstr[1000];
-    sprintf(maskstr, "/home/herrmannsdoerfer/tmpOutput/frameData/mask%d.tif", framenumber);
-    vigra::exportImage(srcImageRange(mask),maskstr);
-
     vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < std::max(3.,0.5*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
-    char finmaskstr[1000];
-    sprintf(finmaskstr, "/home/herrmannsdoerfer/tmpOutput/frameData/finalmask%d.tif", framenumber);
-    vigra::exportImage(srcImageRange(mask),finmaskstr);
 }
 
 //To estimate the gain factor points with different mean intensities are needed. This functions searches for
@@ -552,7 +535,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
                   MultiArrayView<3, T> &poissonMeans, int &currframe, int middleChunk,
                   Func& functor, ProgressFunctor &progressFunc) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
-    //#pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
+    #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
