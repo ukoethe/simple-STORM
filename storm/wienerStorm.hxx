@@ -300,8 +300,10 @@ void determineAsymmetry(SrcIterator srcUpperLeft,
         // calculate the eigenvalues
         T ev1 = (sxx+syy)/2. - sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
         T ev2 = (sxx+syy)/2. + sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
-        Coord<float> cc (c.x, c.y, c.val, ev1/ev2);
-        newcoords.insert(cc); // copy for now. Hack hack hack...
+        if(ev1/ev2<2) {
+          Coord<float> cc (c.x, c.y, c.val, ev1/ev2);
+          newcoords.insert(cc); // copy for now. Hack hack hack...
+        }
     }
     coords=newcoords;
 }
@@ -405,7 +407,7 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
-    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < 3.14 * std::pow(params.getSigma(), 2)) return 0; else return 1;});
+    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < std::max(3.,0.5*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
     char finmaskstr[1000];
     sprintf(finmaskstr, "/home/herrmannsdoerfer/tmpOutput/frameData/finalmask%d.tif", framenumber);
     vigra::exportImage(srcImageRange(mask),finmaskstr);
@@ -546,7 +548,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         progressFunc.setFrame(currframe + f);
 //         char bgimg[1000];
 //         sprintf(bgimg, "/home/herrmannsdoerfer/tmpOutput/frameData/BGimg%d.tif", currframe+f);
-//         vigra::exportImage(srcImageRange(currPoisson), bgimg);
+//         //vigra::exportImage(srcImageRange(currPoisson), bgimg);
     }
     currframe += srcImage.shape()[2];
 }
@@ -566,7 +568,7 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     srcImage[middleChunk] = tmp;
     params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), tmp->shape(), *tmp);
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params, &tF](T p){return tF((p - params.getIntercept()) / params.getSlope());});
-    vigra::exportImage(srcImageRange(tmp->bindOuter(0)),"/home/herrmannsdoerfer/tmpOutput/skellamCorrectedFrame.tif");
+    //vigra::exportImage(srcImageRange(tmp->bindOuter(0)),"/home/herrmannsdoerfer/tmpOutput/skellamCorrectedFrame.tif");
     for (int z = 0; z < chunksInMemory - 1; ++z) {
         for (int x = 0; x < xChunks; ++x) {
             for (int y = 0; y < yChunks; ++y) {
@@ -684,8 +686,8 @@ template <class T, class S>
 void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
     int w = params.shape(0), h = params.shape(1);
     int roiwidth2 = roiwidth / 2;
-//     vigra::exportImage(srcImageRange(in),"/home/herrmannsdoerfer/bild3.png");
-//     vigra::exportImage(srcImageRange(in), ImageExportInfo("/home/herrmannsdoerfer/bild4.tif").setPixelType("UINT16"));
+//     //vigra::exportImage(srcImageRange(in),"/home/herrmannsdoerfer/bild3.png");
+//     //vigra::exportImage(srcImageRange(in), ImageExportInfo("/home/herrmannsdoerfer/bild4.tif").setPixelType("UINT16"));
     BasicImageView<T> input = makeBasicImageView(in);
     std::vector<Coord<T> > maxima;
     typename BasicImageView<T>::traverser it = input.upperLeft();
@@ -716,8 +718,8 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
             continue;
         Shape2 roi_ul(maximum.x - roiwidth2, maximum.y - roiwidth2);
         Shape2 roi_lr(maximum.x - roiwidth2 + roiwidth, maximum.y - roiwidth2 + roiwidth);
-//         vigra::exportImage(srcImageRange(ps),"/home/herrmannsdoerfer/bild.png");
-//         vigra::exportImage(srcImageRange(ps), ImageExportInfo("/home/herrmannsdoerfer/bild2.tif").setPixelType("UINT16"));
+//         //vigra::exportImage(srcImageRange(ps),"/home/herrmannsdoerfer/bild.png");
+//         //vigra::exportImage(srcImageRange(ps), ImageExportInfo("/home/herrmannsdoerfer/bild2.tif").setPixelType("UINT16"));
         MultiArray<2, FFTWComplex<S>> fourier(ps.shape());
 
         MultiArray<2, FFTWComplex<S>> workImage(ps.shape()); //libfftw needs continuous memory
@@ -733,7 +735,7 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
 }
 
 void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
-    vigra::exportImage(srcImageRange(ps), ImageExportInfo("/home/herrmannsdoerfer/tmpOutput/powerSpec.tif").setPixelType("UINT16"));
+    //vigra::exportImage(srcImageRange(ps), ImageExportInfo("/home/herrmannsdoerfer/tmpOutput/powerSpec.tif").setPixelType("UINT16"));
     SEXP mat, fun, t;
     PROTECT(mat = Rf_allocMatrix(REALSXP, ps.shape(1), ps.shape(0)));
     std::memcpy(REAL(mat), ps.data(), ps.size() * sizeof(double));
@@ -866,7 +868,8 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     vigra::acc::extractFeatures(BGVars.begin(), BGVars.end(), accChain);
     T medBGVar = vigra::acc::get<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>(accChain)[3];
     std::cout<<std::endl;
-    std::cout<<"Background intensity: "<<medBGVar<<std::endl;
+    std::cout<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*std::pow(medBGVar,2)<<" based on estimated background variance of: "<<medBGVar<<std::endl;
+    params.setSlope(params.getSlope()*std::pow(medBGVar,2));
     if (std::abs(medBGVar - 1) > 0.1 ){
         BGVars.clear();
         while (true) {
@@ -970,7 +973,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     sprintf(beforefilter, "/home/herrmannsdoerfer/tmpOutput/frameData/beforefilter%d.tif", framenumber);
 //     sprintf(afterfilter, "/home/herrmannsdoerfer/tmpOutput/frameData/afterfilter%d.tif", framenumber);
 //
-    vigra::exportImage(srcImageRange(input), beforefilter);
+    //vigra::exportImage(srcImageRange(input), beforefilter);
 
     float kernelWidth = params.getSigma() < 0.85 ? 0.0 : std::sqrt(std::pow(params.getSigma(), 2)-std::pow(0.85, 2));
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
@@ -990,12 +993,12 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     std::set<Coord<float> >::iterator it2;
 
 
-//	vigra::exportImage(srcImageRange(filtered), "/home/herrmannsdoerfer/master/workspace/output/filtered.png");
-//	vigra::exportImage(srcImageRange(unfiltered), "/home/herrmannsdoerfer/master/workspace/output/unfiltered.png");
+//	//vigra::exportImage(srcImageRange(filtered), "/home/herrmannsdoerfer/master/workspace/output/filtered.png");
+//	//vigra::exportImage(srcImageRange(unfiltered), "/home/herrmannsdoerfer/master/workspace/output/unfiltered.png");
 
     for(it2=maxima_candidates_vect.begin(); it2 != maxima_candidates_vect.end(); it2++) {
             Coord<float> c = *it2;
-            if(unfiltered(c.x,c.y)<0.5 or mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
+            if(unfiltered(c.x,c.y)<3 or mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
                 //std::cout<<"value skipped: "<<unfiltered(c.x,c.y)<<std::endl;
                 continue;
             }
