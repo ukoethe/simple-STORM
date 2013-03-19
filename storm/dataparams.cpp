@@ -11,7 +11,7 @@ DataParams::DataParams()
 DataParams::DataParams(int argc, char **argv)
 : StormParams(argc, argv), m_slopeSaved(false), m_interceptSaved(false), m_sigmaSaved(false)
 {
-    load();
+    load(false);
 }
 
 DataParams::~DataParams() {}
@@ -25,6 +25,9 @@ bool DataParams::getSlopeSaved() const {
 void DataParams::setSlope(float slope) {
     m_slope = slope;
 }
+void DataParams::setUseSavedSlope(bool saved) {
+    m_slopeSaved = saved;
+}
 float DataParams::getIntercept() const {
     return m_intercept;
 }
@@ -33,6 +36,9 @@ bool DataParams::getInterceptSaved() const {
 }
 void DataParams::setIntercept(float intercept) {
     m_intercept = intercept;
+}
+void DataParams::setUseSavedIntercept(bool saved) {
+    m_interceptSaved = saved;
 }
 float DataParams::getSigma() const {
     return m_sigma;
@@ -43,6 +49,9 @@ bool DataParams::getSigmaSaved() const {
 void DataParams::setSigma(float sigma) {
     m_sigma = sigma;
 }
+void DataParams::setUseSavedSigma(bool saved) {
+    m_sigmaSaved = saved;
+}
 
 void DataParams::save() const {
     m_config->setSection(s_section.c_str());
@@ -52,7 +61,7 @@ void DataParams::save() const {
     StormParams::save();
 }
 
-void DataParams::load() {
+void DataParams::loadSettings(bool propagate) {
     m_config->setSection(s_section.c_str());
     if (m_config->exists("slope")) {
         m_slope = m_config->getDoubleValue("slope");
@@ -66,4 +75,6 @@ void DataParams::load() {
         m_sigma = m_config->getDoubleValue("sigma");
         m_sigmaSaved = true;
     }
+    if (propagate)
+        StormParams::loadSettings(propagate);
 }

@@ -63,8 +63,10 @@ public:
     typedef vigra::MultiArrayShape<STORMPARAMS_N>::type Shape;
 
     StormParams();
+    StormParams(const StormParams&);
     StormParams(int argc, char **argv);
     virtual ~StormParams();
+    StormParams& operator=(const StormParams&);
 
     void printUsage() const;
     void printVersion() const;
@@ -90,7 +92,7 @@ public:
     void setChunksInMemory(unsigned int);
     bool getChunksInMemorySaved() const;
     const std::string& getInFile() const;
-    void setInFile(const std::string&);
+    void setInFile(const std::string&, bool forceDefaults = false);
     const std::string& getOutFile() const;
     void setOutFile(const std::string&);
     const std::string& getCoordsFile() const;
@@ -118,18 +120,18 @@ public:
     void readBlock(const Shape&, const Shape&, vigra::MultiArrayView<STORMPARAMS_N, T>&) const;
 
     virtual void save() const;
-    void load();
-
-    mutable void * ptr; // hack
+    void load(bool propagate = true);
 
 protected:
     mutable rude::Config *m_config;
+    virtual void loadSettings(bool);
 
 private:
     int parseProgramOptions(int argc, char **argv);
-    void setDefaultFileNames();
+    void setDefaultFileNames(bool);
     void setDefaults();
 
+    mutable void * ptr; // hack
     Shape m_shape;
     FileType m_type;
     std::string m_executableDir;

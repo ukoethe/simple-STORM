@@ -95,6 +95,48 @@ StormParams::StormParams()
     setDefaults();
 }
 
+StormParams::StormParams(const StormParams &other)
+: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemorySaved), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames) {
+    setInFile(other.m_infile, false);
+    m_config->setConfigFile(m_settingsfile.c_str());
+    m_config->load();
+}
+
+StormParams& StormParams::operator=(const StormParams &other)
+{
+    m_shape = other.m_shape;
+    m_type = other.m_type;
+    m_executableDir = other.m_executableDir;
+    m_executableName = other.m_executableName;
+    m_factor = other.m_factor;
+    m_factorSaved = other.m_factorSaved;
+    m_roilen = other.m_roilen;
+    m_roilenSaved = other.m_roilenSaved;
+    m_pixelsize = other.m_pixelsize;
+    m_pixelsizeSaved = other.m_pixelsizeSaved;
+    m_skellamFrames = other.m_skellamFrames;
+    m_skellamFramesSaved = other.m_skellamFramesSaved;
+    m_xyChunkSize = other.m_xyChunkSize;
+    m_xyChunkSizeSaved = other.m_xyChunkSizeSaved;
+    m_tChunkSize = other.m_tChunkSize;
+    m_tChunkSizeSaved = other.m_tChunkSizeSaved;
+    m_chunksInMemory = other.m_chunksInMemory;
+    m_chunksInMemorySaved = other.m_chunksInMemorySaved;
+    m_framesSaved = other.m_framesSaved;
+    m_alpha = other.m_alpha;
+    m_thresholdMask = other.m_thresholdMask;
+    m_verbose = other.m_verbose;
+    m_outfile = other.m_outfile;
+    m_coordsfile = other.m_coordsfile;
+    m_settingsfile = other.m_settingsfile;
+    m_frames = other.m_frames;
+
+    setInFile(other.m_infile, false);
+    m_config->clear();
+    m_config->setConfigFile(m_settingsfile.c_str());
+    m_config->load();
+}
+
 StormParams::StormParams(int argc, char **argv)
 : m_config(new rude::Config()) {
     setDefaults();
@@ -117,6 +159,8 @@ StormParams::StormParams(int argc, char **argv)
 
     parseProgramOptions(argc, argv);
 }
+
+
 
 StormParams::~StormParams() {
     switch(m_type) {
@@ -230,7 +274,7 @@ bool StormParams::getChunksInMemorySaved() const {
 const std::string& StormParams::getInFile() const {
     return m_infile;
 }
-void StormParams::setInFile(const std::string& infile) {
+void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
     m_infile = infile;
 
     std::string extension = m_infile.substr( m_infile.find_last_of('.'));
@@ -260,7 +304,7 @@ void StormParams::setInFile(const std::string& infile) {
         vigra_precondition(false, "Wrong infile-extension given. Currently supported: .sif .h5 .hdf .hdf5 .tif .tiff");
     }
 
-    setDefaultFileNames();
+    setDefaultFileNames(forceDefaults);
 }
 
 const std::string& StormParams::getOutFile() const {
@@ -284,8 +328,10 @@ void StormParams::setSettingsFile(const std::string &file) {
     if (file != m_settingsfile) {
         m_settingsfile = file;
         m_config->clear();
-        m_config->setConfigFile(m_settingsfile.c_str());
-        load();
+        if (!m_settingsfile.empty()) {
+            m_config->setConfigFile(m_settingsfile.c_str());
+            load();
+        }
     }
 }
 
@@ -390,18 +436,18 @@ void StormParams::setDefaults() {
     m_verbose = false;
 }
 
-void StormParams::setDefaultFileNames() {
+void StormParams::setDefaultFileNames(bool force) {
     // defaults: save out- and coordsfile into the same folder as input stack
 	size_t pos = m_infile.find_last_of('.');
-    if (m_outfile.empty()) {
+    if (m_outfile.empty() || force) {
     	m_outfile = m_infile;
     	m_outfile.replace(pos, 255, ".png"); // replace extension
 	}
-    if (m_coordsfile.empty()) {
+    if (m_coordsfile.empty() || force) {
     	m_coordsfile = m_infile;
     	m_coordsfile.replace(pos, 255, ".txt"); // replace extension
 	}
-    if( m_settingsfile.empty()) {
+    if( m_settingsfile.empty() || force) {
         std::string tmp = m_infile;
     	tmp.replace(pos, 255, "_settings.txt"); // replace extension#
         setSettingsFile(tmp);
@@ -659,9 +705,14 @@ void StormParams::save() const
     m_config->save();
 }
 
-void StormParams::load()
+void StormParams::load(bool propagate)
 {
     m_config->load();
+    loadSettings(propagate);
+}
+
+void StormParams::loadSettings(bool)
+{
     m_config->setSection(s_section.c_str());
     if (m_factorSaved && m_config->exists("factor"))
         m_factor = m_config->getIntValue("factor");

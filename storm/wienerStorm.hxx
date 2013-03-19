@@ -31,6 +31,9 @@
 /*                                                                      */
 /************************************************************************/
 
+#ifndef WIENERSTORM_HXX
+#define WIENERSTORM_HXX
+
 #include <vigra/convolution.hxx>
 #include <vigra/resizeimage.hxx>
 #include <vigra/multi_array.hxx>
@@ -49,6 +52,7 @@
 #include <valarray>
 #include <limits>
 #include <atomic>
+#include <thread>
 
 //#include <algorithm>
 #ifdef OPENMP_FOUND
@@ -57,12 +61,11 @@
 #include "util.h"
 #include "dataparams.h"
 
-#define R_INTERFACE_PTRS
 #define R_NO_REMAP
 #include <Rembedded.h>
 #include <Rinternals.h>
-#include <Rinterface.h>
 #include <Rmath.h>
+#include <R_ext/Memory.h>
 
 using namespace vigra;
 using namespace vigra::functor;
@@ -90,16 +93,19 @@ enum WienerStormStage{CameraParameters, PSFWidth, Localization};
 class ProgressFunctor
 {
 public:
-    ProgressFunctor() : m_abort(false) {};
+    ProgressFunctor() : m_abort(false), m_finished(false) {};
     virtual ~ProgressFunctor(){};
     virtual void setStage(WienerStormStage) = 0;
     virtual void setStackSize(int) = 0;
-    virtual void setFrame(int) = 0;
-    void abort() {m_abort = true;};
+    virtual void frameFinished(int) = 0;
+    virtual void abort() {m_abort = true;};
     bool getAbort() {return m_abort;};
+    void setFinished() {m_finished = true;};
+    bool isFinished() {return m_finished;};
 
 protected:
     std::atomic<bool> m_abort;
+    std::atomic<bool> m_finished; // to indicate when abortion is complete
 };
 
 //--------------------------------------------------------------------------
@@ -259,6 +265,13 @@ int saveCoordsFile(const DataParams &params, std::ofstream &cfile, const std::ve
 /**
  * finds the value, so that the given percentage of pixels is above / below that value.
  */
+template<class T, class Iterator> //can't use Iterator::value_type for MultiArray
+void findMinMaxPercentile(Iterator begin, Iterator end, double minPerc, double &minVal, double maxPerc, double &maxVal) {
+    std::vector<T> v(begin, end);
+    std::sort(v.begin(),v.end());
+    minVal=v[(int)(v.size()*minPerc)];
+    maxVal=v[(int)(v.size()*maxPerc)];
+}
 template <class Image>
 void findMinMaxPercentile(Image& im, double minPerc, double& minVal, double maxPerc, double& maxVal) {
     std::vector<typename Image::value_type> v;
@@ -377,6 +390,7 @@ void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],in
         std::cout<<"slope: "<< params.getSlope()<<" x0: "<<params.getIntercept() << std::endl;
     }
     UNPROTECT(4);
+    R_gc();
 }
 
 //get Mask calculates the probabilities for each pixel of the current frame to be foreground,
@@ -439,7 +453,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
         auto *tmp = lastVal;
         lastVal = img;
         img = tmp;
-        progressFunc.setFrame(f);
+        progressFunc.frameFinished(f);
     }
     vigra::transformMultiArray(srcMultiArrayRange(meanArr), destMultiArrayRange(meanArr), [&stacksize](T p){return p / stacksize;});
 
@@ -516,7 +530,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
                                      [](T srcPixel, T poissonPixel){T val = srcPixel - poissonPixel; return (std::isnan(val)) ? 0 : val;});
         functor(params, currSrc, currframe + f);
-        progressFunc.setFrame(currframe + f);
+        progressFunc.frameFinished(currframe + f);
     }
     currframe += srcImage.shape()[2];
 }
@@ -643,7 +657,6 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
             return;
         int cIndex = c - middleChunk;
         processChunk(params, *srcImage[cIndex], poissonMeans, currframe, c, functor, progressFunc);
-        helper::progress(currframe, i_end);
         delete srcImage[cIndex];
     }
     std::free(srcImage);
@@ -699,24 +712,7 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
     }
 }
 
-void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
-    SEXP mat, fun, t;
-    PROTECT(mat = Rf_allocMatrix(REALSXP, ps.shape(1), ps.shape(0)));
-    std::memcpy(REAL(mat), ps.data(), ps.size() * sizeof(double));
-    PROTECT(fun = t = Rf_allocList(2));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("fit.filter"));
-    t = CDR(t);
-    SETCAR(t, mat);
-
-    PROTECT(t = Rf_eval(fun, R_GlobalEnv));
-    double *sigmas = REAL(t);
-    double sigmax = ps.shape(0) / (2 * std::sqrt(2) * M_PI * sigmas[0]);
-    double sigmay = ps.shape(1) / (2 * std::sqrt(2) * M_PI * sigmas[1]);
-    params.setSigma((sigmax + sigmay) / 2);
-
-    UNPROTECT(3);
-}
+void fitPSF(DataParams&, MultiArray<2, double>&);
 
 template <class T>
 void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
@@ -756,10 +752,25 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
 template <class T>
 void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_coords, ProgressFunctor &progressFunc) {
     estimateCameraParameters<T>(params, progressFunc);
+    if (progressFunc.getAbort()) {
+        progressFunc.setFinished();
+        return;
+    }
     estimatePSFParameters<T>(params, progressFunc);
+    if (progressFunc.getAbort()) {
+        progressFunc.setFinished();
+        return;
+    }
     auto func = [&maxima_coords](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {wienerStormSingleFrame(params, currSrc, maxima_coords[currframe], currframe);};
     progressFunc.setStage(Localization);
+    maxima_coords.resize(params.shape(2));
     processStack<T>(params, func, progressFunc);
+    progressFunc.setFinished();
+}
+
+template <class T>
+void wienerStormAsync(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_coords, ProgressFunctor &progressFunc) {
+    std::thread(wienerStorm<T>, std::ref(params), std::ref(maxima_coords), std::ref(progressFunc)).detach();
 }
 
 template <class T>
@@ -876,99 +887,8 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     determineSNR(srcImageRange(unfiltered), maxima_coords, factor);
 }
 
-void preventRConsoleWrite(const char* buf, int buflen)
-{}
+bool initR(const std::string&, int argc, char **argv, bool withRestart = true);
 
-bool initR(const StormParams &params, int argc, char **argv, bool withRestart = true)
-{
-    if (std::getenv("R_HOME") == nullptr) {
-        if (!withRestart)
-            return false;
-        char **args = (char**)std::malloc((argc + 3) * sizeof(char*));
-        args[0] = (char*)"R";
-        args[1] = (char*)"CMD";
-        for (int i = 0, j = 2; i < argc; ++i, ++j)
-            args[j] = argv[i];
-        args[argc + 2] = nullptr;
-        int ret = execvp(args[0], args);
-        /*std::string reason;
-        switch (errno) {
-            case ENOENT:
-                reason << "ENOENT";
-                break;
-            case ENOTDIR:
-                reason << "ENOTDIR";
-                break;
-            case E2BIG:
-                reason << "E2BIG";
-                break;
-            case EACCES:
-                reason << "EACCES";
-                break;
-            case EINVAL:
-                reason << "EINVAL";
-                break;
-            case ELOOP:
-                reason << "ELOOP";
-                break;
-            case ENOMEM:
-                reason << "ENOMEM";
-                break;
-            case ETXTBSY:
-                reason << "ETXTBSY";
-                break;
-            default:
-                reason << "unknown";
-                break;
-        }*/
-        std::free(args);
-        return false;
-    }
-    char *Rargv[] = {(char*)"REmbeddedStorm", (char*)"--silent", (char*)"--no-save"};
-    R_SignalHandlers = FALSE;
-    Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
+void endR();
 
-    std::string rScript(params.executableDir());
-    rScript.append("/").append(STORM_RSCRIPT);
-    if (!helper::fileExists(rScript)) {
-        rScript.clear();
-        rScript.append(STORM_RSCRIPT_DIR).append(STORM_RSCRIPT);
-    }
-
-    SEXP fun, t, tmp, tmp2;
-    PROTECT(tmp = Rf_ScalarInteger(42));
-
-    PROTECT(fun = t = Rf_allocList(2));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("set.seed"));
-    t = CDR(t);
-    SETCAR(t, tmp);
-    Rf_eval(fun, R_GlobalEnv);
-    UNPROTECT(2);
-
-    PROTECT(tmp = Rf_mkString(rScript.c_str()));
-    PROTECT(fun = t = Rf_allocList(2));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("parse"));
-    t = CDR(t);
-    SETCAR(t, tmp);
-    SET_TAG(t, Rf_install("file"));
-    PROTECT(tmp2 = Rf_eval(fun, R_GlobalEnv));
-    for (R_len_t i = 0; i < Rf_length(tmp2); ++i) {
-        Rf_eval(VECTOR_ELT(tmp2, i), R_GlobalEnv);
-    }
-    UNPROTECT(3);
-    return true;
-}
-
-void endR()
-{
-    // prevent printing of R warnings
-    void (*ptr_R_WriteConsole_old)(const char *, int) = ptr_R_WriteConsole;
-    FILE *R_Consolefile_old = R_Consolefile;
-    ptr_R_WriteConsole = preventRConsoleWrite;
-    R_Consolefile = NULL;
-    Rf_endEmbeddedR(0);
-    ptr_R_WriteConsole = ptr_R_WriteConsole_old;
-    R_Consolefile = R_Consolefile_old;
-}
+#endif

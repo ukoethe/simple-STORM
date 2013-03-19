@@ -12,15 +12,20 @@ public:
     float getSlope() const;
     bool getSlopeSaved() const;
     void setSlope(float);
+    void setUseSavedSlope(bool);
     float getIntercept() const;
     bool getInterceptSaved() const;
     void setIntercept(float);
+    void setUseSavedIntercept(bool);
     float getSigma() const;
     bool getSigmaSaved() const;
     void setSigma(float);
+    void setUseSavedSigma(bool);
 
     virtual void save() const;
-    void load();
+
+protected:
+    virtual void loadSettings(bool);
 
 private:
     float m_slope;

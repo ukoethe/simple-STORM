@@ -62,12 +62,13 @@ public:
     virtual void setStackSize(int stacksize)
     {
         m_stacksize = stacksize;
+        m_frame = 0;
         helper::progress(-1, -1);
     }
 
-    virtual void setFrame(int frame)
+    virtual void frameFinished(int frame)
     {
-        m_frame = frame;
+        ++m_frame;
 #ifdef OPENMP_FOUND
         if(omp_get_thread_num()==0) { // master thread
             helper::progress(m_frame, m_stacksize);
@@ -87,7 +88,7 @@ int main(int argc, char* argv[]) {
     try
     {
         DataParams params(argc, argv);
-        if (!initR(params, argc, argv)) {
+        if (!initR(params.executableDir(), argc, argv)) {
             std::cerr << "Could not initialize R" << std::endl
             << "You probably do not have R installed or do not have it in your PATH." << std::endl;
             return 1;
