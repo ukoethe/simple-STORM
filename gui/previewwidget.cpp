@@ -5,15 +5,15 @@
 #include <QPainter>
 
 PreviewWidget::PreviewWidget(QWidget *parent)
-: QWidget(parent), m_ui(new Ui::PreviewWidget()), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_paramsSet(false), m_zoom(-1)
+: QWidget(parent), m_ui(new Ui::PreviewWidget()), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_paramsSet(false), m_zoom(-1), m_minZoom(0.1), m_maxZoom(5.)
 {
     m_ui->setupUi(this);
     m_ui->btn_scaleToFit->setEnabled(false);
-    m_ui->sldr_zoom->setMinimum(10);
-    m_ui->sldr_zoom->setMaximum(500);
+    m_ui->sldr_zoom->setMinimum(m_minZoom * 100);
+    m_ui->sldr_zoom->setMaximum(m_maxZoom * 100);
     m_ui->sldr_zoom->setSingleStep(10);
-    m_ui->spn_zoom->setMinimum(10);
-    m_ui->spn_zoom->setMaximum(500);
+    m_ui->spn_zoom->setMinimum(m_minZoom * 100);
+    m_ui->spn_zoom->setMaximum(m_maxZoom * 100);
     connect(m_ui->btn_zoomIn, SIGNAL(clicked()), this, SLOT(zoomInClicked()));
     connect(m_ui->btn_zoomOut, SIGNAL(clicked()), this, SLOT(zoomOutClicked()));
     connect(m_ui->btn_scaleToFit, SIGNAL(clicked()), this, SLOT(autoZoom()));
@@ -72,6 +72,8 @@ void PreviewWidget::autoZoom()
     float zoom = size.height() / (float)m_result.shape(1);
     m_ui->sldr_zoom->setValue(zoom * 100);
     m_ui->spn_zoom->setValue(zoom * 100);
+    m_ui->btn_zoomOut->setEnabled(zoom > m_minZoom);
+    m_ui->btn_zoomIn->setEnabled(zoom < m_maxZoom);
     m_ui->lbl_preview->setPixmap(m_pixmap.scaled(size, Qt::KeepAspectRatio, Qt::FastTransformation));
     connect(m_ui->sldr_zoom, SIGNAL(valueChanged(int)), this, SLOT(zoomSliderValueChanged(int)));
 }
@@ -156,14 +158,8 @@ void PreviewWidget::zoomOutClicked()
 void PreviewWidget::zoomSliderValueChanged(int val)
 {
     m_ui->spn_zoom->setValue(val);
-    if (val == m_ui->sldr_zoom->minimum())
-        m_ui->btn_zoomOut->setEnabled(false);
-    else
-        m_ui->btn_zoomOut->setEnabled(true);
-    if (val == m_ui->sldr_zoom->maximum())
-        m_ui->btn_zoomIn->setEnabled(false);
-    else
-        m_ui->btn_zoomOut->setEnabled(true);
+    m_ui->btn_zoomOut->setEnabled(val != m_ui->sldr_zoom->minimum());
+    m_ui->btn_zoomIn->setEnabled(val != m_ui->sldr_zoom->maximum());
     m_zoom = val / 100.;
     m_ui->lbl_preview->setPixmap(m_pixmap.scaled(m_pixmap.size() * m_zoom, Qt::KeepAspectRatio, Qt::FastTransformation));
     m_ui->btn_scaleToFit->setEnabled(true);

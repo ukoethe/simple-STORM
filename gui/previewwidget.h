@@ -53,6 +53,8 @@ private:
     unsigned long int m_detections;
     bool m_paramsSet;
     float m_zoom;
+    float m_minZoom;
+    float m_maxZoom;
     const std::vector<std::set<Coord<float>>> *m_results; // have to be pointers in order to have
                                                           // constructor without arguments and use
                                                           // this in Qt Designer
