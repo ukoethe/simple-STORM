@@ -105,6 +105,9 @@ public:
     float getAlpha() const;
     void setAlpha(float);
     double getMaskThreshold() const;
+    bool getDoAsymmetryCheck() const;
+    void setDoAsymmetryCheck(bool);
+    bool getDoAsymmetryCheckSaved() const;
     bool getVerbose() const;
     void setVerbose(bool);
 
@@ -153,6 +156,8 @@ private:
     bool m_framesSaved;
     float m_alpha;
     double m_thresholdMask;
+    bool m_doAsymmetryCheck;
+    bool m_doAsymmetryCheckSaved;
     bool m_verbose;
     std::string m_infile;
     std::string m_outfile;
