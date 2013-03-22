@@ -40,8 +40,8 @@ set(SRCS
     mainwindow.cpp
     inputwidget.cpp
     resultwidget.cpp
-    previewwidget.cpp
-    zoomablescrollarea.cpp
+    previewimage.cpp
+    previewscrollarea.cpp
     filenamelineedit.cpp
     globals.cpp
     guiparams.cpp
@@ -56,7 +56,6 @@ SET(UIS
     backgroundlevelgroupbox.ui
     advancedsettingsgroupbox.ui
     resultwidget.ui
-    previewwidget.ui
 )
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}

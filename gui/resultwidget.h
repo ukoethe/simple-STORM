@@ -30,6 +30,9 @@ Q_SIGNALS:
     void userAttentionRequired(QWidget*);
     void finished(ResultWidget*);
 
+protected:
+    virtual void resizeEvent(QResizeEvent*);
+
 private:
     void saveCoordinates(const QString&);
 
@@ -40,11 +43,23 @@ private:
     GuiParams m_params;
     bool m_coordinatesSaved;
     bool m_reconstructionSaved;
+    bool m_autoZoom;
+    bool m_previewEnabled;
+    int m_minZoom;
+    int m_maxZoom;
+    int m_zoomStep;
+    int m_zoomPageStep;
 
 private Q_SLOTS:
     void stageChanged(int, const QString&);
     void workerFinished();
     void saveClicked();
+    void scaleChanged(float, bool);
+    void scaleChanged(int, bool);
+    void zoomSliderValueChanged(int);
+    void zoomSliderActionTriggered(int);
+    void zoomValueChanged();
+    void setPreviewEnabled(bool);
 };
 
 #endif
