@@ -96,7 +96,7 @@ StormParams::StormParams()
 }
 
 StormParams::StormParams(const StormParams &other)
-: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemorySaved), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames) {
+: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames) {
     setInFile(other.m_infile, false);
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
@@ -363,12 +363,47 @@ double StormParams::getMaskThreshold() const {
     return m_thresholdMask;
 }
 
+float StormParams::getAsymmetryThreshold() const
+{
+    return m_asymmetryThreshold;
+}
+
 void StormParams::setDoAsymmetryCheck(bool doAsymmetryCheck) {
     m_doAsymmetryCheck = doAsymmetryCheck;
 }
 
 bool StormParams::getDoAsymmetryCheck() const {
     return m_doAsymmetryCheck;
+}
+
+int StormParams::getMaxTChunkSize() const
+{
+    return m_maxTChunksize;
+}
+
+int StormParams::getMinTChunkSize() const
+{
+    return m_minTChunksize;
+}
+
+int StormParams::getMaxXyChunksize() const
+{
+    return m_maxXyChunksize;
+}
+
+int StormParams::getMinXyChunksize() const
+{
+    return m_minXyChunksize;
+}
+
+float StormParams::getMaxAsymmetryThreshold() const
+{
+    return m_maxAsymmetryThreshold;
+}
+
+float StormParams::getMinAsymmetryThreshold() const
+{
+    return m_minAsymmetryThreshold;
 }
 
 bool StormParams::getVerbose() const {
@@ -466,6 +501,14 @@ void StormParams::setDefaultFileNames(bool force) {
         m_skellamFrames = m_shape[2];
     if (m_chunksInMemory < 4)
         m_chunksInMemory = 3;
+    if (m_xyChunkSize > m_maxXyChunksize)
+        m_xyChunkSize = m_maxXyChunksize;
+    if (m_xyChunkSize < m_minXyChunksize)
+        m_xyChunkSize = m_minXyChunksize;
+    if (m_tChunkSize > m_maxTChunksize)
+        m_tChunkSize = m_maxTChunksize;
+    if (m_tChunkSize < m_minTChunksize)
+        m_tChunkSize = m_minTChunksize;
 }
 
 /**

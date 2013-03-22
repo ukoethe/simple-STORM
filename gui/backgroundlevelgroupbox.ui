@@ -7,16 +7,28 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>100</height>
+    <height>245</height>
    </rect>
+  </property>
+  <property name="font">
+   <font>
+    <pointsize>10</pointsize>
+   </font>
   </property>
   <property name="windowTitle">
    <string>GroupBox</string>
   </property>
   <property name="title">
-   <string>Background Level</string>
+   <string>Easy settings</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="label_5">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Background (x,y)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
@@ -27,8 +39,17 @@
       </widget>
      </item>
      <item>
-      <widget class="QSlider" name="sldr_backgroundLevel">
+      <widget class="QSlider" name="sldr_xyBackgroundLevel">
+       <property name="font">
+        <font>
+         <weight>50</weight>
+         <bold>false</bold>
+        </font>
+       </property>
        <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="sliderPosition">
         <number>100</number>
        </property>
        <property name="orientation">
@@ -40,6 +61,91 @@
       <widget class="QLabel" name="label_2">
        <property name="text">
         <string>variable</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_7">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Background (t)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_7">
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label_9">
+       <property name="text">
+        <string>constant</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="sldr_tBackgroundLevel">
+       <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="value">
+        <number>100</number>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_8">
+       <property name="text">
+        <string>variable</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_6">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Spot density&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_6">
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label_4">
+       <property name="text">
+        <string>low</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="sldr_spotDensity">
+       <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="value">
+        <number>100</number>
+       </property>
+       <property name="sliderPosition">
+        <number>100</number>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_3">
+       <property name="text">
+        <string>high</string>
        </property>
       </widget>
      </item>
