@@ -75,6 +75,12 @@ IF(HDF5_FOUND)
     target_link_libraries(storm-gui ${HDF5_LIBRARIES})
 ENDIF(HDF5_FOUND)
 
+IF(OPENMP_FOUND)
+    set_target_properties(storm-gui PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+    set_target_properties(storm-gui PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
+    add_definitions(-DOPENMP_FOUND)
+ENDIF(OPENMP_FOUND)
+
 set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 set(DATA_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
 install(TARGETS storm-gui DESTINATION ${BIN_INSTALL_DIR})

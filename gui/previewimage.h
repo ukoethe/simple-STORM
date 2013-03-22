@@ -71,9 +71,7 @@ private:
     size_t m_quantileIndex;
     float m_sizeFactor;
     float m_intensityFactor;
-    float m_oldIntensityFactor;
     std::pair<float, float> m_limits;
-    std::pair<float, float> m_oldLimits;
 };
 
 #endif

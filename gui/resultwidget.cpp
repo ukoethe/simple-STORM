@@ -80,6 +80,7 @@ void ResultWidget::start(const GuiParams &params)
     connect(m_ui->preview, SIGNAL(detections(const QString&)), m_ui->lbl_detections, SLOT(setText(const QString&)));
     m_ui->bottomLayout->removeItem(m_ui->spcr);
     m_ui->scrl_preview->autoZoom();
+    //m_worker->setPriority(QThread::LowPriority);
     m_worker->start();
 }
 
