@@ -781,12 +781,11 @@ void getBGVariance(DataParams &params, const MultiArrayView<2, T> &img, std::vec
 
 template <class T>
 void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    progressFunc.setStage(ParameterCheck);
     unsigned int stacksize = params.getSkellamFrames();
-
     std::vector<T> BGVars(stacksize);
     std::mutex mutex; // R is not thread-safe
     auto func = [&params, &BGVars, &mutex](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance(params, currSrc, BGVars, currframe, mutex);};
+    progressFunc.setStage(ParameterCheck);
     processStack<T>(params, func, progressFunc, stacksize);
     T medBGVar;
 

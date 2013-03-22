@@ -16,6 +16,9 @@ void QtProgressFunctor::setStage(WienerStormStage stage)
         case PSFWidth:
             emit stageChanged(stage, "Estimating PSF width: %v / %m (%p%)");
             break;
+        case ParameterCheck:
+            emit stageChanged(stage, "Checking parameters: %v / %m (%p%)");
+            break;
         case Localization:
             emit stageChanged(stage, "Localizing molecules: %v / %m (%p%)");
             break;

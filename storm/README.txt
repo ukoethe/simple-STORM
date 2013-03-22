@@ -19,6 +19,9 @@ Parameters are the enlargement factor and the background noise threshold.
 To run the program with default parameters: storm.exe input.sif
 To display a short help: storm.exe --help
 
+If you want to debug the program using gdb you have to but "R CMD" before
+the usual syntax ("R CMD gdb storm").
+
 As a test you can run the algorithm on the TestImage:
 storm testSif_4_16_30001.sif out.png --coordsfile=outCoords.txt
 diff out.png testReference.png
