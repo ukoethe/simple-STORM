@@ -99,8 +99,21 @@ void InputWidget::runClicked()
         m_params.setXYChunkSize(m_uiAdvancedSettings->spn_xyChunkSize->value());
         m_params.setTChunkSize(m_uiAdvancedSettings->spn_tChunkSize->value());
         m_params.setChunksInMemory(m_uiAdvancedSettings->spn_chunksInMemory->value());
+        m_params.setDoAsymmetryCheck(m_uiAdvancedSettings->cB_doAsymmetryCheck->isChecked());
     } else {
-        // do some magic
+        int resx = m_params.shape()[0], resy = m_params.shape()[1], resz = m_params.shape()[2];
+        int currValueXYSlider = m_uiBackgroundLevel->sldr_xyBackgroundLevel->value();
+        int maxXYSize = std::min(std::min(resx,resy), m_params.getMaxXyChunksize()), minXYSize = m_params.getMinXyChunksize();
+        int maxValueXYSlider = m_uiBackgroundLevel->sldr_xyBackgroundLevel->maximum();
+        m_params.setXYChunkSize((maxValueXYSlider-currValueXYSlider)/maxValueXYSlider*(maxXYSize - minXYSize) + minXYSize);
+        int currValueTSlider = m_uiBackgroundLevel->sldr_tBackgroundLevel->value();
+        int maxTSize = std::min(resz, m_params.getMaxTChunkSize()), minTSize = m_params.getMinTChunkSize();
+        int maxValueTSlider = m_uiBackgroundLevel->sldr_tBackgroundLevel->maximum();
+        m_params.setXYChunkSize((maxValueTSlider-currValueTSlider)/maxValueTSlider*(maxTSize - minTSize) + minTSize);
+        int currValueSpotSlider = m_uiBackgroundLevel->sldr_spotDensity->value();
+        int maxAsymmVal = m_params.getMaxAsymmetryThreshold(), minAsymmVal = m_params.getMinAsymmetryThreshold();
+        int maxValueSpotSlider = m_uiBackgroundLevel->sldr_tBackgroundLevel->maximum();
+        m_params.setDoAsymmetryCheck(currValueSpotSlider/maxValueSpotSlider*(maxAsymmVal-minAsymmVal)+minAsymmVal);
     }
     if (m_ui->spn_gain->value() > 0) {
         m_params.setSlope(m_ui->spn_gain->value());

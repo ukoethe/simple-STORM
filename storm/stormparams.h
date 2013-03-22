@@ -107,7 +107,14 @@ public:
     double getMaskThreshold() const;
     bool getDoAsymmetryCheck() const;
     void setDoAsymmetryCheck(bool);
+    float getAsymmetryThreshold() const;
     bool getDoAsymmetryCheckSaved() const;
+    int getMaxXyChunksize() const;
+    int getMinXyChunksize() const;
+    int getMaxTChunkSize() const;
+    int getMinTChunkSize() const;
+    float getMaxAsymmetryThreshold() const;
+    float getMinAsymmetryThreshold() const;
     bool getVerbose() const;
     void setVerbose(bool);
 
@@ -156,8 +163,15 @@ private:
     bool m_framesSaved;
     float m_alpha;
     double m_thresholdMask;
+    float m_asymmetryThreshold;
     bool m_doAsymmetryCheck;
     bool m_doAsymmetryCheckSaved;
+    const int m_minXyChunksize = 3;
+    const int m_maxXyChunksize = 100;
+    const int m_minTChunksize = 3;
+    const int m_maxTChunksize = 100;
+    const float m_minAsymmetryThreshold = 0;
+    const float m_maxAsymmetryThreshold = 5;
     bool m_verbose;
     std::string m_infile;
     std::string m_outfile;

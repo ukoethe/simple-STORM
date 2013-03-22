@@ -292,8 +292,8 @@ void findMinMaxPercentile(Image& im, double minPerc, double& minVal, double maxP
 template <class SrcIterator, class SrcAccessor, class T>
 inline void determineAsymmetry(triple<SrcIterator, SrcIterator, SrcAccessor> s,
         std::set<Coord<T> >& coords,
-        const int factor, bool doAsymmetryCheck) {
-    determineAsymmetry(s.first, s.second, s.third, coords, factor, doAsymmetryCheck);
+        const DataParams &params) {
+    determineAsymmetry(s.first, s.second, s.third, coords, params);
 }
 
 template <class SrcIterator, class SrcAccessor, class T>
@@ -301,7 +301,8 @@ void determineAsymmetry(SrcIterator srcUpperLeft,
         SrcIterator srcLowerRight,
         SrcAccessor acc,
         std::set<Coord<T> >& coords,
-        const int factor, bool doAsymmetryCheck) {
+        const DataParams &params) {
+    int factor = params.getFactor();
     vigra::SplineImageView<3,T> sview(srcUpperLeft, srcLowerRight, acc, true);
     std::set<Coord<float> > newcoords;
     std::set<Coord<float> >::iterator it2;
@@ -313,8 +314,8 @@ void determineAsymmetry(SrcIterator srcUpperLeft,
         // calculate the eigenvalues
         T ev1 = (sxx+syy)/2. - sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
         T ev2 = (sxx+syy)/2. + sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
-        if (doAsymmetryCheck) {
-            if(ev1/ev2<2 and ev1/ev2> 0.5) {
+        if (params.getDoAsymmetryCheck()) {
+            if(ev1/ev2<params.getAsymmetryThreshold() and ev2/ev1 < params.getAsymmetryThreshold()) {
                 Coord<float> cc (c.x, c.y, c.val, ev1/ev2);
                 newcoords.insert(cc); // copy for now. Hack hack hack...
             }
@@ -1032,7 +1033,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
             vigra::localMaxima(srcIterRange(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), im_xxl.lowerRight()+xxl_lr-Diff2D(factor,factor)),
                                destIter(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), maxima_acc), vigra::LocalMinmaxOptions().neighborhood(8));
     }
-    determineAsymmetry(srcImageRange(unfiltered), maxima_coords, factor, params.getDoAsymmetryCheck());
+    determineAsymmetry(srcImageRange(unfiltered), maxima_coords, params);
     determineSNR(srcImageRange(unfiltered), maxima_coords, factor);
 }
 
