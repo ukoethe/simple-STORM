@@ -7,10 +7,11 @@
 #include <QPaintEvent>
 #include <QStyleOption>
 #include <QDir>
-
+#include <QtConcurrentRun>
+#include <QFutureWatcher>
 
 PreviewImage::PreviewImage(QWidget *parent)
-: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scale(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0)
+: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scale(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_initialized(false)
 {
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
@@ -32,35 +33,36 @@ void PreviewImage::setUpdateInterval(const std::chrono::milliseconds &interval)
 void PreviewImage::setParams(const GuiParams *params)
 {
     m_params = params;
-
-    m_result.reshape(vigra::Shape2(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution(), m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution()), 0);
+    vigra::Shape2 resultShape(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution(), m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution());
     m_sizeFactor = m_params->getPixelSize() / (m_params->getReconstructionResolution() * m_params->getFactor());
-    m_quantileIndex = m_result.size() * 0.996;
-    m_size = m_resultSize = QSize(m_result.shape(0), m_result.shape(1));
+    m_size = m_resultSize = QSize(resultShape[0], resultShape[1]);
     setBaseSize(m_resultSize);
-    for (const float &d : m_result)
-        m_resultsForScaling.insert(d);
+    QFuture<void> f = QtConcurrent::run([this, resultShape](){m_result.reshape(resultShape, 0.);});
+    QFutureWatcher<void> *w = new QFutureWatcher<void>();
+    connect(w, SIGNAL(finished()), this, SLOT(initializationFinished()));
+    w->setFuture(f);
 }
 
 void PreviewImage::frameCompleted(int frame)
 {
     m_unprocessed.push_back(frame);
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    if (now - m_lastProcessed >= m_updateInterval) {
+    if (m_initialized && now - m_lastProcessed >= m_updateInterval) {
         updateImage();
     }
 }
 
 void PreviewImage::updateImage()
 {
-    if (!m_params || !m_results)
+    if (!m_params || !m_results || !m_initialized)
         return;
     m_lastProcessed = std::chrono::steady_clock::now();
     for (int frame : m_unprocessed) {
         for (const Coord<float> &c : m_results->at(frame)) {
             int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
             float val = m_result(x, y);
-            m_resultsForScaling.erase(m_resultsForScaling.find(val));
+            if (val > 0)
+                m_resultsForScaling.erase(m_resultsForScaling.find(val));
             val += c.val;
             m_resultsForScaling.insert(val);
             m_result(x, y) = val;
@@ -69,9 +71,9 @@ void PreviewImage::updateImage()
     }
 
     // some maxima are very strong so we scale the image as appropriate :
-    m_limits.first = *(m_resultsForScaling.begin()), m_limits.second = 0;
+    m_limits.first = m_limits.second = 0;
     auto it = --m_resultsForScaling.end();
-    for (size_t i = m_resultsForScaling.size(); i >=m_quantileIndex; --i, --it)
+    for (size_t i = m_resultsForScaling.size(); i >= m_resultsForScaling.size() * 0.996; --i, --it)
         m_limits.second = *it;
     m_intensityFactor = 255 / (m_limits.second - m_limits.first);
     if (m_scale < 1) {
@@ -91,7 +93,7 @@ void PreviewImage::updateImage()
 
 void PreviewImage::updatePixmap(const QRect &rect)
 {
-    if (!m_params || !m_results)
+    if (!m_params || !m_results || !m_initialized)
         return;
     QPoint ul = rect.topLeft();
     QPoint lr = rect.bottomRight();
@@ -185,4 +187,11 @@ QSize PreviewImage::sizeHint() const
 void PreviewImage::setIntensityScaleFactor(float factor)
 {
     m_intensityScaleFactor = factor;
+}
+
+void PreviewImage::initializationFinished()
+{
+    delete sender();
+    m_initialized = true;
+    emit initialized();
 }

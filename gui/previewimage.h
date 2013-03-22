@@ -35,6 +35,7 @@ public Q_SLOTS:
 
 Q_SIGNALS:
     void detections(const QString&);
+    void initialized();
 
 protected:
     virtual void paintEvent(QPaintEvent *);
@@ -43,6 +44,7 @@ protected:
 
 private Q_SLOTS:
     void frameCompleted(int);
+    void initializationFinished();
 
 private:
     void updatePixmap(const QRect&);
@@ -63,12 +65,12 @@ private:
                                                           // constructor without arguments and use
                                                           // this in Qt Designer
     const GuiParams *m_params;
+    bool m_initialized;
     std::vector<int> m_unprocessed;
     QSet<QPair<int, int>> m_toPaint;
     vigra::MultiArray<2, float> m_result;
     QSize m_resultSize;
     std::multiset<float> m_resultsForScaling;
-    size_t m_quantileIndex;
     float m_sizeFactor;
     float m_intensityFactor;
     std::pair<float, float> m_limits;

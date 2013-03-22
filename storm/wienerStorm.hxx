@@ -91,6 +91,8 @@ using namespace vigra::functor;
  * @date 2010-2011 Diploma thesis J. Schleicher
  */
 
+extern std::mutex wienerStorm_R_mutex;
+
 enum WienerStormStage{CameraParameters, ParameterCheck, PSFWidth, Localization};
 class ProgressFunctor
 {
@@ -369,6 +371,7 @@ private:
 template <class T>
 void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
     int nbins = 10;
+    wienerStorm_R_mutex.lock();
     SEXP fun, t, tmp;
     PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
     double *mat = REAL(tmp);
@@ -401,6 +404,7 @@ void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],in
     }
     UNPROTECT(4);
     R_gc();
+    wienerStorm_R_mutex.unlock();
 }
 
 //get Mask calculates the probabilities for each pixel of the current frame to be foreground,
@@ -738,7 +742,7 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
 void fitPSF(DataParams&, MultiArray<2, double>&);
 
 template <class T>
-void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::vector<T> &BGVar, int currframe, std::mutex &mutex) {
+void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::vector<T> &BGVar, int currframe) {
     //     std::cout<<currframe<<std::endl;
     vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::AutoRangeHistogram<0>>> accChain;
     //     vigra::acc::AccumulatorChainArray<typename CoupledIteratorType<3, T, L>::type::value_type, vigra::acc::Select<vigra::acc::DataArg<1>, vigra::acc::LabelArg<2>, vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
@@ -752,7 +756,7 @@ void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::ve
     double varBG = 0;
     int numberBins = 100;//0.001 * img.shape()[0] * img.shape()[1];
     if (int(imgMinMax.max - imgMinMax.min)>0) {
-        mutex.lock();
+        wienerStorm_R_mutex.lock();
         vigra::HistogramOptions histogram_opt;
         histogram_opt = histogram_opt.setBinCount(numberBins);
         accChain.setHistogramOptions(histogram_opt);
@@ -788,7 +792,7 @@ void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::ve
         varBG = *REAL(t);
         //std::cout<<"Variance BG: "<<varBG<<std::endl;
         UNPROTECT(6);
-        mutex.unlock();
+        wienerStorm_R_mutex.unlock();
     }
     BGVar[currframe] = varBG;
 
@@ -840,8 +844,7 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     unsigned int stacksize = params.getSkellamFrames();
 
     std::vector<T> BGVars(stacksize);
-    std::mutex mutex; // R is not thread-safe
-    auto func = [&params, &BGVars, &mutex](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance2(params, currSrc, BGVars, currframe, mutex);};
+    auto func = [&params, &BGVars](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance2(params, currSrc, BGVars, currframe);};
     processStack<T>(params, func, progressFunc, stacksize);
 
     vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;

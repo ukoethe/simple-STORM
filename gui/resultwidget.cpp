@@ -67,7 +67,6 @@ void ResultWidget::start(const GuiParams &params)
         return;
     m_params = params;
     m_ui->preview->setResults(&m_result);
-    m_ui->preview->setParams(&params);
     m_ui->btn_abort->setVisible(true);
     m_ui->progressBar->setVisible(true);
     m_functor = new QtProgressFunctor(this);
@@ -79,9 +78,11 @@ void ResultWidget::start(const GuiParams &params)
     connect(m_worker, SIGNAL(finished()), this, SLOT(workerFinished()));
     connect(m_ui->preview, SIGNAL(detections(const QString&)), m_ui->lbl_detections, SLOT(setText(const QString&)));
     m_ui->bottomLayout->removeItem(m_ui->spcr);
+    m_worker->setPriority(QThread::LowPriority);
+    connect(m_ui->preview, SIGNAL(initialized()), m_worker, SLOT(start()));
+    m_ui->progressBar->setRange(0, 0);
+    m_ui->preview->setParams(&params);
     m_ui->scrl_preview->autoZoom();
-    //m_worker->setPriority(QThread::LowPriority);
-    m_worker->start();
 }
 
 bool ResultWidget::canBeClosed()

@@ -5,7 +5,10 @@
 #include <cstdint>
 #include <Rinterface.h>
 
+std::mutex wienerStorm_R_mutex; // R is not thread-safe
+
 void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
+    wienerStorm_R_mutex.lock();
     SEXP mat, fun, t;
     PROTECT(mat = Rf_allocMatrix(REALSXP, ps.shape(1), ps.shape(0)));
     std::memcpy(REAL(mat), ps.data(), ps.size() * sizeof(double));
@@ -23,6 +26,7 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
 
     UNPROTECT(3);
     R_gc();
+    wienerStorm_R_mutex.unlock();
 }
 
 void preventRConsoleWrite(const char* buf, int buflen)
