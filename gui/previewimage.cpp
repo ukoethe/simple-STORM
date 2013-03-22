@@ -11,7 +11,7 @@
 #include <QFutureWatcher>
 
 PreviewImage::PreviewImage(QWidget *parent)
-: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scale(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_initialized(false)
+: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scale(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_initialized(false), m_needCompleteRepaint(false)
 {
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
@@ -93,26 +93,43 @@ void PreviewImage::updateImage()
 
 void PreviewImage::updatePixmap(const QRect &rect)
 {
-    if (!m_params || !m_results || !m_initialized)
+    if (!m_params || !m_results || !m_initialized || !m_needRepaint)
         return;
     QPoint ul = rect.topLeft();
     QPoint lr = rect.bottomRight();
     m_painter.translate(-ul);
     m_painter.scale(m_scale, m_scale);
-    if (m_toPaint.empty()) {
-        for (int y = ul.y() / m_scale; y < lr.y() / m_scale; ++y) {
-            for (int x = ul.x() / m_scale; x < lr.x() / m_scale; ++x) {
+    ul /= m_scale;
+    lr /= m_scale;
+    QPainter::RenderHints hints = QPainter::Antialiasing;
+    if (m_scale < 1)
+        m_painter.setRenderHints(hints);
+    if (m_needCompleteRepaint && m_scale < 1) {
+        m_painter.fillRect(QRect(ul, lr), QColor(0, 0, 0));
+        for (int y = ul.y(); y < lr.y(); ++y) {
+            for (int x = ul.x(); x < lr.x(); ++x) {
+                if (m_result(x, y) > 0)
+                    m_painter.fillRect(x, y, 1, 1, QColor(255, 255, 255));
+            }
+        }
+    } else if (m_toPaint.empty() || m_needCompleteRepaint) {
+        for (int y = ul.y(); y < lr.y(); ++y) {
+            for (int x = ul.x(); x < lr.x(); ++x) {
                 float v = m_result(x, y);
                 uchar c = (v > m_limits.second) ? 255 : v * m_intensityFactor;
                 m_painter.fillRect(x, y, 1, 1, QColor(c, c, c));
             }
         }
-    } else {
+    }  else {
         for (const QPair<int, int> &p : m_toPaint) {
-            m_painter.fillRect(p.first, p.second, 1, 1, QColor(255, 255, 255));
+            if (p.first >= ul.x()  && p.first <= lr.x() && p.second >= ul.y() && p.second <= lr.y())
+                m_painter.fillRect(p.first, p.second, 1, 1, QColor(255, 255, 255));
         }
-        m_toPaint.clear();
     }
+    m_needCompleteRepaint = false;
+    m_needRepaint = false;
+    m_toPaint.clear();
+    m_painter.setRenderHints(hints, false);
     m_painter.resetTransform();
 }
 
@@ -136,6 +153,7 @@ void PreviewImage::resizeEvent(QResizeEvent *event)
 void PreviewImage::moveEvent(QMoveEvent *event)
 {
     m_needRepaint = true;
+    m_needCompleteRepaint = true;
     QWidget::moveEvent(event);
 }
 
@@ -144,10 +162,7 @@ void PreviewImage::paintEvent(QPaintEvent *event)
     event->accept();
     QRect rect = event->rect();
     init(rect);
-    if (m_needRepaint) {
-        updatePixmap(rect);
-        m_needRepaint = false;
-    }
+    updatePixmap(rect);
     if (!isEnabled()) {
         QPixmap p(rect.width(), rect.height());
         QPainter(&p).drawImage(m_pixmapGeometry, m_pixmap, m_pixmapGeometry);

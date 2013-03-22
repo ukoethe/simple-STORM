@@ -66,6 +66,7 @@ private:
                                                           // this in Qt Designer
     const GuiParams *m_params;
     bool m_initialized;
+    bool m_needCompleteRepaint;
     std::vector<int> m_unprocessed;
     QSet<QPair<int, int>> m_toPaint;
     vigra::MultiArray<2, float> m_result;
