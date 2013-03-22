@@ -96,7 +96,7 @@ StormParams::StormParams()
 }
 
 StormParams::StormParams(const StormParams &other)
-: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemorySaved), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames) {
+: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemorySaved), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames) {
     setInFile(other.m_infile, false);
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
@@ -363,6 +363,14 @@ double StormParams::getMaskThreshold() const {
     return m_thresholdMask;
 }
 
+void StormParams::setDoAsymmetryCheck(bool doAsymmetryCheck) {
+    m_doAsymmetryCheck = doAsymmetryCheck;
+}
+
+bool StormParams::getDoAsymmetryCheck() const {
+    return m_doAsymmetryCheck;
+}
+
 bool StormParams::getVerbose() const {
     return m_verbose;
 }
@@ -401,6 +409,7 @@ void StormParams::printUsage() const {
 	<< "                         from the data" << std::endl
 	<< "  --roi-len=Arg          size of the roi around maxima candidates" << std::endl
 	<< "  --frames=Arg           run only on a subset of the stack (frames=start:end)" << std::endl
+	<< "  --a                    enables check for asymmetry of points to skip asymmetric ones" <<std::endl
 	<< "  --version              print version information and exit" << std::endl
 	;
 }
@@ -433,6 +442,7 @@ void StormParams::setDefaults() {
     m_chunksInMemorySaved = true;
     m_thresholdMask = 0;
     setAlpha(0.001);
+    setDoAsymmetryCheck(false);
     m_verbose = false;
 }
 
@@ -480,12 +490,13 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 			{"settings",         required_argument, 0,  's'},
 			{"roi-len",          required_argument, 0,  'm'},
 			{"frames",           required_argument, 0,  'F'},
+            {"doAsymmetryCheck", required_argument, 0,  'a'},
 			{0, 0, 0, 0 }
 
 		};
 
 		// valid options: "vc:" => -v option without parameter, c flag requires parameter
-		c = getopt_long(argc, argv, "?vVg:P:t:c:s:p:m:F:",
+		c = getopt_long(argc, argv, "?vVg:P:t:c:s:p:m:F:a",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -512,6 +523,9 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 		case 'F': // frames
 			setFrameRange(optarg);
 			break;
+        case 'a':
+            setDoAsymmetryCheck(true);
+            break;
 		case 'v':
 			setVerbose(true); // verbose mode
 			break;
@@ -702,6 +716,7 @@ void StormParams::save() const
     m_config->setIntValue("tChunkSize", m_tChunkSize);
     m_config->setIntValue("chunksInMemory", m_chunksInMemory);
     m_config->setDoubleValue("alpha", m_alpha);
+    m_config->setBoolValue("doAsymmetryCheck", m_doAsymmetryCheck);
     m_config->save();
 }
 
@@ -744,4 +759,6 @@ void StormParams::loadSettings(bool)
         m_chunksInMemorySaved = false;
     if (m_config->exists("alpha"))
         m_alpha = m_config->getDoubleValue("alpha");
+    if (m_doAsymmetryCheckSaved && m_config->exists("doAsymmetryCheck"))
+        m_doAsymmetryCheck = m_config->getBoolValue("doAsymmetryCheck");
 }

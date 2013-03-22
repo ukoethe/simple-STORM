@@ -292,8 +292,8 @@ void findMinMaxPercentile(Image& im, double minPerc, double& minVal, double maxP
 template <class SrcIterator, class SrcAccessor, class T>
 inline void determineAsymmetry(triple<SrcIterator, SrcIterator, SrcAccessor> s,
         std::set<Coord<T> >& coords,
-        const int factor) {
-    determineAsymmetry(s.first, s.second, s.third, coords, factor);
+        const int factor, bool doAsymmetryCheck) {
+    determineAsymmetry(s.first, s.second, s.third, coords, factor, doAsymmetryCheck);
 }
 
 template <class SrcIterator, class SrcAccessor, class T>
@@ -301,7 +301,7 @@ void determineAsymmetry(SrcIterator srcUpperLeft,
         SrcIterator srcLowerRight,
         SrcAccessor acc,
         std::set<Coord<T> >& coords,
-        const int factor) {
+        const int factor, bool doAsymmetryCheck) {
     vigra::SplineImageView<3,T> sview(srcUpperLeft, srcLowerRight, acc, true);
     std::set<Coord<float> > newcoords;
     std::set<Coord<float> >::iterator it2;
@@ -313,10 +313,17 @@ void determineAsymmetry(SrcIterator srcUpperLeft,
         // calculate the eigenvalues
         T ev1 = (sxx+syy)/2. - sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
         T ev2 = (sxx+syy)/2. + sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
-        if(ev1/ev2<2) {
-          Coord<float> cc (c.x, c.y, c.val, ev1/ev2);
-          newcoords.insert(cc); // copy for now. Hack hack hack...
+        if (doAsymmetryCheck) {
+            if(ev1/ev2<2 and ev1/ev2> 0.5) {
+                Coord<float> cc (c.x, c.y, c.val, ev1/ev2);
+                newcoords.insert(cc); // copy for now. Hack hack hack...
+            }
         }
+        else {
+            Coord<float> cc (c.x, c.y, c.val, ev1/ev2);
+            newcoords.insert(cc); // copy for now. Hack hack hack..
+        }
+
     }
     coords=newcoords;
 }
@@ -535,7 +542,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
                   MultiArrayView<3, T> &poissonMeans, int &currframe, int middleChunk,
                   Func& functor, ProgressFunctor &progressFunc) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
-    #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
+    //#pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
@@ -962,7 +969,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 //
     //vigra::exportImage(srcImageRange(input), beforefilter);
 
-    float kernelWidth = params.getSigma() < 0.85 ? 0.0 : std::sqrt(std::pow(params.getSigma(), 2)-std::pow(0.85, 2));
+    float kernelWidth = params.getSigma()*0.8;// < 0.85 ? 0.0 : std::sqrt(std::pow(params.getSigma(), 2)-std::pow(0.85, 2));
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
 
 
@@ -1025,7 +1032,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
             vigra::localMaxima(srcIterRange(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), im_xxl.lowerRight()+xxl_lr-Diff2D(factor,factor)),
                                destIter(im_xxl.upperLeft()+xxl_ul+Diff2D(factor,factor), maxima_acc), vigra::LocalMinmaxOptions().neighborhood(8));
     }
-    determineAsymmetry(srcImageRange(unfiltered), maxima_coords, factor);
+    determineAsymmetry(srcImageRange(unfiltered), maxima_coords, factor, params.getDoAsymmetryCheck());
     determineSNR(srcImageRange(unfiltered), maxima_coords, factor);
 }
 
