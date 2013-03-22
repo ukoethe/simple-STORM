@@ -363,6 +363,10 @@ double StormParams::getMaskThreshold() const {
     return m_thresholdMask;
 }
 
+void StormParams::setAsymmetryThreshold(float asymmetryThreshold) {
+    m_asymmetryThreshold = asymmetryThreshold;
+}
+
 float StormParams::getAsymmetryThreshold() const
 {
     return m_asymmetryThreshold;
@@ -497,18 +501,28 @@ void StormParams::setDefaultFileNames(bool force) {
     	tmp.replace(pos, 255, "_settings.txt"); // replace extension
         setSettingsFile(tmp);
 	}
-    if (m_skellamFrames > m_shape[2] || m_skellamFrames <= 0)
-        m_skellamFrames = m_shape[2];
-    if (m_chunksInMemory < 4)
-        m_chunksInMemory = 3;
-    if (m_xyChunkSize > m_maxXyChunksize)
-        m_xyChunkSize = m_maxXyChunksize;
+}
+
+void StormParams::doSanityChecks() {
+    if (m_skellamFrames > m_shape[2] || m_skellamFrames <= 0) {
+        std::cout<<"selected value for skellamFrames ("<<m_skellamFrames<<") is either larger than the maximal stacksize ("<<m_shape[2]<<") or smaller than zero! It is set to: "<<m_shape[2]<<std::endl;
+        m_skellamFrames = m_shape[2];}
+    if (m_chunksInMemory > m_shape[2]) {
+        m_chunksInMemory = m_shape[2];
+    }
+    if (m_chunksInMemory < 3) {
+        std::cout<<"selected value for chunksInMemory ("<<m_chunksInMemory<<") is smaller than 3, it is therefore set to 3"<<std::endl;
+        m_chunksInMemory = 3;}
+    if (m_xyChunkSize > m_maxXyChunksize) {
+        std::cout<<"selected value for xyChunkSize ("<<m_xyChunkSize<<") is smaller than 3, it is therefore set to 3"<<std::endl;
+        m_xyChunkSize = m_maxXyChunksize;}
     if (m_xyChunkSize < m_minXyChunksize)
         m_xyChunkSize = m_minXyChunksize;
-    if (m_tChunkSize > m_maxTChunksize)
-        m_tChunkSize = m_maxTChunksize;
     if (m_tChunkSize < m_minTChunksize)
         m_tChunkSize = m_minTChunksize;
+    if (m_tChunkSize >m_skellamFrames/m_chunksInMemory)
+        m_tChunkSize = m_skellamFrames/m_chunksInMemory;
+
 }
 
 /**

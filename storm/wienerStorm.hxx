@@ -785,11 +785,10 @@ void getBGVariance(DataParams &params, const MultiArrayView<2, T> &img, std::vec
 
 template <class T>
 void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    progressFunc.setStage(ParameterCheck);
     unsigned int stacksize = params.getSkellamFrames();
-
     std::vector<T> BGVars(stacksize);
     auto func = [&params, &BGVars](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance(params, currSrc, BGVars, currframe);};
+    progressFunc.setStage(ParameterCheck);
     processStack<T>(params, func, progressFunc, stacksize);
     T medBGVar;
 

@@ -108,6 +108,7 @@ public:
     bool getDoAsymmetryCheck() const;
     void setDoAsymmetryCheck(bool);
     float getAsymmetryThreshold() const;
+    void setAsymmetryThreshold(float);
     bool getDoAsymmetryCheckSaved() const;
     int getMaxXyChunksize() const;
     int getMinXyChunksize() const;
@@ -131,6 +132,7 @@ public:
 
     virtual void save() const;
     void load(bool propagate = true);
+    void doSanityChecks();
 
 protected:
     mutable rude::Config *m_config;
