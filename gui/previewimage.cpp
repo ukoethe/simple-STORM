@@ -5,6 +5,7 @@
 #include <QEvent>
 #include <QResizeEvent>
 #include <QPaintEvent>
+#include <QStyleOption>
 #include <QDir>
 
 
@@ -57,7 +58,7 @@ void PreviewImage::updateImage()
     m_lastProcessed = std::chrono::steady_clock::now();
     for (int frame : m_unprocessed) {
         for (const Coord<float> &c : m_results->at(frame)) {
-            int x = std::round(c.x * m_sizeFactor), y = std::round(c.y * m_sizeFactor);
+            int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
             float val = m_result(x, y);
             m_resultsForScaling.erase(m_resultsForScaling.find(val));
             val += c.val;
@@ -79,7 +80,7 @@ void PreviewImage::updateImage()
     if (scaleFactor >= 0.9 && scaleFactor <= 1.1) {
         for (int frame : m_unprocessed) {
             for (const Coord<float> &c : m_results->at(frame)) {
-                int x = std::round(c.x * m_sizeFactor), y = std::round(c.y * m_sizeFactor);
+                int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
                 m_toPaint.insert(QPair<int, int>(x, y));
             }
         }
@@ -155,7 +156,15 @@ void PreviewImage::paintEvent(QPaintEvent *event)
         updatePixmap(rect);
         m_needRepaint = false;
     }
-    QPainter(this).drawImage(rect, m_pixmap, m_pixmapGeometry);
+    if (!isEnabled()) {
+        QPixmap p(rect.width(), rect.height());
+        QPainter(&p).drawImage(m_pixmapGeometry, m_pixmap, m_pixmapGeometry);
+        QStyleOption opt;
+        opt.initFrom(this);
+        p = style()->generatedIconPixmap(QIcon::Disabled, p, &opt);
+        QPainter(this).drawPixmap(rect, p);
+    } else
+        QPainter(this).drawImage(rect, m_pixmap, m_pixmapGeometry);
 }
 
 void PreviewImage::init(const QRect &rect)
