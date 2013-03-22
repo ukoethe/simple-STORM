@@ -53,6 +53,7 @@
 #include <limits>
 #include <atomic>
 #include <thread>
+#include <mutex>
 #include <algorithm>
 
 //#include <algorithm>
@@ -542,7 +543,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
                   MultiArrayView<3, T> &poissonMeans, int &currframe, int middleChunk,
                   Func& functor, ProgressFunctor &progressFunc) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
-    //#pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
+    #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
@@ -737,7 +738,7 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
 void fitPSF(DataParams&, MultiArray<2, double>&);
 
 template <class T>
-void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::vector<T> &BGVar, int currframe) {
+void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::vector<T> &BGVar, int currframe, std::mutex &mutex) {
     //     std::cout<<currframe<<std::endl;
     vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::AutoRangeHistogram<0>>> accChain;
     //     vigra::acc::AccumulatorChainArray<typename CoupledIteratorType<3, T, L>::type::value_type, vigra::acc::Select<vigra::acc::DataArg<1>, vigra::acc::LabelArg<2>, vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
@@ -747,10 +748,11 @@ void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::ve
     vigra::FindMinMax<T> imgMinMax;
     inspectImage(srcImageRange(img), imgMinMax);
 //     std::cout<<"Currframe: "<<currframe<<" Min: "<<imgMinMax.min<< " Max: "<<imgMinMax.max<<" Number Bins: "<<int(imgMinMax.max - imgMinMax.min)<<std::endl;
+
     double varBG = 0;
     int numberBins = 100;//0.001 * img.shape()[0] * img.shape()[1];
-
     if (int(imgMinMax.max - imgMinMax.min)>0) {
+        mutex.lock();
         vigra::HistogramOptions histogram_opt;
         histogram_opt = histogram_opt.setBinCount(numberBins);
         accChain.setHistogramOptions(histogram_opt);
@@ -786,8 +788,9 @@ void getBGVariance2(DataParams &params, const MultiArrayView<2, T> &img, std::ve
         varBG = *REAL(t);
         //std::cout<<"Variance BG: "<<varBG<<std::endl;
         UNPROTECT(6);
+        mutex.unlock();
     }
-    BGVar.push_back(varBG);
+    BGVar[currframe] = varBG;
 
 }
 
@@ -836,8 +839,9 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     progressFunc.setStage(ParameterCheck);
     unsigned int stacksize = params.getSkellamFrames();
 
-    std::vector<T> BGVars;
-    auto func = [&params, &BGVars](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance2(params, currSrc, BGVars, currframe);};
+    std::vector<T> BGVars(stacksize);
+    std::mutex mutex; // R is not thread-safe
+    auto func = [&params, &BGVars, &mutex](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance2(params, currSrc, BGVars, currframe, mutex);};
     processStack<T>(params, func, progressFunc, stacksize);
 
     vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::StandardQuantiles<vigra::acc::AutoRangeHistogram<0>>>> accChain;
@@ -850,7 +854,6 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     std::cout<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*std::pow(medBGVar,2)<<" based on estimated background variance of: "<<medBGVar<<std::endl;
     params.setSlope(params.getSlope()*std::pow(medBGVar,2));
     if (std::abs(medBGVar - 1) > 0.1 ){
-        BGVars.clear();
         while (true) {
             processStack<T>(params, func, progressFunc, stacksize);
             accChain.reset();

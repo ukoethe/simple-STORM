@@ -69,26 +69,20 @@ void PreviewImage::updateImage()
     }
 
     // some maxima are very strong so we scale the image as appropriate :
-    std::pair<float, float> oldLimits = m_limits;
-    float oldIntensityFactor = m_intensityFactor;
     m_limits.first = *(m_resultsForScaling.begin()), m_limits.second = 0;
     auto it = --m_resultsForScaling.end();
     for (size_t i = m_resultsForScaling.size(); i >=m_quantileIndex; --i, --it)
         m_limits.second = *it;
     m_intensityFactor = 255 / (m_limits.second - m_limits.first);
-    float scaleFactor = m_intensityFactor / m_oldIntensityFactor;
-    if (scaleFactor >= 0.9 && scaleFactor <= 1.1) {
+    if (m_scale < 1) {
         for (int frame : m_unprocessed) {
             for (const Coord<float> &c : m_results->at(frame)) {
                 int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
                 m_toPaint.insert(QPair<int, int>(x, y));
             }
         }
-    } else {
+    } else
         m_toPaint.clear();
-        m_oldLimits = oldLimits;
-        m_oldIntensityFactor = oldIntensityFactor;
-    }
 
     m_needRepaint = true;
     m_unprocessed.clear();
@@ -113,11 +107,7 @@ void PreviewImage::updatePixmap(const QRect &rect)
         }
     } else {
         for (const QPair<int, int> &p : m_toPaint) {
-            if (p.first >= ul.x() / m_scale && p.first <= lr.x() / m_scale && p.second >= ul.y() / m_scale && p.second <= lr.y() / m_scale) {
-                float v = m_result(p.first, p.second);
-                uchar c = (v > m_oldLimits.second) ? 255 : v * m_oldIntensityFactor;
-                m_painter.fillRect(p.first, p.second, 1, 1, QColor(c, c, c));
-            }
+            m_painter.fillRect(p.first, p.second, 1, 1, QColor(255, 255, 255));
         }
         m_toPaint.clear();
     }
