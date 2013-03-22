@@ -304,6 +304,8 @@ void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
         vigra_precondition(false, "Wrong infile-extension given. Currently supported: .sif .h5 .hdf .hdf5 .tif .tiff");
     }
 
+    if (forceDefaults)
+        setDefaults();
     setDefaultFileNames(forceDefaults);
 }
 
@@ -328,10 +330,8 @@ void StormParams::setSettingsFile(const std::string &file) {
     if (file != m_settingsfile) {
         m_settingsfile = file;
         m_config->clear();
-        if (!m_settingsfile.empty()) {
-            m_config->setConfigFile(m_settingsfile.c_str());
-            load();
-        }
+        m_config->setConfigFile(m_settingsfile.c_str());
+        load();
     }
 }
 
@@ -459,7 +459,7 @@ void StormParams::setDefaultFileNames(bool force) {
 	}
     if( m_settingsfile.empty() || force) {
         std::string tmp = m_infile;
-    	tmp.replace(pos, 255, "_settings.txt"); // replace extension#
+    	tmp.replace(pos, 255, "_settings.txt"); // replace extension
         setSettingsFile(tmp);
 	}
     if (m_skellamFrames > m_shape[2] || m_skellamFrames <= 0)
@@ -761,4 +761,6 @@ void StormParams::loadSettings(bool)
         m_alpha = m_config->getDoubleValue("alpha");
     if (m_doAsymmetryCheckSaved && m_config->exists("doAsymmetryCheck"))
         m_doAsymmetryCheck = m_config->getBoolValue("doAsymmetryCheck");
+    else
+        m_doAsymmetryCheckSaved = false;
 }
