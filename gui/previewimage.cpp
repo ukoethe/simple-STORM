@@ -186,6 +186,7 @@ void PreviewImage::init(const QRect &rect)
             m_pixmap = QImage(width, height, QImage::Format_RGB32);
         m_painter.begin(&m_pixmap);
         m_needRepaint = true;
+        m_needCompleteRepaint = true;
     }
 }
 

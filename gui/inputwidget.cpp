@@ -99,7 +99,7 @@ void InputWidget::runClicked()
         m_params.setXYChunkSize(m_uiAdvancedSettings->spn_xyChunkSize->value());
         m_params.setTChunkSize(m_uiAdvancedSettings->spn_tChunkSize->value());
         m_params.setChunksInMemory(m_uiAdvancedSettings->spn_chunksInMemory->value());
-        m_params.setDoAsymmetryCheck(m_uiAdvancedSettings->cB_doAsymmetryCheck->isChecked());
+        m_params.setDoAsymmetryCheck(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked());
     } else {
         int resx = m_params.shape()[0], resy = m_params.shape()[1], resz = m_params.shape()[2];
         int currValueXYSlider = m_uiBackgroundLevel->sldr_xyBackgroundLevel->value();
