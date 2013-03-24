@@ -34,6 +34,7 @@ void PreviewImage::setParams(const GuiParams *params)
 {
     m_params = params;
     vigra::Shape2 resultShape(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution(), m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution());
+    std::cout<< resultShape[0]<<" "<<resultShape[1]<<std::endl;
     m_sizeFactor = m_params->getPixelSize() / (m_params->getReconstructionResolution() * m_params->getFactor());
     m_size = m_resultSize = QSize(resultShape[0], resultShape[1]);
     setBaseSize(m_resultSize);
@@ -52,6 +53,10 @@ void PreviewImage::frameCompleted(int frame)
     }
 }
 
+float Gauss2D(int x, float meanx, int y, float meany, float sigma) {
+    return 1./(2*3.14*sigma)*std::exp(-0.5*(std::pow((x-meanx)/sigma,2)+std::pow((y-meany)/sigma, 2)));
+}
+
 void PreviewImage::updateImage()
 {
     if (!m_params || !m_results || !m_initialized)
@@ -60,9 +65,26 @@ void PreviewImage::updateImage()
     for (int frame : m_unprocessed) {
         for (const Coord<float> &c : m_results->at(frame)) {
             int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
-            float val = m_result(x, y);
-            if (val > 0)
+
+//             int roiwidth = 1;
+//             for (int i = -roiwidth; i<= roiwidth; ++i) {
+//                 for (int j = -roiwidth; j <= roiwidth; ++j) {
+//                     float val = m_result(x + i, y + j);
+// //                     std::cout<<c.x<<" "<<c.y<<" "<<i<<" "<<j<<" "<<val<<" "<<std::endl;
+//                     if (val > 0) {
+//                         m_resultsForScaling.erase(m_resultsForScaling.find(val));
+//                     }
+//                     float weight = Gauss2D(x+i, c.x* m_sizeFactor, y+j, c.y* m_sizeFactor, 1.);
+// //                     std::cout<<weight<<std::endl;
+//                     val += c.val * weight;
+//                     m_resultsForScaling.insert(val);
+//                     m_result(x + i, y + j) = val;
+//                 }
+//             }
+            float val = m_results(x,y);
+            if (val > 0) {
                 m_resultsForScaling.erase(m_resultsForScaling.find(val));
+            }
             val += c.val;
             m_resultsForScaling.insert(val);
             m_result(x, y) = val;
@@ -108,16 +130,19 @@ void PreviewImage::updatePixmap(const QRect &rect)
         m_painter.fillRect(QRect(ul, lr), QColor(0, 0, 0));
         for (int y = ul.y(); y < lr.y(); ++y) {
             for (int x = ul.x(); x < lr.x(); ++x) {
-                if (m_result(x, y) > 0)
+                if (x < m_result.shape()[0] and y < m_result.shape()[1] and m_result(x, y) > 0)
                     m_painter.fillRect(x, y, 1, 1, QColor(255, 255, 255));
             }
         }
     } else if (m_toPaint.empty() || m_needCompleteRepaint) {
         for (int y = ul.y(); y < lr.y(); ++y) {
             for (int x = ul.x(); x < lr.x(); ++x) {
-                float v = m_result(x, y);
-                uchar c = (v > m_limits.second) ? 255 : v * m_intensityFactor;
-                m_painter.fillRect(x, y, 1, 1, QColor(c, c, c));
+                if (x < m_result.shape()[0] and y < m_result.shape()[1])
+                {
+                    float v = m_result(x, y);
+                    uchar c = (v > m_limits.second) ? 255 : v * m_intensityFactor;
+                    m_painter.fillRect(x, y, 1, 1, QColor(c, c, c));
+                }
             }
         }
     }  else {
