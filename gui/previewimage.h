@@ -15,6 +15,8 @@
 #include <QPainter>
 
 class GuiParams;
+template<typename T>
+class QFutureWatcher;
 
 class PreviewImage : public QWidget
 {
@@ -65,6 +67,7 @@ private:
                                                           // constructor without arguments and use
                                                           // this in Qt Designer
     const GuiParams *m_params;
+    QFutureWatcher<void> *m_watcher;
     bool m_initialized;
     bool m_needCompleteRepaint;
     std::vector<int> m_unprocessed;

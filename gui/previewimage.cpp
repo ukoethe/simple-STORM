@@ -11,13 +11,14 @@
 #include <QFutureWatcher>
 
 PreviewImage::PreviewImage(QWidget *parent)
-: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scale(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_initialized(false), m_needCompleteRepaint(false)
+: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scale(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_watcher(0), m_initialized(false), m_needCompleteRepaint(false)
 {
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
 PreviewImage::~PreviewImage()
 {
+    delete m_watcher;
 }
 
 void PreviewImage::setResults(const std::vector<std::set<Coord<float>>> *results)
@@ -39,9 +40,11 @@ void PreviewImage::setParams(const GuiParams *params)
     m_size = m_resultSize = QSize(resultShape[0], resultShape[1]);
     setBaseSize(m_resultSize);
     QFuture<void> f = QtConcurrent::run([this, resultShape](){m_result.reshape(resultShape, 0.);});
-    QFutureWatcher<void> *w = new QFutureWatcher<void>();
-    connect(w, SIGNAL(finished()), this, SLOT(initializationFinished()));
-    w->setFuture(f);
+    if (!m_watcher){
+        m_watcher = new QFutureWatcher<void>();
+        connect(m_watcher, SIGNAL(finished()), this, SLOT(initializationFinished()));
+    }
+    m_watcher->setFuture(f);
 }
 
 void PreviewImage::frameCompleted(int frame)
@@ -219,7 +222,6 @@ void PreviewImage::setIntensityScaleFactor(float factor)
 
 void PreviewImage::initializationFinished()
 {
-    delete sender();
     m_initialized = true;
     emit initialized();
 }
