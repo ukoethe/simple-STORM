@@ -1,28 +1,35 @@
 project(storm)
 cmake_minimum_required(VERSION 2.8)
-SET(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH}  ${storm_SOURCE_DIR}/../cmake)
 
-FIND_PACKAGE( Vigra 1.9.0 REQUIRED )
-FIND_PACKAGE( FFTW REQUIRED )
-FIND_PACKAGE( HDF5 )
-FIND_PACKAGE( OpenMP )
-FIND_PACKAGE( R REQUIRED)
-FIND_PACKAGE( RudeConfig REQUIRED)
+set(STORM_VERSION_MAJOR 0)
+set(STORM_VERSION_MINOR 7)
+set(STORM_VERSION_PATCH 0)
 
-IF(HDF5_FOUND)
-	ADD_DEFINITIONS(-DHDF5_FOUND)
-ELSE(HDF5_FOUND)
-	message(WARNING "Compiling without HDF5. No hdf5-input will be possible")
-ENDIF(HDF5_FOUND)
+set(STORM_AUTHORS "© 2011 Joachim Schleicher, © 2012-2013 Frank Herrmannsdörfer, © 2013 Ilia Kats")
 
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -std=c++11"
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+set(WIENERSTORM_SRCS
+    stormparams.cpp
+    dataparams.cpp
+    wienerStorm.cpp
+    util.cpp
+)
+set(WIENERSTORM_HDRS
+    stormparams.h
+    dataprams.h
+    wienerStorm.hxx
+    util.h
 )
 
-set(STORM_R_SCRIPT_DIR ${CMAKE_INSTALL_PREFIX}/share/simpleStorm/)
-set(STORM_R_SCRIPT storm_fit.R)
-
-add_definitions(-DSTORM_RSCRIPT=\"${STORM_R_SCRIPT}\" -DSTORM_RSCRIPT_DIR=\"${STORM_R_SCRIPT_DIR}\")
+if (NOT CMAKE_COMPILER_IS_GNUCXX)
+    set(WIENERSTORM_SRCS
+        ${WIENERSTORM_SRCS}
+        getoptMSVC.
+    )
+endif (NOT CMAKE_COMPILER_IS_GNUCXX)
 
 if(WIN32)
     add_definitions(-D__WIN__)
@@ -31,44 +38,24 @@ endif(WIN32)
 # to be able to run the binaries without installing
 file(COPY ${STORM_R_SCRIPT} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-IF(CMAKE_COMPILER_IS_GNUCXX)
-	ADD_EXECUTABLE(storm storm.cpp stormparams.cpp dataparams.cpp wienerStorm.cpp util.cpp)
-    ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp stormparams.cpp wienerStorm.cpp dataparams.cpp util.cpp)
-ELSE(CMAKE_COMPILER_IS_GNUCXX)
-	ADD_DEFINITIONS(-DEMULATE_GETOPT)
-    ADD_EXECUTABLE(storm storm.cpp getoptMSVC.c stormparams.cpp dataparams.cpp wienerStorm.cpp util.cpp)
-    ADD_EXECUTABLE(wienerfilter EXCLUDE_FROM_ALL wienerfilter.cpp getoptMSVC.c wienerStorm.cpp stormparams.cpp dataparams.cpp util.cpp)
-ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+add_library(wienerstorm STATIC ${WIENERSTORM_SRCS})
+target_link_libraries(wienerstorm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
+
+add_executable(storm storm.cpp)
+target_link_libraries(storm wienerstorm vigraimpex)
 
 IF(OPENMP_FOUND)
+	SET_TARGET_PROPERTIES(wienerstorm PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+	SET_TARGET_PROPERTIES(wienerstorm PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
 	SET_TARGET_PROPERTIES(storm PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
 	SET_TARGET_PROPERTIES(storm PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
-	SET_TARGET_PROPERTIES(wienerfilter PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
-	SET_TARGET_PROPERTIES(wienerfilter PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
     add_definitions(-DOPENMP_FOUND)
 ENDIF(OPENMP_FOUND)
 
-TARGET_LINK_LIBRARIES(storm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
-TARGET_LINK_LIBRARIES(wienerfilter vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
-
 IF(HDF5_FOUND)
-    TARGET_LINK_LIBRARIES(storm ${HDF5_LIBRARIES}
-
-)
-    TARGET_LINK_LIBRARIES(wienerfilter ${HDF5_LIBRARIES}
-)
-
+    TARGET_LINK_LIBRARIES(wienerstorm ${HDF5_LIBRARIES})
     INCLUDE_DIRECTORIES( ${HDF5_INCLUDE_DIRS} )
 ENDIF(HDF5_FOUND)
-
-include_directories(
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${Vigra_INCLUDE_DIRS}
-    ${FFTW_INCLUDE_DIR}
-    ${R_INCLUDE_DIRS}
-    ${RUDECONFIG_INCLUDE_DIR}
-    )
 
 ADD_SUBDIRECTORY(test)
 set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)

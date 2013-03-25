@@ -31,6 +31,9 @@
 /*                                                                      */
 /************************************************************************/
 
+#include "stormparams.h"
+#include "version.h"
+
 #include <string>
 #include <iostream>
 #ifndef __WIN__
@@ -51,8 +54,6 @@
 #endif
 #include <rude/config.h>
 #include <Rmath.h>
-
-#include "stormparams.h"
 
 using namespace vigra;
 
@@ -468,8 +469,8 @@ void StormParams::printUsage() const {
 }
 
 void StormParams::printVersion() const {
-    std::cout << "STORM analysis software version " << versionString() << std::endl
-    << "Copyright (C) 2011 Joachim Schleicher and Ullrich Koethe" << std::endl
+    std::cout << "simpleSTORM " << STORM_VERSION_STRING << std::endl
+    << STORM_AUTHORS << std::endl
     << "This is free software; see the source for copying conditions.  There is NO" << std::endl
     << "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE." << std::endl
     ;

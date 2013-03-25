@@ -1,31 +1,18 @@
 project(storm-gui)
 cmake_minimum_required(VERSION 2.8)
+
+set(STORMGUI_VERSION_MAJOR 0)
+set(STORMGUI_VERSION_MINOR 3)
+set(STORMGUI_VERSION_PATCH 0)
+
+set(STORMGUI_AUTHORS "© 2013 Ilia Kats")
+
 SET(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH}  ${storm-gui_SOURCE_DIR}/../cmake)
 
 find_package(Qt4 4.6 COMPONENTS QtCore QtGui REQUIRED)
-FIND_PACKAGE(Vigra 1.9.0 REQUIRED)
-FIND_PACKAGE(FFTW REQUIRED)
-FIND_PACKAGE( HDF5 )
-FIND_PACKAGE( OpenMP )
-FIND_PACKAGE( R REQUIRED)
-FIND_PACKAGE( RudeConfig REQUIRED)
 
 include(${QT_USE_FILE} )
 add_definitions(${QT_DEFINITIONS})
-
-IF(HDF5_FOUND)
-ADD_DEFINITIONS(-DHDF5_FOUND)
-ELSE(HDF5_FOUND)
-message(WARNING "Compiling without HDF5. No hdf5-input will be possible")
-ENDIF(HDF5_FOUND)
-
-set(CMAKE_CXX_FLAGS
-"${CMAKE_CXX_FLAGS} -std=c++11"
-)
-
-set(STORM_R_SCRIPT_DIR ${CMAKE_INSTALL_PREFIX}/share/simpleStorm/)
-set(STORM_R_SCRIPT storm_fit.R)
-add_definitions(-DSTORM_RSCRIPT=\"${STORM_R_SCRIPT}\" -DSTORM_RSCRIPT_DIR=\"${STORM_R_SCRIPT_DIR}\")
 
 if(WIN32)
     add_definitions(-D__WIN__)
@@ -45,10 +32,6 @@ set(SRCS
     filenamelineedit.cpp
     globals.cpp
     guiparams.cpp
-    ../storm/stormparams.cpp
-    ../storm/dataparams.cpp
-    ../storm/wienerStorm.cpp
-    ../storm/util.cpp
 )
 
 SET(UIS
@@ -57,23 +40,18 @@ SET(UIS
     advancedsettingsgroupbox.ui
     resultwidget.ui
 )
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
+
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../storm
-    ${Vigra_INCLUDE_DIRS}
-    ${FFTW_INCLUDE_DIRS}
-    ${R_INCLUDE_DIRS}
-    ${RUDECONFIG_INCLUDE_DIR}
-    )
+)
 qt4_wrap_ui(UI_HEADERS ${UIS})
 add_executable(storm-gui ${SRCS} ${UI_HEADERS})
 set_target_properties(storm-gui PROPERTIES AUTOMOC TRUE)
 
-target_link_libraries(storm-gui ${QT_LIBRARIES} vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
-IF(HDF5_FOUND)
-    target_link_libraries(storm-gui ${HDF5_LIBRARIES})
-ENDIF(HDF5_FOUND)
+target_link_libraries(storm-gui ${QT_LIBRARIES} wienerstorm vigraimpex)
 
 IF(OPENMP_FOUND)
     set_target_properties(storm-gui PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})

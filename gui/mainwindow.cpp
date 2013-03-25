@@ -3,6 +3,8 @@
 #include "resultwidget.h"
 #include "version.h"
 
+#include "util.h"
+
 #include <QDesktopWidget>
 #include <QApplication>
 #include <QMessageBox>
@@ -54,9 +56,9 @@ MainWindow::~MainWindow()
 void MainWindow::aboutClicked()
 {
     QMessageBox::about(this, "About simpleSTORM",
-                       QString("simpleSTORM © 2011 Joachim Schleicher, © 2012-2013 Frank Herrmannsdörfer, © 2013 Ilia Kats\n"
-                       "simpleSTORM GUI © 2013 Ilia Kats\n"
-                       "GUI Version %1, STORM Version %2").arg(STORMGUI_VERSION_STRING).arg(STORM_VERSION_STRING));
+                       QString("simpleSTORM %1\n"
+                       "simpleSTORM GUI %2\n"
+                       "GUI Version %3, STORM Version %4").arg(QString::fromStdString(wienerStormAuthors())).arg(STORMGUI_AUTHORS).arg(STORMGUI_VERSION_STRING).arg(QString::fromStdString(wienerStormVersion())));
 }
 
 void MainWindow::run(const GuiParams &params)

@@ -44,8 +44,6 @@
 
 #define STORMPARAMS_N 3 // could eventually be a template parameter later on
 
-#include "configVersion.hxx"
-
 namespace rude {
 class Config;
 }

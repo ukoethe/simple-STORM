@@ -27,27 +27,18 @@
 /*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
 /*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
 /*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
-/*    OTHER DEALINGS IN THE SOFTWARE.                                   */                
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
 /*                                                                      */
 /************************************************************************/
- 
+
 
 #ifndef STORMGUI_VERSION_H
 #define STORMGUI_VERSION_H
 
-    #define STORMGUI_VERSION_MAJOR 0
-    #define STORMGUI_VERSION_MINOR 2
-    #define STORMGUI_VERSION_PATCH 0
-    #define STORMGUI_VERSION_STRING "0.2.0"
+#define STORMGUI_VERSION_MAJOR @STORMGUI_VERSION_MAJOR@
+#define STORMGUI_VERSION_MINOR @STORMGUI_VERSION_MINOR@
+#define STORMGUI_VERSION_PATCH @STORMGUI_VERSION_PATCH@
+#define STORMGUI_VERSION_STRING "@STORMGUI_VERSION_MAJOR@.@STORMGUI_VERSION_MINOR@.@STORMGUI_VERSION_PATCH@"
+#define STORMGUI_AUTHORS "@STORMGUI_AUTHORS@"
 
-    static inline const char *stormguiVersionString() {
-        return STORMGUI_VERSION_STRING;
-    }
-
-    static inline unsigned int stormguiVersionNumber() {
-        return (STORMGUI_VERSION_MAJOR<<16) 
-            | (STORMGUI_VERSION_MINOR<<8) 
-            | (STORMGUI_VERSION_PATCH<<1);
-    }
-    
 #endif /* STORMGUI_VERSION_H */

@@ -28,7 +28,6 @@
 #include <Rinterface.h>
 
 #include "wienerStorm.hxx"
-#include "configVersion.hxx"
 
 #include <vigra/impex.hxx>
 #include "dataparams.h"

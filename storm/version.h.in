@@ -2,7 +2,7 @@
 /*                                                                      */
 /*                  ANALYSIS OF STORM DATA                              */
 /*                                                                      */
-/*      Copyright 2010-2011 by Joachim Schleicher                       */
+/*         Copyright 2011 by Joachim Schleicher and Ullrich Koethe      */
 /*                                                                      */
 /*    Please direct questions, bug reports, and contributions to        */
 /*    joachim.schleicher@iwr.uni-heidelberg.de                          */
@@ -32,51 +32,13 @@
 /************************************************************************/
 
 
-#ifndef UTIL_HXX
-#define UTIL_HXX
+#ifndef STORM_VERSION_H
+#define STORM_VERSION_H
 
-#include <vector>
-#include <string>
-#include <stdexcept>
-#include <fstream>
-#include <sstream>
+#define STORM_VERSION_MAJOR @STORM_VERSION_MAJOR@
+#define STORM_VERSION_MINOR @STORM_VERSION_MINOR@
+#define STORM_VERSION_PATCH @STORM_VERSION_PATCH@
+#define STORM_VERSION_STRING "@STORM_VERSION_MAJOR@.@STORM_VERSION_MINOR@.@STORM_VERSION_PATCH@"
+#define STORM_AUTHORS "@STORM_AUTHORS@"
 
-std::string wienerStormVersion();
-std::string wienerStormAuthors();
-
-// private helper functions
-namespace helper {
-std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems);
-
-std::vector<std::string> split(const std::string &s, char delim);
-
-class BadConversion : public std::runtime_error {
- public:
-   BadConversion(std::string const& s)
-     : std::runtime_error(s)
-     { }
-};
-
-inline double convertToDouble(std::string const& s);
-
-inline int convertToInt(std::string const& s);
-
-/**
- * Take python like range string and split it into start:end:stride
- * @return true if successful, false on errors
- */
-bool rangeSplit(const std::string &r, int &beg, int &end, unsigned int &stride);
-
-/**
- * Check if file exists
- */
-bool fileExists(const std::string &filename);
-
-/**
- * Print a progress bar onto the command line
- */
-void progress(int done, int total);
-
-}// namespace helper
-
-#endif // UTIL_HXX
+#endif /* STORMGUI_VERSION_H */

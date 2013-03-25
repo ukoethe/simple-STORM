@@ -32,8 +32,19 @@
 /************************************************************************/
 
 #include "util.h"
+#include "version.h"
 #include <sys/stat.h>
 #include <iostream>
+
+std::string wienerStormVersion()
+{
+    return std::string(STORM_VERSION_STRING);
+}
+
+std::string wienerStormAuthors()
+{
+    return std::string(STORM_AUTHORS);
+}
 
 // private helper functions
 namespace helper {
