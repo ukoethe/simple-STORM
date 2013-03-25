@@ -161,6 +161,12 @@ void PreviewImage::paintEvent(QPaintEvent *event)
 {
     event->accept();
     QRect rect = event->rect();
+    if (rect.width() > m_size.width() || rect.height() > m_size.height())
+        rect.setSize(m_size);
+    if (rect.right() >= m_size.width())
+        rect.moveRight(m_size.width() - 1);
+    if (rect.bottom() >= m_size.height())
+        rect.moveBottom(m_size.height() - 1);
     init(rect);
     updatePixmap(rect);
     if (!isEnabled()) {
