@@ -41,6 +41,10 @@ SET(UIS
     resultwidget.ui
 )
 
+if(WIN32 OR APPLE)
+    qt4_add_resources(ICONS_RCC icons/icons.qrc)
+endif(WIN32 OR APPLE)
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
 
 include_directories(
@@ -48,7 +52,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 qt4_wrap_ui(UI_HEADERS ${UIS})
-add_executable(storm-gui ${SRCS} ${UI_HEADERS})
+add_executable(storm-gui ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
 set_target_properties(storm-gui PROPERTIES AUTOMOC TRUE)
 
 target_link_libraries(storm-gui ${QT_LIBRARIES} wienerstorm vigraimpex)

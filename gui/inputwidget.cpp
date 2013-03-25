@@ -27,7 +27,7 @@ InputWidget::InputWidget(QWidget *parent)
 #ifdef Q_WS_X11
     m_ui->btn_run->setIcon(QIcon::fromTheme("system-run"));
 #else
-    m_ui->btn_run->setIcon(QApplication::style()->standardIcon(QStyle::SP_DialogOkButton));
+    m_ui->btn_run->setIcon(QIcon(":/system-run.svgz"));
 #endif
     connect(m_ui->btn_inputFile, SIGNAL(clicked()), this, SLOT(inputFileButtonClicked()));
     connect(m_ui->btn_settingsFile, SIGNAL(clicked()), this, SLOT(settingsFileButtonClicked()));

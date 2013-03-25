@@ -33,7 +33,7 @@ MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags)
 #ifdef Q_WS_X11
     aboutButton->setIcon(QIcon::fromTheme("help-about"));
 #else
-    aboutButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_MessageBoxInformation));
+    aboutButton->setIcon(QIcon(":/help-about.svgz"));
 #endif
     m_widget->setCornerWidget(aboutButton, Qt::TopRightCorner);
     connect(aboutButton, SIGNAL(clicked()), this, SLOT(aboutClicked()));

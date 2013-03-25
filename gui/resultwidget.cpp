@@ -17,19 +17,19 @@ ResultWidget::ResultWidget(QWidget *parent)
 : QWidget(parent), m_ui(new Ui::ResultWidget()), m_functor(0), m_worker(0), m_coordinatesSaved(false), m_reconstructionSaved(false), m_autoZoom(true), m_minZoom(10), m_maxZoom(500), m_zoomStep(10), m_zoomPageStep(5 * m_zoomStep)
 {
     m_ui->setupUi(this);
+    m_ui->btn_scaleToFit->setToolTip("Scale to fit");
 #ifdef Q_WS_X11
     m_ui->btn_abort->setIcon(QIcon::fromTheme("dialog-cancel"));
     m_ui->btn_save->setIcon(QIcon::fromTheme("document-save"));
     m_ui->btn_scaleToFit->setIcon(QIcon::fromTheme("zoom-fit-best"));
-    m_ui->btn_scaleToFit->setToolTip("Scale to fit");
     m_ui->btn_zoomIn->setIcon(QIcon::fromTheme("zoom-in"));
     m_ui->btn_zoomOut->setIcon(QIcon::fromTheme("zoom-out"));
 #else
-    m_ui->btn_abort->setIcon(QApplication::style()->standardIcon(QStyle::SP_DialogCancelButton));
-    m_ui->btn_save->setIcon(QApplication::style()->standardIcon(QStyle::SP_DriveFDIcon));
-    m_ui->btn_scaleToFit->setText("Scale to fit");
-    m_ui->btn_zoomIn->setText("+");
-    m_ui->btn_zoomOut->setText("-");
+    m_ui->btn_abort->setIcon(QIcon(":/dialog-cancel.svgz"));
+    m_ui->btn_save->setIcon(QIcon(":/document-save.svgz"));
+    m_ui->btn_scaleToFit->setIcon(QIcon(":/zoom-fit-best.svgz"));
+    m_ui->btn_zoomIn->setIcon(QIcon(":/zoom-in.svgz"));
+    m_ui->btn_zoomOut->setIcon(QIcon(":/zoom-out.svgz"));
 #endif
     m_ui->btn_abort->setVisible(false);
     m_ui->btn_save->setVisible(false);
