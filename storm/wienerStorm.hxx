@@ -785,6 +785,9 @@ void getBGVariance(DataParams &params, const MultiArrayView<2, T> &img, std::vec
 
 template <class T>
 void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
+    bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
+    if (!needSkellam)
+        return;
     unsigned int stacksize = params.getSkellamFrames();
     std::vector<T> BGVars(stacksize);
     auto func = [&params, &BGVars](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance(params, currSrc, BGVars, currframe);};
@@ -828,6 +831,8 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
     FFTWPlan<2, double> fplan(filterInit, filterInit, FFTW_FORWARD, FFTW_MEASURE);
     auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
     processStack<T>(params, func, progressFunc, stacksize);
+    if (progressFunc.getAbort())
+        return;
     moveDCToCenter(ps);
     vigra::transformMultiArray(srcMultiArrayRange(ps), destMultiArray(ps),
                           [&stacksize, &roiwidth, &rois](double p){return p / (rois * roiwidth * roiwidth);});

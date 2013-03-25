@@ -69,6 +69,7 @@ void ResultWidget::start(const GuiParams &params)
     m_ui->preview->setResults(&m_result);
     m_ui->btn_abort->setVisible(true);
     m_ui->progressBar->setVisible(true);
+    m_ui->btn_save->setEnabled(false);
     m_functor = new QtProgressFunctor(this);
     m_worker = new AnalysisWorker(*m_functor, m_params, m_result, this);
     connect(m_functor, SIGNAL(stageChanged(int, const QString&)), this, SLOT(stageChanged(int, const QString&)));
@@ -93,7 +94,7 @@ bool ResultWidget::canBeClosed()
             return true;
         else
             return false;
-    } else if (!m_coordinatesSaved || !m_reconstructionSaved) {
+    } else if ((!m_coordinatesSaved || !m_reconstructionSaved) && m_ui->btn_save->isEnabled()) {
         emit userAttentionRequired(this);
         QStringList notSaved;
         if (!m_coordinatesSaved)
@@ -129,6 +130,7 @@ void ResultWidget::stageChanged(int stage, const QString &format)
     m_ui->progressBar->setValue(0);
     if ((WienerStormStage)stage == Localization) {
         setPreviewEnabled(true);
+        m_ui->btn_save->setEnabled(true);
         connect(m_functor, SIGNAL(frameCompleted(int)), m_ui->preview, SLOT(frameCompleted(int)));
     } else
         setPreviewEnabled(false);
