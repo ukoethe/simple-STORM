@@ -150,8 +150,8 @@ void ResultWidget::workerFinished()
 void ResultWidget::saveClicked()
 {
     QStringList filters;
-    filters.append("Coordinate file and reconstructed image (*.txt *.tif)");
-    filters.append("Reconstructed image (*. tif)");
+    filters.append("Coordinate file and reconstructed image (*.txt *.tif *.tiff)");
+    filters.append("Reconstructed image (*.tif *.tiff)");
     filters.append("Coordinate file (*.txt)");
     QString selectedFilter;
     QString file = QFileDialog::getSaveFileName(this, "Save as", QFileInfo(fileSaveDialogDirectory, QFileInfo(QString::fromStdString(m_params.getCoordsFile())).fileName()).absoluteFilePath(), filters.join(";;"), &selectedFilter);

@@ -32,8 +32,8 @@ protected:
     virtual void resizeEvent(QResizeEvent*);
 
 private Q_SLOTS:
-    void horizontalScrollBarRangeChanged();
-    void verticalScrollBarRangeChanged();
+    void horizontalScrollBarRangeChanged(int, int);
+    void verticalScrollBarRangeChanged(int, int);
 
 private:
     bool hasHorizontalScrollBar();

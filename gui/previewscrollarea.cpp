@@ -7,8 +7,8 @@
 PreviewScrollArea::PreviewScrollArea(QWidget *parent)
 : QScrollArea(parent), m_dragging(false), m_scale(1), m_minScale(0.1), m_maxScale(5.), m_scaleStep(0.1)
 {
-    connect(horizontalScrollBar(), SIGNAL(rangeChanged(int, int)), this, SLOT(horizontalScrollBarRangeChanged()));
-    connect(verticalScrollBar(), SIGNAL(rangeChanged(int, int)), this, SLOT(verticalScrollBarRangeChanged()));
+    connect(horizontalScrollBar(), SIGNAL(rangeChanged(int, int)), this, SLOT(horizontalScrollBarRangeChanged(int, int)));
+    connect(verticalScrollBar(), SIGNAL(rangeChanged(int, int)), this, SLOT(verticalScrollBarRangeChanged(int, int)));
 }
 
 PreviewScrollArea::~PreviewScrollArea()
@@ -16,26 +16,28 @@ PreviewScrollArea::~PreviewScrollArea()
 
 void PreviewScrollArea::scrollBy(int dx, int dy)
 {
-    if (hasHorizontalScrollBar())
-        horizontalScrollBar()->setValue(horizontalScrollBar()->value() + dx);
-    else
-        m_dx = dx;
-    if (hasVerticalScrollBar())
-        verticalScrollBar()->setValue(verticalScrollBar()->value() + dy);
-    else
-        m_dy = dy;
+    horizontalScrollBar()->setValue(horizontalScrollBar()->value() + dx);
+    verticalScrollBar()->setValue(verticalScrollBar()->value() + dy);
 }
 
-void PreviewScrollArea::horizontalScrollBarRangeChanged()
+void PreviewScrollArea::horizontalScrollBarRangeChanged(int min, int max)
 {
     horizontalScrollBar()->setValue(horizontalScrollBar()->value() + m_dx);
     m_dx = 0;
+    if (max - min > 0)
+        setCursor(Qt::OpenHandCursor);
+    else
+        setCursor(Qt::ArrowCursor);
 }
 
-void PreviewScrollArea::verticalScrollBarRangeChanged()
+void PreviewScrollArea::verticalScrollBarRangeChanged(int min, int max)
 {
     verticalScrollBar()->setValue(verticalScrollBar()->value() + m_dy);
     m_dy = 0;
+    if (max - min > 0)
+        setCursor(Qt::OpenHandCursor);
+    else
+        setCursor(Qt::ArrowCursor);
 }
 
 void PreviewScrollArea::mousePressEvent(QMouseEvent *event)
@@ -66,7 +68,8 @@ void PreviewScrollArea::mouseReleaseEvent(QMouseEvent *event)
         QPoint p = event->pos() - m_lastDragPoint;
         scrollBy(p.x(), p.y());
         m_dragging = false;
-        setCursor(Qt::ArrowCursor);
+        setCursor(Qt::OpenHandCursor); // don't need to check for scroll bars here, as drag events are only
+                                       // accepted when scroll bars are present
         event->accept();
     } else
         QScrollArea::mouseReleaseEvent(event);
@@ -172,7 +175,14 @@ void PreviewScrollArea::setScale(float sc, const QPoint &p)
     QSize s = widget()->baseSize() * sc;
     widget()->resize(s);
     emit scaleChanged(m_scale, !hasHorizontalScrollBar() && !hasVerticalScrollBar() && (s.width() == maximumViewportSize().width() || s.height() == maximumViewportSize().height()));
-    scrollBy(c.x(), c.y());
+    if (hasHorizontalScrollBar())
+        m_dx += c.x();
+    else
+        m_dx = c.x();
+    if (hasVerticalScrollBar())
+        m_dy += c.y();
+    else
+        m_dy = c.y();
 }
 
 void PreviewScrollArea::autoZoom()
