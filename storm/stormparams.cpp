@@ -96,7 +96,7 @@ StormParams::StormParams()
 }
 
 StormParams::StormParams(const StormParams &other)
-: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames) {
+: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames), m_acceptedFileTypes(other.m_acceptedFileTypes) {
     setInFile(other.m_infile, false);
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
@@ -130,6 +130,7 @@ StormParams& StormParams::operator=(const StormParams &other)
     m_coordsfile = other.m_coordsfile;
     m_settingsfile = other.m_settingsfile;
     m_frames = other.m_frames;
+    m_acceptedFileTypes = other.m_acceptedFileTypes;
 
     setInFile(other.m_infile, false);
     m_config->clear();
@@ -159,8 +160,6 @@ StormParams::StormParams(int argc, char **argv)
 
     parseProgramOptions(argc, argv);
 }
-
-
 
 StormParams::~StormParams() {
     switch(m_type) {
@@ -430,6 +429,21 @@ const std::string& StormParams::executableDir() const {
 }
 void StormParams::setExecutableDir(const std::string &dir) {
     m_executableDir = dir;
+}
+
+const std::set<std::string>& StormParams::acceptedFileTypes()
+{
+    if (m_acceptedFileTypes.empty()) {
+        m_acceptedFileTypes.insert(".tif");
+        m_acceptedFileTypes.insert(".tiff");
+        m_acceptedFileTypes.insert(".sif");
+#ifdef HDF5_FOUND
+        m_acceptedFileTypes.insert(".h5");
+        m_acceptedFileTypes.insert(".hdf");
+        m_acceptedFileTypes.insert(".hdf5");
+#endif
+    }
+    return m_acceptedFileTypes;
 }
 
 void StormParams::printUsage() const {

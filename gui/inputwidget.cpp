@@ -11,6 +11,13 @@ InputWidget::InputWidget(QWidget *parent)
 : QWidget(parent), m_ui(new Ui::InputWidget()), m_uiAdvancedSettings(new Ui::AdvancedSettingsGroupBox()), m_uiBackgroundLevel(new Ui::BackgroundLevelGroupBox())
 {
     m_ui->setupUi(this);
+    QStringList ftypes;
+    QString validator("^.*(");
+    for (const std::string &ftype : m_params.acceptedFileTypes()) {
+        ftypes.append("\\" + QString::fromStdString(ftype));
+    }
+    validator.append(ftypes.join("|")).append(")$");
+    m_ui->lne_inputFile->setValidator(new QRegExpValidator(QRegExp(validator, Qt::CaseInsensitive), this));
     QGroupBox *tmp = new QGroupBox(this);
     m_uiBackgroundLevel->setupUi(tmp);
     m_ui->stck_advancedSettings->addWidget(tmp);
@@ -43,9 +50,14 @@ InputWidget::~InputWidget()
 
 void InputWidget::inputFileButtonClicked()
 {
-    QString file = QFileDialog::getOpenFileName(this, "Select input file", fileOpenDialogDirectory, "Accepted Files (*.sif *.h5 *.hdf *.hdf5 *.tif *.tiff)");
+    QStringList accepted;
+    for (const std::string &ftype : m_params.acceptedFileTypes()) {
+        accepted.append("*" + QString::fromStdString(ftype));
+    }
+    QString file = QFileDialog::getOpenFileName(this, "Select input file", fileOpenDialogDirectory, "Accepted Files (" + accepted.join(" ") + ")");
     if (!file.isEmpty()) {
         fileOpenDialogDirectory = QFileInfo(file).absoluteDir().absolutePath();
+        m_ui->lne_inputFile->setText(file);
         inputFileEdited(file);
     }
 }
@@ -64,8 +76,9 @@ void InputWidget::settingsFileButtonClicked()
 
 void InputWidget::inputFileEdited(const QString &file)
 {
-    if (QFileInfo(file).exists()) {
-        m_ui->lne_inputFile->setText(file);
+    QFileInfo finfo(file);
+    if (m_ui->lne_inputFile->hasAcceptableInput() && finfo.isFile() && finfo.exists()) {
+        fileOpenDialogDirectory = finfo.absoluteDir().absolutePath();
         m_params.setInFile(file.toStdString(), true);
         m_ui->lne_settingsFile->setText(QString::fromStdString(m_params.getSettingsFile()));
         setFieldsFromDefaults();

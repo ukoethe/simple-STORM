@@ -18,47 +18,58 @@
  */
 
 #include "filenamelineedit.h"
+#include "stormparams.h"
+
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QUrl>
 #include <QList>
 #include <QString>
 #include <QFileInfo>
+#include <QValidator>
 
 FilenameLineEdit::FilenameLineEdit(QWidget * parent)
-    : QLineEdit(parent)
+: QLineEdit(parent)
 {
     setAcceptDrops(true);
 }
 
 FilenameLineEdit::~FilenameLineEdit()
 {
-
 }
 
 void FilenameLineEdit::dragEnterEvent(QDragEnterEvent* event)
 {
     // accept just text/uri-list mime format
-    if (event->mimeData()->hasFormat("text/uri-list"))
+    if (event->mimeData()->hasFormat("text/uri-list") && event->mimeData()->hasUrls())
     {
-        event->acceptProposedAction();
+        QString fName = matchingFile(event->mimeData()->urls());
+        if (!fName.isEmpty()) {
+            event->acceptProposedAction();
+        }
     }
 }
 
 void FilenameLineEdit::dropEvent(QDropEvent* event)
 {
-    if (event->mimeData()->hasUrls())
-    {
-        QList<QUrl> urlList = event->mimeData()->urls(); // returns list of QUrls
+    QString fName = matchingFile(event->mimeData()->urls());
+    if (!fName.isEmpty()) {
+        setText(fName);
+        event->acceptProposedAction();
+        emit textEdited(fName);
+    }
+}
 
-        // if just text was dropped, urlList is empty (size == 0)
-        if ( urlList.size() > 0) { // if at least one QUrl is present in list
-            QString fName = urlList[0].toLocalFile(); // convert first QUrl to local path
-            if (QFileInfo(fName).isFile()) {
-                setText(fName); // if is file, setText
-                emit textEdited(fName);
-            }
+QString FilenameLineEdit::matchingFile(const QList<QUrl> &urlList)
+{
+    const QValidator *valid = validator();
+    for (const QUrl &url : urlList) {
+        QString fName = urlList[0].toLocalFile();
+        QFileInfo fInfo(fName);
+        int length = fName.size();
+        if (fInfo.isFile() && fInfo.exists() && (!valid || valid->validate(fName, length) == QValidator::Acceptable)) {
+            return fName;
         }
     }
-    event->acceptProposedAction();
+    return QString();
 }

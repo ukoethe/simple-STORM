@@ -35,6 +35,7 @@
 #define STORMPARAMS_H
 
 #include <string>
+#include <set>
 #include <vigra/impex.hxx>
 #include <vigra/sifImport.hxx>
 #ifdef HDF5_FOUND
@@ -124,6 +125,7 @@ public:
     FileType type() const;
     const std::string& executableDir() const;
     void setExecutableDir(const std::string&);
+    const std::set<std::string>& acceptedFileTypes();
 
     template <typename  T>
     void readVolume(vigra::MultiArrayView<STORMPARAMS_N, T> &) const;
@@ -180,6 +182,8 @@ private:
     std::string m_coordsfile;
     std::string m_settingsfile;
     std::string m_frames;
+
+    std::set<std::string> m_acceptedFileTypes;
 
     static const std::string s_section;
 };
