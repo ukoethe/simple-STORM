@@ -39,6 +39,8 @@ private Q_SLOTS:
     void settingsFileEdited(const QString&);
     void advancedSettingsToggled(bool);
     void runClicked();
+    void factorEdited(int);
+    void reconstructionResolutionEdited(int);
 };
 
 #endif

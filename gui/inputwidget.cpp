@@ -29,6 +29,8 @@ InputWidget::InputWidget(QWidget *parent)
     connect(m_ui->btn_run, SIGNAL(clicked()), this, SLOT(runClicked()));
     connect(m_ui->chk_advancedSettings, SIGNAL(toggled(bool)), this, SLOT(advancedSettingsToggled(bool)));
     advancedSettingsToggled(m_ui->chk_advancedSettings->isChecked());
+    connect(m_ui->spn_factor, SIGNAL(valueChanged(int)), this, SLOT(factorEdited(int)));
+    connect(m_ui->spn_reconstructionRes, SIGNAL(valueChanged(int)), this, SLOT(reconstructionResolutionEdited(int)));
     enableInput(false);
 }
 
@@ -115,9 +117,6 @@ void InputWidget::runClicked()
         int maxValueSpotSlider = m_uiBackgroundLevel->sldr_tBackgroundLevel->maximum();
         m_params.setDoAsymmetryCheck(true);
         m_params.setAsymmetryThreshold(currValueSpotSlider/(float)maxValueSpotSlider*(maxAsymmVal-minAsymmVal)+minAsymmVal);
-        std::cout<<"xyChunksize: "<<(int)((maxValueXYSlider-currValueXYSlider)/(float)maxValueXYSlider*(maxXYSize - minXYSize) + minXYSize)<<std::endl
-        <<"tChunksize: "<< (int)((maxValueTSlider-currValueTSlider)/(float)maxValueTSlider*(maxTSize - minTSize) + minTSize)<<std::endl
-        <<"Asymmetry Threshold: "<<currValueSpotSlider/(float)maxValueSpotSlider*(maxAsymmVal-minAsymmVal)+minAsymmVal<<std::endl;
         m_params.setChunksInMemory(m_uiAdvancedSettings->spn_chunksInMemory->value());
         m_params.setRoilen(m_uiAdvancedSettings->spn_roilen->value());
     }
@@ -172,4 +171,16 @@ void InputWidget::enableInput(bool enable)
     m_ui->grp_general->setEnabled(enable);
     m_ui->stck_advancedSettings->setEnabled(enable);
     m_ui->grp_data->setEnabled(enable);
+}
+
+void InputWidget::factorEdited(int val)
+{
+    if (m_ui->spn_reconstructionRes->value() * val < m_ui->spn_pixelSize->value())
+        m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / val);
+}
+
+void InputWidget::reconstructionResolutionEdited(int val)
+{
+    if (m_ui->spn_pixelSize->value() / val > m_ui->spn_factor->value())
+        m_ui->spn_factor->setValue(m_ui->spn_pixelSize->value() / val);
 }

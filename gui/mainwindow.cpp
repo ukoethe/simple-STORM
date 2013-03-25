@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags)
 {
     setCentralWidget(m_widget);
     m_widget->setTabsClosable(true);
+    m_widget->setDocumentMode(true);
     connect(m_widget, SIGNAL(tabCloseRequested(int)), this, SLOT(tabClosed(int)));
     InputWidget *in = new InputWidget(this);
     m_widget->addTab(in, "I&nput");
