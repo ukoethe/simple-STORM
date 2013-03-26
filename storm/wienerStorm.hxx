@@ -2,7 +2,8 @@
 /*                                                                      */
 /*                  ANALYSIS OF STORM DATA                              */
 /*                                                                      */
-/*      Copyright 2010-2011 by Joachim Schleicher and Ullrich Koethe    */
+/*      Copyright 2010-2013 by Joachim Schleicher, Ullrich Koethe,	    */
+/*					Frank Herrmannsdoerfer and Ilia Kats				*/
 /*                                                                      */
 /*    Please direct questions, bug reports, and contributions to        */
 /*    joachim.schleicher@iwr.uni-heidelberg.de                          */
@@ -339,6 +340,7 @@ inline void determineSNR(triple<SrcIterator, SrcIterator, SrcAccessor> s,
     determineSNR(s.first, s.second, s.third, coords, factor );
 }
 
+/*! Determines signal-to-noise ratio based on the assumption that the variance of the background is equal to one. */
 template <class SrcIterator, class SrcAccessor, class T>
 void determineSNR(SrcIterator srcUpperLeft,
         SrcIterator srcLowerRight,
@@ -357,6 +359,7 @@ void determineSNR(SrcIterator srcUpperLeft,
     coords=newcoords;
 }
 
+/*! Functor to apply Anscombe transformation*/
 class transformationFunctor {
 public:
 	transformationFunctor(float a, float intercept, float minInt = 0): a(a), intercept(intercept), C(-2/a*std::sqrt(a*minInt+ intercept)){}
@@ -368,6 +371,7 @@ private:
 	float C;
 };
 
+/*! Fit a straight line to the selected points using R*/
 template <class T>
 void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
     int nbins = 10;
@@ -407,8 +411,9 @@ void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],in
     wienerStorm_R_mutex.unlock();
 }
 
-//get Mask calculates the probabilities for each pixel of the current frame to be foreground,
-//there are two different methods available: logliklihood, based on cumulative distribution function
+/*! Calculates a mask that contains the information whether or not a pixel belongs to background or is signal for eachh pixel of the current frame,
+ based on cumulative distribution. The asumption is that the background has a mean value of zeros and a variance of one.
+ To get rid of noise just consider larger spots*/
 template <class T>
 void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
 	//double cdf = params.getMaskThreshold();
@@ -422,8 +427,7 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < std::max(3.,0.5*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
 }
 
-//To estimate the gain factor points with different mean intensities are needed. This functions searches for
-//good candidates, it tries to find pixels with as much different mean values as possible.
+//*! Estimates values for camera gain and offset using a mean-variance plot*/
 template <class T>
 void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
@@ -506,24 +510,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
     std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
 }
 
-template <class T>
-void getPoissonLabelsArray(const DataParams &params, MultiArray<3, T> &labels) {
-    unsigned int w = params.shape(0);
-    unsigned int h = params.shape(1);
-    unsigned int tChunkSize = params.getTChunkSize();
-    unsigned int xyChunkSize = params.getXYChunkSize();
-    unsigned int xChunks = std::ceil(w / (float)xyChunkSize);
-    unsigned int yChunks = std::ceil(h / (float)xyChunkSize);
-    labels.reshape(Shape3(w, h, tChunkSize));
-    for (int x = 0, l = 0; x < xChunks; ++x) {
-        for (int y = 0; y < yChunks; ++y, ++l) {
-            vigra::Shape3 index(std::min((x + 1) * xyChunkSize, w), std::min((y + 1) * xyChunkSize, h), tChunkSize);
-            auto roi = labels.subarray(vigra::Shape3(x * xyChunkSize, y * xyChunkSize, 0), index);
-            vigra::initMultiArray(destMultiArrayRange(roi), l);
-        }
-    }
-}
-
+/*! Take median of each chunk and store it for later interpolation to full image resolution */
 template <class T>
 void getPoissonMeansForChunk(const DataParams &params, int tChunkSize,const MultiArrayView<3, T> &img, MultiArrayView<2, T> &regionMeans) {
     unsigned int w = params.shape(0);
@@ -587,6 +574,7 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
 }
 
+/*! This function organizes everything, chunkwise loading the data, handling first and last chunk */
 template <class T, class Func>
 void processStack(const DataParams &params, Func& functor, ProgressFunctor &progressFunc, unsigned int stacksize = 0) {
 
@@ -625,10 +613,8 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
     for (int i = 0; i < chunksInMemory; ++i) {
         srcImage[i] = new MultiArray<3, T>(Shape3(w, h, params.getTChunkSize()));
     }
-    MultiArray<3, int> poissonLabels;
     MultiArray<3, T> poissonMeansRaw(Shape3(xChunks, yChunks, chunksInMemory));
     MultiArray<3, T> poissonMeans(Shape3(w, h, params.getTChunkSize() * chunksInMemory));
-    getPoissonLabelsArray(params, poissonLabels);
 
     int currframe = 0, chunk;
 
@@ -670,9 +656,6 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
         if (progressFunc.getAbort())
             return;
         srcImage[0]->reshape(Shape3(w, h, lastChunkSize));
-        Shape3 labelsShape = poissonLabels.shape();
-        labelsShape[2] = lastChunkSize;
-        auto lastPoissonLabelsView = poissonLabels.subarray(Shape3(0, 0, 0), labelsShape);
         readChunk(params, srcImage, poissonMeansRaw, poissonMeans, lastChunkSize, chunk, tF);
         processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, functor, progressFunc);
     }
@@ -687,6 +670,7 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
     std::free(srcImage);
 }
 
+/*! adds new powerspecra for each frame to the previous ones */
 template <class T, class S>
 void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
     int w = params.shape(0), h = params.shape(1);
@@ -737,6 +721,8 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
 
 void fitPSF(DataParams&, MultiArray<2, double>&);
 
+/*! Estimates background variance from a fit of the histogram of intensities for each frame. The assumption is that the backgroun pixels intensity values
+form a gaussian in the histogram, with a variance that can be used to correct the gain.*/
 template <class T>
 void getBGVariance(DataParams &params, const MultiArrayView<2, T> &img, std::vector<T> &BGVar, int currframe) {
     vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::AutoRangeHistogram<0>>> accChain;
@@ -783,6 +769,7 @@ void getBGVariance(DataParams &params, const MultiArrayView<2, T> &img, std::vec
 
 }
 
+/*! The gain factor is adjusted iteratively until the backgrounds variance is equal to one*/
 template <class T>
 void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
@@ -811,7 +798,7 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
 }
 
 
-
+/*! A multivariate gaussian is fitted to the mean power spectrum, after that corresponding sigma in spatial domain is calculated*/
 template <class T>
 void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
     bool needFilter = !(params.getSkellamFramesSaved() && params.getSigmaSaved());
@@ -897,7 +884,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     BasicImageView<T> filteredView(filtered.data(), filtered.size());
 
     vigra::copyImage(srcImageRange(input), destImage(unfiltered));
-    float kernelWidth = params.getSigma()*0.8;// < 0.85 ? 0.0 : std::sqrt(std::pow(params.getSigma(), 2)-std::pow(0.85, 2));
+    float kernelWidth = params.getSigma()*0.8;// tests have shown best accuracy for 0.8 sigma
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
 
     MultiArray<2, T> mask(Shape2(w, h));
@@ -942,8 +929,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
                     srcIterRange(filtered.upperLeft()+roi_ul, filtered.upperLeft()+roi_lr),
                     destIterRange(im_xxl.upperLeft()+xxl_ul, im_xxl.lowerRight()+xxl_lr),
                     BSplineWOPrefilter<3,double>());
-            // find local maxima that are above a given threshold
-            // at least the values should be above background+baseline
+            // find local maxima.
             // here we include only internal pixels, no border
             // to get every maximum only once, the maxima are pushed into a std::set
             maxima_acc.setOffset(Diff2D(factor*(c.x-mylen2), factor*(c.y-mylen2)));
