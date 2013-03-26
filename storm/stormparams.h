@@ -121,8 +121,6 @@ public:
     const Shape & shape() const;
     vigra::MultiArrayIndex shape(const int dim) const;
     FileType type() const;
-    const std::string& executableDir() const;
-    void setExecutableDir(const std::string&);
     const std::set<std::string>& acceptedFileTypes();
 
     template <typename  T>
@@ -146,8 +144,6 @@ private:
     mutable void * ptr; // hack
     Shape m_shape;
     FileType m_type;
-    std::string m_executableDir;
-    std::string m_executableName;
     int m_factor;
     bool m_factorSaved;
     int m_roilen;

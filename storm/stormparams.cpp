@@ -36,11 +36,6 @@
 
 #include <string>
 #include <iostream>
-#ifndef __WIN__
-#include <libgen.h>
-#else
-#include <cstdlib>
-#endif
 #ifndef EMULATE_GETOPT
 #include <getopt.h>
 #else
@@ -97,7 +92,7 @@ StormParams::StormParams()
 }
 
 StormParams::StormParams(const StormParams &other)
-: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_executableDir(other.m_executableDir), m_executableName(other.m_executableName), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames), m_acceptedFileTypes(other.m_acceptedFileTypes) {
+: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames), m_acceptedFileTypes(other.m_acceptedFileTypes) {
     setInFile(other.m_infile, false);
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
@@ -107,8 +102,6 @@ StormParams& StormParams::operator=(const StormParams &other)
 {
     m_shape = other.m_shape;
     m_type = other.m_type;
-    m_executableDir = other.m_executableDir;
-    m_executableName = other.m_executableName;
     m_factor = other.m_factor;
     m_factorSaved = other.m_factorSaved;
     m_roilen = other.m_roilen;
@@ -142,23 +135,6 @@ StormParams& StormParams::operator=(const StormParams &other)
 StormParams::StormParams(int argc, char **argv)
 : m_config(new rude::Config()) {
     setDefaults();
-#ifndef __WIN__
-    char *buf = (char*)std::malloc((strlen(argv[0]) + 1) * sizeof(char)); // dirname and basename modify their argument
-    strcpy(buf, argv[0]);
-    m_executableDir.append(dirname(buf));
-    strcpy(buf, argv[0]);
-    m_executableName.append(basename(buf));
-    std::free(buf);
-#else
-    char drive[_MAX_DRIVE];
-    char dir[_MAXDIR];
-    char fname[ _MAX_FNAME];
-    char ext[_MAX_EXT];
-    _splitpath(argv0, drive, dir, fname, ext);
-    m_executableDir.append(drive).append(dir);
-    m_executableName.append(fname).append(ext);
-#endif
-
     parseProgramOptions(argc, argv);
 }
 
@@ -425,13 +401,6 @@ vigra::MultiArrayIndex StormParams::shape(const int dim) const {
 }
 FileType StormParams::type() const { return m_type; };
 
-const std::string& StormParams::executableDir() const {
-    return m_executableDir;
-}
-void StormParams::setExecutableDir(const std::string &dir) {
-    m_executableDir = dir;
-}
-
 const std::set<std::string>& StormParams::acceptedFileTypes()
 {
     if (m_acceptedFileTypes.empty()) {
@@ -448,7 +417,7 @@ const std::set<std::string>& StormParams::acceptedFileTypes()
 }
 
 void StormParams::printUsage() const {
-	std::cout << "Usage: " << m_executableName << " [Options] infile.sif [outfile.png]" << std::endl
+	std::cout << "Usage: storm [Options] infile.sif [outfile.png]" << std::endl
 	<< "Allowed Options: " << std::endl
 	<< "  --help                 Print this help message" << std::endl
 	<< "  -v or --verbose        verbose message output" << std::endl

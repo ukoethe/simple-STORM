@@ -35,9 +35,5 @@ set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} -std=c++11"
 )
 
-set(STORM_R_SCRIPT_DIR ${CMAKE_INSTALL_PREFIX}/share/simpleStorm/)
-set(STORM_R_SCRIPT storm_fit.R)
-add_definitions(-DSTORM_RSCRIPT=\"${STORM_R_SCRIPT}\" -DSTORM_RSCRIPT_DIR=\"${STORM_R_SCRIPT_DIR}\")
-
 add_subdirectory(storm)
 add_subdirectory(gui)

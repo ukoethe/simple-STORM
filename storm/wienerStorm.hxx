@@ -954,7 +954,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     determineSNR(srcImageRange(unfiltered), maxima_coords, factor);
 }
 
-bool initR(const std::string&, int argc, char **argv, bool withRestart = true);
+bool initR(int argc, char **argv, bool withRestart = true);
 
 void endR();
 

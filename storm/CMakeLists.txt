@@ -11,6 +11,10 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_D
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+include(ResourceCompiler)
+
+set(STORM_R_SCRIPT storm_fit.R)
+
 set(WIENERSTORM_SRCS
     stormparams.cpp
     dataparams.cpp
@@ -35,8 +39,7 @@ if(WIN32)
     add_definitions(-D__WIN__)
 endif(WIN32)
 
-# to be able to run the binaries without installing
-file(COPY ${STORM_R_SCRIPT} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+add_resource(${STORM_R_SCRIPT} storm_fit.h storm_fit WIENERSTORM_SRCS)
 
 add_library(wienerstorm STATIC ${WIENERSTORM_SRCS})
 target_link_libraries(wienerstorm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
@@ -60,4 +63,3 @@ ENDIF(HDF5_FOUND)
 ADD_SUBDIRECTORY(test)
 set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS storm DESTINATION ${BIN_INSTALL_DIR})
-install(FILES ${STORM_R_SCRIPT} DESTINATION ${STORM_R_SCRIPT_DIR})

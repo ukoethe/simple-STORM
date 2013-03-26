@@ -18,9 +18,6 @@ if(WIN32)
     add_definitions(-D__WIN__)
 endif(WIN32)
 
-# to be able to run the binaries without installing
-file(COPY ../storm/${STORM_R_SCRIPT} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
 set(SRCS
     analysisworker.cpp
     main.cpp
@@ -51,6 +48,8 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
+get_property(INC DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
+message(${INC})
 qt4_wrap_ui(UI_HEADERS ${UIS})
 add_executable(storm-gui ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
 set_target_properties(storm-gui PROPERTIES AUTOMOC TRUE)
@@ -66,4 +65,3 @@ ENDIF(OPENMP_FOUND)
 set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 set(DATA_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
 install(TARGETS storm-gui DESTINATION ${BIN_INSTALL_DIR})
-install(FILES ${STORM_R_SCRIPT} DESTINATION ${STORM_R_SCRIPT_DIR})

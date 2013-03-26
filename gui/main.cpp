@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
     QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
     QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
     QApplication app(argc, argv);
-    initR(app.applicationDirPath().toStdString(), argc, argv);
+    initR(argc, argv);
     std::setlocale(LC_NUMERIC,"C");
 
     MainWindow mainWindow(0, Qt::Window);

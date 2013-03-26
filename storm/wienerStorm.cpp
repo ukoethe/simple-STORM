@@ -1,9 +1,11 @@
 #include "wienerStorm.hxx"
+#include "storm_fit.h"
 #define CSTACK_DEFNS
 #define R_INTERFACE_PTRS
 #define HAVE_UINTPTR_T
 #include <cstdint>
 #include <Rinterface.h>
+#include <R_ext/Parse.h>
 
 std::mutex wienerStorm_R_mutex; // R is not thread-safe
 
@@ -32,7 +34,7 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
 void preventRConsoleWrite(const char* buf, int buflen)
 {}
 
-bool initR(const std::string& executableDir, int argc, char **argv, bool withRestart)
+bool initR(int argc, char **argv, bool withRestart)
 {
     if (std::getenv("R_HOME") == nullptr) {
         if (!withRestart)
@@ -83,14 +85,7 @@ bool initR(const std::string& executableDir, int argc, char **argv, bool withRes
     Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
     R_CStackLimit = (uintptr_t)-1;
 
-    std::string rScript(executableDir);
-    rScript.append("/").append(STORM_RSCRIPT);
-    if (!helper::fileExists(rScript)) {
-        rScript.clear();
-        rScript.append(STORM_RSCRIPT_DIR).append(STORM_RSCRIPT);
-    }
-
-    SEXP fun, t, tmp, tmp2;
+    SEXP fun, t, tmp;
     PROTECT(tmp = Rf_ScalarInteger(42));
 
     PROTECT(fun = t = Rf_allocList(2));
@@ -101,18 +96,18 @@ bool initR(const std::string& executableDir, int argc, char **argv, bool withRes
     Rf_eval(fun, R_GlobalEnv);
     UNPROTECT(2);
 
-    PROTECT(tmp = Rf_mkString(rScript.c_str()));
-    PROTECT(fun = t = Rf_allocList(2));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("parse"));
-    t = CDR(t);
-    SETCAR(t, tmp);
-    SET_TAG(t, Rf_install("file"));
-    PROTECT(tmp2 = Rf_eval(fun, R_GlobalEnv));
-    for (R_len_t i = 0; i < Rf_length(tmp2); ++i) {
-        Rf_eval(VECTOR_ELT(tmp2, i), R_GlobalEnv);
+    ParseStatus status;
+    PROTECT(tmp = Rf_mkString(storm_fit));
+    PROTECT(t = R_ParseVector(tmp, -1, &status, R_NilValue));
+
+    if (status != PARSE_OK) {
+        UNPROTECT(2);
+        return false;
     }
-    UNPROTECT(3);
+    for (R_len_t i = 0; i < Rf_length(t); ++i) {
+        Rf_eval(VECTOR_ELT(t, i), R_GlobalEnv);
+    }
+    UNPROTECT(2);
     return true;
 }
 
