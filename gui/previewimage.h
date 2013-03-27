@@ -56,7 +56,8 @@ private:
     std::chrono::milliseconds m_updateInterval;
     unsigned long int m_detections;
     float m_intensityScaleFactor;
-    float m_scale;
+    float m_scalex;
+    float m_scaley;
     QRect m_geometry;
     QImage m_pixmap;
     QRect m_pixmapGeometry;

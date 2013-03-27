@@ -11,7 +11,7 @@
 #include <QFutureWatcher>
 
 PreviewImage::PreviewImage(QWidget *parent)
-: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scale(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_watcher(0), m_initialized(false), m_needCompleteRepaint(false)
+: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scalex(1), m_scaley(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_watcher(0), m_initialized(false), m_needCompleteRepaint(false)
 {
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
@@ -53,6 +53,7 @@ void PreviewImage::frameCompleted(int frame)
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     if (m_initialized && now - m_lastProcessed >= m_updateInterval) {
         updateImage();
+        update();
     }
 }
 
@@ -85,7 +86,7 @@ void PreviewImage::updateImage()
     for (size_t i = m_resultsForScaling.size(); i >= m_resultsForScaling.size() * 0.996; --i, --it)
         m_limits.second = *it;
     m_intensityFactor = 255 / (m_limits.second - m_limits.first);
-    if (m_scale < 1) {
+    if (m_scalex < 1) {
         for (int frame : m_unprocessed) {
             for (const Coord<float> &c : m_results->at(frame)) {
                 int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
@@ -107,13 +108,13 @@ void PreviewImage::updatePixmap(const QRect &rect)
     QPoint ul = rect.topLeft();
     QPoint lr = rect.bottomRight();
     m_painter.translate(-ul);
-    m_painter.scale(m_scale, m_scale);
-    ul /= m_scale;
-    lr /= m_scale;
+    m_painter.scale(m_scalex, m_scaley);
+    ul = QPoint(ul.x() / m_scalex, ul.y() / m_scaley);
+    lr = QPoint(lr.x() / m_scalex, lr.y() / m_scaley);
     QPainter::RenderHints hints = QPainter::Antialiasing;
-    if (m_scale < 1)
+    if (m_scalex < 1)
         m_painter.setRenderHints(hints);
-    if (m_needCompleteRepaint && m_scale < 1) {
+    if (m_needCompleteRepaint && m_scalex < 1) {
         m_painter.fillRect(QRect(ul, lr), QColor(0, 0, 0));
         for (int y = ul.y(); y < lr.y(); ++y) {
             for (int x = ul.x(); x < lr.x(); ++x) {
@@ -153,7 +154,8 @@ void PreviewImage::resizeEvent(QResizeEvent *event)
     m_size.scale(event->size(), Qt::KeepAspectRatio);
     updateGeometry();
     if (m_params && m_results) {
-        m_scale = m_size.width() /(float)m_resultSize.width();
+        m_scalex = m_size.width() / (float)m_resultSize.width();
+        m_scaley = m_size.height() / (float)m_resultSize.height();
         m_needRepaint = true;
     }
     m_toPaint.clear();
@@ -207,7 +209,7 @@ void PreviewImage::init(const QRect &rect)
 
 float PreviewImage::scale() const
 {
-    return m_scale;
+    return m_scalex;
 }
 
 QSize PreviewImage::sizeHint() const
