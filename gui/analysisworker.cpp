@@ -32,6 +32,7 @@ WienerStormStage QtProgressFunctor::getStage() const
 
 void QtProgressFunctor::setStackSize(int stacksize)
 {
+    m_frame = 0;
     m_stacksize = stacksize;
     emit stackSizeChanged(m_stacksize);
 }

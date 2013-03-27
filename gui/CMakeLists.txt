@@ -48,8 +48,7 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
-get_property(INC DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
-message(${INC})
+
 qt4_wrap_ui(UI_HEADERS ${UIS})
 add_executable(storm-gui ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
 set_target_properties(storm-gui PROPERTIES AUTOMOC TRUE)

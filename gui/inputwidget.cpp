@@ -37,6 +37,7 @@ InputWidget::InputWidget(QWidget *parent)
     connect(m_ui->chk_advancedSettings, SIGNAL(toggled(bool)), this, SLOT(advancedSettingsToggled(bool)));
     advancedSettingsToggled(m_ui->chk_advancedSettings->isChecked());
     connect(m_ui->spn_factor, SIGNAL(valueChanged(int)), this, SLOT(factorEdited(int)));
+    connect(m_ui->spn_pixelSize, SIGNAL(valueChanged(double)), this, SLOT(pixelSizeEdited(double)));
     connect(m_ui->spn_reconstructionRes, SIGNAL(valueChanged(int)), this, SLOT(reconstructionResolutionEdited(int)));
     enableInput(false);
 }
@@ -169,10 +170,16 @@ void InputWidget::setFieldsFromDefaults()
 
     if (m_params.getSlopeSaved())
         m_ui->spn_gain->setValue(m_params.getSlope());
+    else
+        m_ui->spn_gain->setValue(0);
     if (m_params.getInterceptSaved())
         m_ui->spn_offset->setValue(m_params.getIntercept());
+    else
+        m_ui->spn_offset->setValue(0);
     if (m_params.getSigmaSaved())
         m_ui->spn_sigma->setValue(m_params.getSigma());
+    else
+        m_ui->spn_offset->setValue(0);
 }
 
 void InputWidget::enableInput(bool enable)
@@ -190,6 +197,12 @@ void InputWidget::factorEdited(int val)
 {
     if (m_ui->spn_reconstructionRes->value() * val < m_ui->spn_pixelSize->value())
         m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / val);
+}
+
+void InputWidget::pixelSizeEdited(double val)
+{
+    if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < val)
+        m_ui->spn_reconstructionRes->setValue(val / m_ui->spn_factor->value());
 }
 
 void InputWidget::reconstructionResolutionEdited(int val)
