@@ -193,11 +193,11 @@ void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, int16_t>&) con
 extern template
 void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, int32_t>&) const;
 extern template
-void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, uint8_t>&) const;
 extern template
-void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, uint16_t>&) const;
 extern template
-void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
+void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
 template<>
 void StormParams::readVolume(vigra::MultiArrayView<STORMPARAMS_N, float>&) const;
 extern template
@@ -218,15 +218,15 @@ void StormParams::readBlock(const StormParams::Shape&,
 extern template
 void StormParams::readBlock(const StormParams::Shape&,
                 const StormParams::Shape&,
-                vigra::MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
+                vigra::MultiArrayView<STORMPARAMS_N, uint8_t>&) const;
 extern template
 void StormParams::readBlock(const StormParams::Shape&,
                 const StormParams::Shape&,
-                vigra::MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
+                vigra::MultiArrayView<STORMPARAMS_N, uint16_t>&) const;
 extern template
 void StormParams::readBlock(const StormParams::Shape&,
                 const StormParams::Shape&,
-                vigra::MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
+                vigra::MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
 template<>
 void StormParams::readBlock(const StormParams::Shape&,
                 const StormParams::Shape&,

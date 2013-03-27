@@ -56,8 +56,7 @@
 #include <thread>
 #include <mutex>
 #include <algorithm>
-
-//#include <algorithm>
+#include <numeric>
 #ifdef OPENMP_FOUND
     #include <omp.h>
 #endif //OPENMP_FOUND
@@ -432,7 +431,7 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
-    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins](T p) {if(!p || bins[p] < std::max(3.,0.5*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
+    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.5*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
 }
 
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
@@ -549,7 +548,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
-                                     [](T srcPixel, T poissonPixel){T val = srcPixel - poissonPixel; return (std::isnan(val)) ? 0 : val;});
+                                     [](T srcPixel, T poissonPixel) -> T {T val = srcPixel - poissonPixel; return (std::isnan(val)) ? 0 : val;});
         functor(params, currSrc, currframe + f);
         progressFunc.frameFinished(currframe + f);
     }
@@ -740,7 +739,7 @@ Estimates background variance from a fit of the histogram of intensities for eac
 form a gaussian in the histogram, with a variance that can be used to correct the gain.
 */
 template <class T>
-void getBGVariance(DataParams &params, const MultiArrayView<2, T> &img, std::vector<T> &BGVar, int currframe) {
+void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, std::vector<T> &BGVar, int currframe) {
     vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::AutoRangeHistogram<0>>> accChain;
     auto iter = img.begin();
     auto iterEnd = iter.getEndIterator();

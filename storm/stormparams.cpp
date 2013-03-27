@@ -132,6 +132,7 @@ StormParams& StormParams::operator=(const StormParams &other)
     m_config->clear();
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
+    return *this;
 }
 
 StormParams::StormParams(int argc, char **argv)
