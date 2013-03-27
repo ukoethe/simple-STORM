@@ -44,8 +44,18 @@ bool initR(int argc, char **argv, bool withRestart)
         char **args = (char**)std::malloc((argc + 3) * sizeof(char*));
         args[0] = (char*)"R";
         args[1] = (char*)"CMD";
-        for (int i = 0, j = 2; i < argc; ++i, ++j)
+        for (int i = 0, j = 2; i < argc; ++i, ++j) {
+#ifdef __WIN__
+            int len = std::strlen(argv[i]);
+            args[j] = (char*)std::malloc((len + 3) * sizeof(char));
+            args[j][0] = '"';
+            std::strcpy(args[j] + 1, argv[i]);
+            args[j][len + 1] = '"';
+            args[j][len + 2] = '\0';
+#else
             args[j] = argv[i];
+#endif
+        }
         args[argc + 2] = nullptr;
         int ret = execvp(args[0], args);
         /*std::string reason;
@@ -78,6 +88,10 @@ bool initR(int argc, char **argv, bool withRestart)
                 reason << "unknown";
                 break;
         }*/
+#ifdef __WIN__
+        for (int j = 0; j < argc + 2; ++j)
+            std::free(args[j]);
+#endif
         std::free(args);
         return false;
     }
