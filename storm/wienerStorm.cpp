@@ -42,16 +42,22 @@ bool initR(int argc, char **argv, bool withRestart)
         if (!withRestart)
             return false;
         char **args = (char**)std::malloc((argc + 3) * sizeof(char*));
+#ifdef __WIN__
+		args[0] = (char*) "Rcmd";
+		int cmdarg = 1;
+#else
         args[0] = (char*)"R";
         args[1] = (char*)"CMD";
-        for (int i = 0, j = 2; i < argc; ++i, ++j) {
+		int cmdarg = 2
+#endif
+        for (int i = 0, j = cmdarg; i < argc; ++i, ++j) {
 #ifdef __WIN__
             int len = std::strlen(argv[i]);
-            args[j] = (char*)std::malloc((len + 3) * sizeof(char));
-            args[j][0] = '"';
-            std::strcpy(args[j] + 1, argv[i]);
-            args[j][len + 1] = '"';
-            args[j][len + 2] = '\0';
+            args[j] = (char*)std::malloc((len + 7) * sizeof(char));
+			std::strcpy(args[j], "\"\\\"");
+            std::strcpy(args[j] + 3, argv[i]);
+			std::strcpy(args[j] + len + 3, "\"\\\"");
+            args[j][len + 6] = '\0';
 #else
             args[j] = argv[i];
 #endif
