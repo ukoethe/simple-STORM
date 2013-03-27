@@ -302,12 +302,13 @@ void StormParams::setCoordsFile(const std::string &file) {
 const std::string& StormParams::getSettingsFile() const {
     return m_settingsfile;
 }
-void StormParams::setSettingsFile(const std::string &file) {
-    if (file != m_settingsfile) {
+void StormParams::setSettingsFile(const std::string &file, bool reload) {
+    if (file != m_settingsfile || reload) {
         m_settingsfile = file;
         m_config->clear();
         m_config->setConfigFile(m_settingsfile.c_str());
-        load();
+        if (!m_settingsfile.empty())
+            load();
     }
 }
 
@@ -483,7 +484,7 @@ void StormParams::setDefaultFileNames(bool force) {
     if( m_settingsfile.empty() || force) {
         std::string tmp = m_infile;
     	tmp.replace(pos, 255, "_settings.txt"); // replace extension
-        setSettingsFile(tmp);
+        setSettingsFile(tmp, force);
 	}
 }
 

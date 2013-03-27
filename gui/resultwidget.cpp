@@ -17,7 +17,6 @@ ResultWidget::ResultWidget(QWidget *parent)
 : QWidget(parent), m_ui(new Ui::ResultWidget()), m_functor(0), m_worker(0), m_coordinatesSaved(false), m_reconstructionSaved(false), m_autoZoom(true), m_minZoom(10), m_maxZoom(500), m_zoomStep(10), m_zoomPageStep(5 * m_zoomStep)
 {
     m_ui->setupUi(this);
-    m_ui->btn_scaleToFit->setToolTip("Scale to fit");
 #ifdef Q_WS_X11
     m_ui->btn_abort->setIcon(QIcon::fromTheme("dialog-cancel"));
     m_ui->btn_save->setIcon(QIcon::fromTheme("document-save"));

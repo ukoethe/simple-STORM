@@ -97,7 +97,7 @@ public:
     const std::string& getCoordsFile() const;
     void setCoordsFile(const std::string&);
     const std::string& getSettingsFile() const;
-    void setSettingsFile(const std::string&);
+    void setSettingsFile(const std::string&, bool reload = false);
     const std::string& getFrameRange() const;
     void setFrameRange(const std::string&);
     bool getFrameRangeSaved() const;

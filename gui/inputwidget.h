@@ -40,6 +40,7 @@ private Q_SLOTS:
     void advancedSettingsToggled(bool);
     void runClicked();
     void factorEdited(int);
+    void pixelSizeEdited(double);
     void reconstructionResolutionEdited(int);
 };
 
