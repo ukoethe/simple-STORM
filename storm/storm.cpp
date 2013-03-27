@@ -14,18 +14,7 @@
 #include <iomanip>
 #include <fstream>
 #include <set>
-
 #include <cstdlib>
-#ifdef __WIN__
-#include <process.h>
-#else
-#include <unistd.h>
-#endif
-
-#define R_INTERFACE_PTRS
-#define R_NO_REMAP
-#include <Rembedded.h>
-#include <Rinterface.h>
 
 #include "wienerStorm.hxx"
 

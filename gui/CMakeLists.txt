@@ -54,6 +54,10 @@ qt4_wrap_ui(UI_HEADERS ${UIS})
 add_executable(storm-gui ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
 set_target_properties(storm-gui PROPERTIES AUTOMOC TRUE)
 
+if(WIN32)
+	set_target_properties(storm-gui PROPERTIES WIN32_EXECUTABLE TRUE)
+endif(WIN32)
+
 target_link_libraries(storm-gui ${QT_LIBRARIES} wienerstorm vigraimpex)
 
 IF(OPENMP_FOUND)

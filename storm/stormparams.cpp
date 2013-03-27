@@ -2,8 +2,9 @@
 /*                                                                      */
 /*                  ANALYSIS OF STORM DATA                              */
 /*                                                                      */
-/*      Copyright 2010-2011 by Joachim Schleicher                       */
-/*                                                                      */
+/*      Copyright 2010-2013 by Joachim Schleicher, Ilia Kats            */
+/*                          and Frank Herrmannsdoerfer					*/
+/*															            */
 /*    Please direct questions, bug reports, and contributions to        */
 /*    joachim.schleicher@iwr.uni-heidelberg.de                          */
 /*                                                                      */
@@ -34,6 +35,7 @@
 #include "stormparams.h"
 #include "version.h"
 
+#include <cstdint>
 #include <string>
 #include <iostream>
 #ifndef EMULATE_GETOPT
@@ -687,11 +689,11 @@ void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int16_t>&) const;
 template
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int32_t>&) const;
 template
-void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint8_t>&) const;
 template
-void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint16_t>&) const;
 template
-void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
 template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, float>& array) const {
     if (!readTVolume(array, m_type, ptr)) {
@@ -720,15 +722,15 @@ void StormParams::readBlock(const StormParams::Shape&,
 template
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
-               MultiArrayView<STORMPARAMS_N, unsigned int8_t>&) const;
+               MultiArrayView<STORMPARAMS_N, uint8_t>&) const;
 template
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
-               MultiArrayView<STORMPARAMS_N, unsigned int16_t>&) const;
+               MultiArrayView<STORMPARAMS_N, uint16_t>&) const;
 template
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
-               MultiArrayView<STORMPARAMS_N, unsigned int32_t>&) const;
+               MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
 template<>
 void StormParams::readBlock(const StormParams::Shape& blockOffset,
                const StormParams::Shape& blockShape,

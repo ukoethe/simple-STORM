@@ -4,7 +4,9 @@
 #define R_INTERFACE_PTRS
 #define HAVE_UINTPTR_T
 #include <cstdint>
+#ifndef __WIN__
 #include <Rinterface.h>
+#endif
 #include <R_ext/Parse.h>
 
 std::mutex wienerStorm_R_mutex; // R is not thread-safe
@@ -80,10 +82,13 @@ bool initR(int argc, char **argv, bool withRestart)
         return false;
     }
     char *Rargv[] = {(char*)"REmbeddedStorm", (char*)"--silent", (char*)"--no-save"};
+#ifndef __WIN__
     R_SignalHandlers = FALSE;
-
+#endif
     Rf_initEmbeddedR(sizeof(Rargv) / sizeof(Rargv[0]), Rargv);
+#ifndef __WIN__
     R_CStackLimit = (uintptr_t)-1;
+#endif
 
     SEXP fun, t, tmp;
     PROTECT(tmp = Rf_ScalarInteger(42));
@@ -114,12 +119,16 @@ bool initR(int argc, char **argv, bool withRestart)
 void endR()
 {
     // prevent printing of R warnings
+#ifndef __WIN__
     void (*ptr_R_WriteConsole_old)(const char *, int) = ptr_R_WriteConsole;
     FILE *R_Consolefile_old = R_Consolefile;
     ptr_R_WriteConsole = preventRConsoleWrite;
     R_Consolefile = NULL;
+#endif
     Rf_endEmbeddedR(0);
+#ifndef __WIN__
     ptr_R_WriteConsole = ptr_R_WriteConsole_old;
     R_Consolefile = R_Consolefile_old;
+#endif
 }
 

@@ -47,6 +47,10 @@ target_link_libraries(wienerstorm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${
 add_executable(storm storm.cpp)
 target_link_libraries(storm wienerstorm vigraimpex)
 
+if(WIN32)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
+endif(WIN32)
+
 IF(OPENMP_FOUND)
 	SET_TARGET_PROPERTIES(wienerstorm PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
 	SET_TARGET_PROPERTIES(wienerstorm PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})

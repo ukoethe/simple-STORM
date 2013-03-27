@@ -2,7 +2,8 @@
 /*                                                                      */
 /*                  ANALYSIS OF STORM DATA                              */
 /*                                                                      */
-/*      Copyright 2010-2011 by Joachim Schleicher                       */
+/*      Copyright 2010-2013 by Joachim Schleicher, Ilia Kats            */
+/*				and Frank Herrmannsdoerfer
 /*                                                                      */
 /*    Please direct questions, bug reports, and contributions to        */
 /*    joachim.schleicher@iwr.uni-heidelberg.de                          */
@@ -57,6 +58,9 @@ public:
     { }
 };
 
+/*! 
+Class that contains all needed parameters, settings and also provides the information about the input file
+*/
 class StormParams {
 public:
     typedef vigra::MultiArrayShape<STORMPARAMS_N>::type Shape;
