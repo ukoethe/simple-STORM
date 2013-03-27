@@ -27,7 +27,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/storm
     ${Vigra_INCLUDE_DIRS}
     ${FFTW_INCLUDE_DIR}
-    ${R_INCLUDE_DIRS}
+    ${R_INCLUDE_DIR}
     ${RUDECONFIG_INCLUDE_DIR}
 )
 
