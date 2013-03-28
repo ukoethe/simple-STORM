@@ -40,6 +40,5 @@ set(BIN_INSTALL_DIR bin)
 if (CMAKE_CXX_COMPILER_ID STREQUAL Clang)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif (CMAKE_CXX_COMPILER_ID STREQUAL Clang)
-
 add_subdirectory(storm)
 add_subdirectory(gui)
