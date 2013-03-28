@@ -25,10 +25,12 @@ public:
     bool canBeDeleted();
     bool canBeClosed();
     void waitFor();
+    QString makeToolTip();
 
 Q_SIGNALS:
     void userAttentionRequired(QWidget*);
     void finished(ResultWidget*);
+    void toolTip(const QString&, ResultWidget*);
 
 protected:
     virtual void resizeEvent(QResizeEvent*);

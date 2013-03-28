@@ -134,21 +134,13 @@ void InputWidget::runClicked()
         m_params.setChunksInMemory(m_uiAdvancedSettings->spn_chunksInMemory->value());
         m_params.setRoilen(m_uiAdvancedSettings->spn_roilen->value());
     }
-    if (m_ui->spn_gain->value() > 0) {
-        m_params.setSlope(m_ui->spn_gain->value());
-        m_params.setUseSavedSlope(true);
-    } else
-        m_params.setUseSavedSlope(false);
-    if (m_ui->spn_offset->value() > 0) {
-        m_params.setIntercept(m_ui->spn_offset->value());
-        m_params.setUseSavedIntercept(true);
-    } else
-        m_params.setUseSavedIntercept(false);
-    if (m_ui->spn_sigma->value() > 0) {
-        m_params.setSigma(m_ui->spn_sigma->value());
-        m_params.setUseSavedSigma(true);
-    } else
-        m_params.setUseSavedSigma(false);
+    m_params.setSlope(m_ui->spn_gain->value());
+    m_params.setUseSavedSlope(m_ui->spn_gain->value() > 0);
+    m_params.setIntercept(m_ui->spn_offset->value());
+    m_params.setUseSavedIntercept(m_ui->spn_offset->value() > 0);
+    m_params.setSigma(m_ui->spn_sigma->value());
+    m_params.setUseSavedSigma(m_ui->spn_sigma->value() > 0);
+
     m_params.doSanityChecks();
     emit run(m_params);
 }

@@ -133,6 +133,7 @@ void ResultWidget::stageChanged(int stage, const QString &format)
         connect(m_functor, SIGNAL(frameCompleted(int)), m_ui->preview, SLOT(frameCompleted(int)));
     } else
         setPreviewEnabled(false);
+    emit toolTip(makeToolTip(), this);
 }
 
 void ResultWidget::workerFinished()
@@ -239,4 +240,39 @@ void ResultWidget::setPreviewEnabled(bool enabled)
     m_ui->sldr_zoom->setEnabled(enabled);
     m_ui->spn_zoom->setEnabled(enabled);
     m_ui->scrl_preview->setEnabled(enabled);
+}
+
+QString ResultWidget::makeToolTip()
+{
+    QString toolTip("<table><colgroup>"
+    "<tr><td>Factor:</td><td>%1</td></tr>"
+    "<tr><td>Input resolution:</td><td>%2 nm/px</td></tr>"
+    "<tr><td>Reconstruction resolution:</td><td>%3 nm/px</td></tr>"
+    "<tr><td>Parameter Estimation over:</td><td>%4 frames</td></tr>"
+    "<tr><td>p-Value:</td><td>%5</td></tr>"
+    "<tr><td>ROI Size:</td><td>%6 px</td></tr>"
+    "<tr><td>XY Chunk Size:</td><td>%7 px</td></tr>"
+    "<tr><td>T Chunk Size:</td><td>%8 frames</td></tr>"
+    "<tr><td>Chunks in Memory:</td><td>%9</td></tr>"
+    "<tr><td>Do Asymmetry Check:</td><td>%10</td></tr>");
+    if (m_params.getSlopeSaved() || m_params.getSlope() > 0) {
+        toolTip.append(QString("<tr><td>Camera Gain:</td><td>%1</td></tr>").arg(m_params.getSlope(), 0, 'f', 2));
+    }
+    if (m_params.getInterceptSaved() || m_params.getIntercept() > 0) {
+        toolTip.append(QString("<tr><td>Camera Offset:</td><td>%1</td></tr>").arg(m_params.getIntercept(), 0, 'f', 2));
+    }
+    if (m_params.getSigmaSaved() || m_params.getSigma() > 0) {
+        toolTip.append(QString("<tr><td>PSF std. dev.:</td><td>%1</td></tr>").arg(m_params.getSigma(), 0, 'f', 2));
+    }
+    toolTip.append("</table>");
+    return toolTip.arg(m_params.getFactor())
+                  .arg(m_params.getPixelSize(), 0, 'f', 1)
+                  .arg(m_params.getReconstructionResolution())
+                  .arg(m_params.getSkellamFrames())
+                  .arg(m_params.getAlpha(), 0, 'f', 4)
+                  .arg(m_params.getRoilen())
+                  .arg(m_params.getXYChunkSize())
+                  .arg(m_params.getTChunkSize())
+                  .arg(m_params.getChunksInMemory())
+                  .arg(m_params.getDoAsymmetryCheck() ? "yes" : "no");
 }
