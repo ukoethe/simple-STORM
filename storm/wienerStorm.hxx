@@ -339,8 +339,8 @@ inline void determineSNR(triple<SrcIterator, SrcIterator, SrcAccessor> s,
     determineSNR(s.first, s.second, s.third, coords, factor );
 }
 
-/*! 
-Determines signal-to-noise ratio based on the assumption that the variance of the background is equal to one. 
+/*!
+Determines signal-to-noise ratio based on the assumption that the variance of the background is equal to one.
 */
 template <class SrcIterator, class SrcAccessor, class T>
 void determineSNR(SrcIterator srcUpperLeft,
@@ -360,7 +360,7 @@ void determineSNR(SrcIterator srcUpperLeft,
     coords=newcoords;
 }
 
-/*! 
+/*!
 Functor to apply Anscombe transformation
 */
 class transformationFunctor {
@@ -374,7 +374,7 @@ private:
 	float C;
 };
 
-/*! 
+/*!
 Fit a straight line to the selected points using R
 */
 template <class T>
@@ -416,7 +416,7 @@ void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],in
     wienerStorm_R_mutex.unlock();
 }
 
-/*! 
+/*!
 Calculates a mask that contains the information whether or not a pixel belongs to background or is signal for eachh pixel of the current frame,
  based on cumulative distribution. The asumption is that the background has a mean value of zeros and a variance of one.
  To get rid of noise just consider larger spots
@@ -424,14 +424,21 @@ Calculates a mask that contains the information whether or not a pixel belongs t
 template <class T>
 void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
 	//double cdf = params.getMaskThreshold();
+
     double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
+    char vorcc[1000];
+    sprintf(vorcc, "/home/herrmannsdoerfer/tmpOutput/mask/vorCC%d.tif",framenumber);
+    vigra::exportImage(srcImageRange(mask), vorcc);
     vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.5*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
+    char nachcc[1000];
+    sprintf(nachcc, "/home/herrmannsdoerfer/tmpOutput/mask/nachCC%d.tif",framenumber);
+    vigra::exportImage(srcImageRange(mask), nachcc);
 }
 
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
@@ -517,8 +524,8 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
     std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
 }
 
-/*! 
-Take median of each chunk and store it for later interpolation to full image resolution 
+/*!
+Take median of each chunk and store it for later interpolation to full image resolution
 */
 template <class T>
 void getPoissonMeansForChunk(const DataParams &params, int tChunkSize,const MultiArrayView<3, T> &img, MultiArrayView<2, T> &regionMeans) {
@@ -583,8 +590,8 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
 }
 
-/*! 
-This function organizes everything, chunkwise loading the data, handling first and last chunk 
+/*!
+This function organizes everything, chunkwise loading the data, handling first and last chunk
 */
 template <class T, class Func>
 void processStack(const DataParams &params, Func& functor, ProgressFunctor &progressFunc, unsigned int stacksize = 0) {
@@ -681,8 +688,8 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
     std::free(srcImage);
 }
 
-/*! 
-adds new powerspecra for each frame to the previous ones 
+/*!
+adds new powerspecra for each frame to the previous ones
 */
 template <class T, class S>
 void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
@@ -734,7 +741,7 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
 
 void fitPSF(DataParams&, MultiArray<2, double>&);
 
-/*! 
+/*!
 Estimates background variance from a fit of the histogram of intensities for each frame. The assumption is that the backgroun pixels intensity values
 form a gaussian in the histogram, with a variance that can be used to correct the gain.
 */
@@ -784,7 +791,7 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
 
 }
 
-/*! 
+/*!
 The gain factor is adjusted iteratively until the backgrounds variance is equal to one
 */
 template <class T>
@@ -825,7 +832,7 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
         return;}
     progressFunc.setStage(PSFWidth);
     unsigned int stacksize = params.getSkellamFrames();
-    int roiwidth = 3 * params.getRoilen();
+    int roiwidth = 5 * params.getRoilen();
     int nbrRoisPerFrame = 20;
     int rois = 0;
 

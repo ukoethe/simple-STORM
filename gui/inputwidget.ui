@@ -87,7 +87,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>&amp;Factor:</string>
+         <string>Upsampling &amp;factor:</string>
         </property>
         <property name="buddy">
          <cstring>spn_factor</cstring>
@@ -138,8 +138,11 @@
       </item>
       <item row="4" column="0">
        <widget class="QLabel" name="label_8">
+        <property name="toolTip">
+         <string>Percentage of false detections</string>
+        </property>
         <property name="text">
-         <string>p-&amp;Value:</string>
+         <string>Sensitivity (p-&amp;Value):</string>
         </property>
         <property name="buddy">
          <cstring>spn_alpha</cstring>
@@ -173,14 +176,17 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="suffix">
+         <string> %</string>
+        </property>
         <property name="decimals">
-         <number>4</number>
+         <number>2</number>
         </property>
         <property name="maximum">
-         <double>999999999.000000000000000</double>
+         <double>100.000000000000000</double>
         </property>
         <property name="value">
-         <double>0.010000000000000</double>
+         <double>0.100000000000000</double>
         </property>
        </widget>
       </item>
@@ -205,7 +211,7 @@
          <double>999999999.000000000000000</double>
         </property>
         <property name="value">
-         <double>1.000000000000000</double>
+         <double>100.000000000000000</double>
         </property>
        </widget>
       </item>

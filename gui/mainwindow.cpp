@@ -58,7 +58,9 @@ void MainWindow::aboutClicked()
     QMessageBox::about(this, "About simpleSTORM",
                        QString("simpleSTORM %1\n"
                        "simpleSTORM GUI %2\n"
-                       "GUI Version %3, STORM Version %4").arg(QString::fromStdString(wienerStormAuthors())).arg(STORMGUI_AUTHORS).arg(STORMGUI_VERSION_STRING).arg(QString::fromStdString(wienerStormVersion())));
+                       "GUI Version %3, STORM Version %4\n"
+                       "Git-Repository: https://github.com/ukoethe/simple-STORM"
+                    ).arg(QString::fromStdString(wienerStormAuthors())).arg(STORMGUI_AUTHORS).arg(STORMGUI_VERSION_STRING).arg(QString::fromStdString(wienerStormVersion())));
 }
 
 void MainWindow::run(const GuiParams &params)
