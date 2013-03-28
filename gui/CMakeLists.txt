@@ -27,7 +27,6 @@ set(SRCS
     previewimage.cpp
     previewscrollarea.cpp
     filenamelineedit.cpp
-    globals.cpp
     guiparams.cpp
 )
 

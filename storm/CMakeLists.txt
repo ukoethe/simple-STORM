@@ -23,7 +23,7 @@ set(WIENERSTORM_SRCS
 )
 set(WIENERSTORM_HDRS
     stormparams.h
-    dataprams.h
+    dataparams.h
     wienerStorm.hxx
     util.h
 )
