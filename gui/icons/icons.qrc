@@ -8,5 +8,7 @@
         <file>zoom-fit-best.svgz</file>
         <file>zoom-in.svgz</file>
         <file>zoom-out.svgz</file>
+        <file>StormIcon.svg</file>
+        <file>StormIcon.png</file>
     </qresource>
  </RCC>

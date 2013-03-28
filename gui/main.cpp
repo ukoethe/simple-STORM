@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 {
     QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
     QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
-    
+
     fileOpenDialogDirectory = QDir::homePath();
     fileSaveDialogDirectory = QDir::homePath();
 
@@ -29,6 +29,7 @@ int main(int argc, char* argv[])
 
     MainWindow mainWindow(0, Qt::Window);
     mainWindow.setWindowTitle("simpleSTORM");
+    mainWindow.setWindowIcon(QIcon(":/StormIcon.png"));
     //mainWindow.setWindowState(Qt::WindowMaximized);
     mainWindow.show();
     int ret = app.exec();

@@ -55,12 +55,17 @@ MainWindow::~MainWindow()
 
 void MainWindow::aboutClicked()
 {
-    QMessageBox::about(this, "About simpleSTORM",
-                       QString("simpleSTORM %1\n"
-                       "simpleSTORM GUI %2\n"
-                       "GUI Version %3, STORM Version %4\n"
-                       "Git-Repository: https://github.com/ukoethe/simple-STORM"
-                    ).arg(QString::fromStdString(wienerStormAuthors())).arg(STORMGUI_AUTHORS).arg(STORMGUI_VERSION_STRING).arg(QString::fromStdString(wienerStormVersion())));
+    QMessageBox msg(this);
+    msg.setWindowTitle("About simpleSTORM");
+    msg.setTextFormat(Qt::RichText);
+    msg.setText(QString("simpleSTORM %1<br>"
+                       "simpleSTORM GUI %2<br>"
+                       "GUI Version %3, STORM Version %4<br>"
+                       "Git-Repository: <a href=\"%5\">%5</a>"
+                    ).arg(QString::fromStdString(wienerStormAuthors())).arg(STORMGUI_AUTHORS).arg(STORMGUI_VERSION_STRING).arg(QString::fromStdString(wienerStormVersion())).arg(STORMGUI_URL));
+
+    msg.setIconPixmap(windowIcon().pixmap(windowIcon().availableSizes().last()));
+    msg.exec();
 }
 
 void MainWindow::run(const GuiParams &params)
