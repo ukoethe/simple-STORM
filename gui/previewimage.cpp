@@ -1,7 +1,7 @@
 #include "previewimage.h"
 
 #include "guiparams.h"
-
+#include <functional>
 #include <QEvent>
 #include <QResizeEvent>
 #include <QPaintEvent>
@@ -39,7 +39,8 @@ void PreviewImage::setParams(const GuiParams *params)
     m_sizeFactor = m_params->getPixelSize() / (m_params->getReconstructionResolution() * m_params->getFactor());
     m_size = m_resultSize = QSize(resultShape[0], resultShape[1]);
     setBaseSize(m_resultSize);
-    QFuture<void> f = QtConcurrent::run([this, resultShape](){m_result.reshape(resultShape, 0.);});
+    std::function<void()> func([this, resultShape]() -> void {m_result.reshape(resultShape, 0.);});
+    QFuture<void> f = QtConcurrent::run(func);
     if (!m_watcher){
         m_watcher = new QFutureWatcher<void>();
         connect(m_watcher, SIGNAL(finished()), this, SLOT(initializationFinished()));

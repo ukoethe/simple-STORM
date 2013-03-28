@@ -43,12 +43,12 @@ bool initR(int argc, char **argv, bool withRestart)
             return false;
         char **args = (char**)std::malloc((argc + 3) * sizeof(char*));
 #ifdef __WIN__
-		args[0] = (char*) "Rcmd";
-		int cmdarg = 1;
+        args[0] = (char*) "Rcmd";
+        int cmdarg = 1;
 #else
         args[0] = (char*)"R";
         args[1] = (char*)"CMD";
-		int cmdarg = 2
+        int cmdarg = 2;
 #endif
         for (int i = 0, j = cmdarg; i < argc; ++i, ++j) {
 #ifdef __WIN__

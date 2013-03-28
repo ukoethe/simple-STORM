@@ -50,12 +50,8 @@ include_directories(
 )
 
 qt4_wrap_ui(UI_HEADERS ${UIS})
-add_executable(storm-gui ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
+add_executable(storm-gui WIN32 MACOSX_BUNDLE ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
 set_target_properties(storm-gui PROPERTIES AUTOMOC TRUE)
-
-if(WIN32)
-	set_target_properties(storm-gui PROPERTIES WIN32_EXECUTABLE TRUE)
-endif(WIN32)
 
 target_link_libraries(storm-gui ${QT_LIBRARIES} wienerstorm vigraimpex)
 
@@ -65,7 +61,7 @@ IF(OPENMP_FOUND)
     add_definitions(-DOPENMP_FOUND)
 ENDIF(OPENMP_FOUND)
 
-install(TARGETS storm-gui RUNTIME DESTINATION ${BIN_INSTALL_DIR})
+install(TARGETS storm-gui RUNTIME DESTINATION ${BIN_INSTALL_DIR} BUNDLE DESTINATION ${BIN_INSTALL_DIR})
 
 set(CPACK_PACKAGE_VERSION_MAJOR ${STORMGUI_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${STORMGUI_VERSION_MINOR})
