@@ -36,9 +36,9 @@ InputWidget::InputWidget(QWidget *parent)
     connect(m_ui->btn_run, SIGNAL(clicked()), this, SLOT(runClicked()));
     connect(m_ui->chk_advancedSettings, SIGNAL(toggled(bool)), this, SLOT(advancedSettingsToggled(bool)));
     advancedSettingsToggled(m_ui->chk_advancedSettings->isChecked());
-    connect(m_ui->spn_factor, SIGNAL(valueChanged(int)), this, SLOT(factorEdited(int)));
-    connect(m_ui->spn_pixelSize, SIGNAL(valueChanged(double)), this, SLOT(pixelSizeEdited(double)));
-    connect(m_ui->spn_reconstructionRes, SIGNAL(valueChanged(int)), this, SLOT(reconstructionResolutionEdited(int)));
+    connect(m_ui->spn_factor, SIGNAL(editingFinished()), this, SLOT(factorEdited()));
+    connect(m_ui->spn_pixelSize, SIGNAL(editingFinished()), this, SLOT(pixelSizeEdited()));
+    connect(m_ui->spn_reconstructionRes, SIGNAL(editingFinished()), this, SLOT(reconstructionResolutionEdited()));
     enableInput(false);
 }
 
@@ -185,20 +185,20 @@ void InputWidget::enableInput(bool enable)
     m_ui->grp_data->setEnabled(enable);
 }
 
-void InputWidget::factorEdited(int val)
+void InputWidget::factorEdited()
 {
-    if (m_ui->spn_reconstructionRes->value() * val < m_ui->spn_pixelSize->value())
-        m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / val);
+    if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < m_ui->spn_pixelSize->value())
+        m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
 }
 
-void InputWidget::pixelSizeEdited(double val)
+void InputWidget::pixelSizeEdited()
 {
-    if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < val)
-        m_ui->spn_reconstructionRes->setValue(val / m_ui->spn_factor->value());
+    if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < m_ui->spn_pixelSize->value())
+        m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
 }
 
-void InputWidget::reconstructionResolutionEdited(int val)
+void InputWidget::reconstructionResolutionEdited()
 {
-    if (m_ui->spn_pixelSize->value() / val > m_ui->spn_factor->value())
-        m_ui->spn_factor->setValue(m_ui->spn_pixelSize->value() / val);
+    if (m_ui->spn_pixelSize->value() / m_ui->spn_reconstructionRes->value() > m_ui->spn_factor->value())
+        m_ui->spn_factor->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_reconstructionRes->value());
 }
