@@ -48,7 +48,7 @@ bool initR(int argc, char **argv, bool withRestart)
 #else
         args[0] = (char*)"R";
         args[1] = (char*)"CMD";
-		int cmdarg = 2
+		int cmdarg = 2;
 #endif
         for (int i = 0, j = cmdarg; i < argc; ++i, ++j) {
 #ifdef __WIN__

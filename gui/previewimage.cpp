@@ -34,7 +34,7 @@ void PreviewImage::setUpdateInterval(const std::chrono::milliseconds &interval)
 void PreviewImage::setParams(const GuiParams *params)
 {
     m_params = params;
-    vigra::Shape2 resultShape(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution(), m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution());
+    vigra::Shape2 resultShape(std::ceil(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution()), std::ceil(m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution()));
     std::cout<< resultShape[0]<<" "<<resultShape[1]<<std::endl;
     m_sizeFactor = m_params->getPixelSize() / (m_params->getReconstructionResolution() * m_params->getFactor());
     m_size = m_resultSize = QSize(resultShape[0], resultShape[1]);
@@ -82,14 +82,16 @@ void PreviewImage::updateImage()
 
     // some maxima are very strong so we scale the image as appropriate :
     m_limits.first = m_limits.second = 0;
-    auto it = --m_resultsForScaling.end();
-    for (size_t i = m_resultsForScaling.size(); i >= m_resultsForScaling.size() * 0.996; --i, --it)
-        m_limits.second = *it;
-    m_intensityFactor = 255 / (m_limits.second - m_limits.first);
+    if (!m_resultsForScaling.empty()) {
+        auto it = --m_resultsForScaling.end();
+        for (size_t i = m_resultsForScaling.size(); i >= m_resultsForScaling.size() * 0.996; --i, --it)
+            m_limits.second = *it;
+        m_intensityFactor = 255 / (m_limits.second - m_limits.first);
+    }
     if (m_scalex < 1) {
         for (int frame : m_unprocessed) {
             for (const Coord<float> &c : m_results->at(frame)) {
-                int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
+                int x = std::round(c.x * m_sizeFactor), y = std::round(c.y * m_sizeFactor);
                 m_toPaint.insert(QPair<int, int>(x, y));
             }
         }
