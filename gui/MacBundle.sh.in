@@ -1,0 +1,4 @@
+#!/bin/sh
+BUNDLE="`dirname $0`"
+exec "$BUNDLE/../Resources/@BIN_INSTALL_DIR@/@GUI_EXECUTABLE@"
+
