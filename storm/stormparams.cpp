@@ -468,7 +468,7 @@ void StormParams::setDefaults() {
     m_chunksInMemory = 5;
     m_chunksInMemorySaved = true;
     m_thresholdMask = 0;
-    setAlpha(0.001);
+    setAlpha(0.1);
     setDoAsymmetryCheck(false);
     m_verbose = false;
 }

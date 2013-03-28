@@ -30,6 +30,16 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
 
     UNPROTECT(3);
     R_gc();
+    std::cout<< (sigmax + sigmay) / 2<<std::endl;
+    std::cout<<std::endl;
+    for (int i = 0; i<ps.shape(0); ++i) {
+        std::cout<<ps(i,ps.shape(1)/2)<<", ";
+    }
+    std::cout<<std::endl;
+    for (int i = 0; i<ps.shape(0); ++i) {
+        std::cout<<ps(i,ps.shape(1)/2+1)<<", ";
+    }
+    std::cout<<std::endl;
     wienerStorm_R_mutex.unlock();
 }
 

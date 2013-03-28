@@ -5,7 +5,7 @@ set(STORMGUI_VERSION_MAJOR 0)
 set(STORMGUI_VERSION_MINOR 3)
 set(STORMGUI_VERSION_PATCH 0)
 
-set(STORMGUI_AUTHORS "© 2013 Ilia Kats")
+set(STORMGUI_AUTHORS "© 2013 Ilia Kats Frank Herrmannsdoerfer und Ullrich Koethe")
 
 SET(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH}  ${storm-gui_SOURCE_DIR}/../cmake)
 

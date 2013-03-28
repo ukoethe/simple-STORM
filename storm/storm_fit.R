@@ -30,8 +30,8 @@ fit.filter <- function(img) {
     dims <- dim(img)
     mux <- ceiling(dims[2] / 2)
     muy <- ceiling(dims[1] / 2)
-    sigmaxstart = dims[2] / 10
-    sigmaystart = dims[1] / 10
+    sigmaxstart = dims[2] / 20
+    sigmaystart = dims[1] / 20
     img[muy, mux] <- 0
 
     offset <- min(img)

@@ -108,7 +108,8 @@ void InputWidget::runClicked()
     m_params.setPixelSize(m_ui->spn_pixelSize->value());
     m_params.setReconstructionResolution(m_ui->spn_reconstructionRes->value());
     m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
-    m_params.setAlpha(m_ui->spn_alpha->value());
+    m_params.setAlpha((m_ui->spn_alpha->value())/100.);
+    std::cout<<"Alpha: "<<m_params.getAlpha()<<" spn_skellamFrames: "<<m_ui->spn_skellamFrames->value()<<std::endl;
 
     if (m_ui->chk_advancedSettings->isChecked()) {
         m_params.setRoilen(m_uiAdvancedSettings->spn_roilen->value());
