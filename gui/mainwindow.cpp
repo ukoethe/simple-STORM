@@ -64,8 +64,10 @@ void MainWindow::aboutClicked()
 void MainWindow::run(const GuiParams &params)
 {
     ResultWidget *result = new ResultWidget(this);
-    m_widget->setCurrentIndex(m_widget->addTab(result, QFileInfo(QString::fromStdString(params.getInFile())).fileName()));
+    int index = m_widget->addTab(result, QFileInfo(QString::fromStdString(params.getInFile())).fileName());
+    m_widget->setCurrentIndex(index);
     connect(result, SIGNAL(userAttentionRequired(QWidget*)), m_widget, SLOT(setCurrentWidget(QWidget*)));
+    connect(result, SIGNAL(toolTip(const QString&, ResultWidget*)), this, SLOT(toolTip(const QString&, ResultWidget*)));
     result->start(params);
 }
 
@@ -108,4 +110,9 @@ void MainWindow::onApplicationClose()
         job->waitFor();
         delete job;
     }
+}
+
+void MainWindow::toolTip(const QString &tip, ResultWidget *widget)
+{
+    m_widget->setTabToolTip(m_widget->indexOf(widget), tip);
 }

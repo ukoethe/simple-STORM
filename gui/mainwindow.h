@@ -31,6 +31,7 @@ private Q_SLOTS:
     bool tabClosed(int);
     void deletedResultFinished(ResultWidget*);
     void onApplicationClose();
+    void toolTip(const QString&, ResultWidget*);
 };
 
 #endif
