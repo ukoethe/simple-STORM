@@ -424,7 +424,9 @@ Calculates a mask that contains the information whether or not a pixel belongs t
 template <class T>
 void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
 	//double cdf = params.getMaskThreshold();
-
+	char orig[1000];
+    sprintf(orig, "/home/herrmannsdoerfer/tmpOutput/mask/origimg%d.tif",framenumber);
+    vigra::exportImage(srcImageRange(array), orig);
     double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
     char vorcc[1000];

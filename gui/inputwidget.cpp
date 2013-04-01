@@ -152,7 +152,7 @@ void InputWidget::setFieldsFromDefaults()
     m_ui->spn_pixelSize->setValue(m_params.getPixelSize());
     m_ui->spn_reconstructionRes->setValue(m_params.getReconstructionResolution());
     m_ui->spn_skellamFrames->setValue(m_params.getSkellamFrames());
-    m_ui->spn_alpha->setValue(m_params.getAlpha());
+    m_ui->spn_alpha->setValue(m_params.getAlpha()*100);
 
     m_ui->chk_advancedSettings->setChecked(m_params.getAdvancedSettingsEnabled());
 
