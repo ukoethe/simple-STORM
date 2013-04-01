@@ -424,23 +424,14 @@ Calculates a mask that contains the information whether or not a pixel belongs t
 template <class T>
 void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
 	//double cdf = params.getMaskThreshold();
-	char orig[1000];
-    sprintf(orig, "/home/herrmannsdoerfer/tmpOutput/mask/origimg%d.tif",framenumber);
-    vigra::exportImage(srcImageRange(array), orig);
     double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
-    char vorcc[1000];
-    sprintf(vorcc, "/home/herrmannsdoerfer/tmpOutput/mask/vorCC%d.tif",framenumber);
-    vigra::exportImage(srcImageRange(mask), vorcc);
     vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.5*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
-    char nachcc[1000];
-    sprintf(nachcc, "/home/herrmannsdoerfer/tmpOutput/mask/nachCC%d.tif",framenumber);
-    vigra::exportImage(srcImageRange(mask), nachcc);
 }
 
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
