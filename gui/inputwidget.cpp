@@ -39,6 +39,8 @@ InputWidget::InputWidget(QWidget *parent)
     connect(m_ui->spn_factor, SIGNAL(editingFinished()), this, SLOT(factorEdited()));
     connect(m_ui->spn_pixelSize, SIGNAL(editingFinished()), this, SLOT(pixelSizeEdited()));
     connect(m_ui->spn_reconstructionRes, SIGNAL(editingFinished()), this, SLOT(reconstructionResolutionEdited()));
+    connect(m_uiAdvancedSettings->chk_doAsymmetryCheck, SIGNAL(toggled(bool)), this, SLOT(doAsymmetryCheckToggled(bool)));
+    doAsymmetryCheckToggled(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked());
     enableInput(false);
 }
 
@@ -102,6 +104,12 @@ void InputWidget::advancedSettingsToggled(bool toggled)
     m_params.setAdvancedSettingsEnabled(toggled);
 }
 
+void InputWidget::doAsymmetryCheckToggled(bool toggled)
+{
+    m_uiAdvancedSettings->spn_AsymmetryThreshold->setEnabled(toggled);
+    m_uiAdvancedSettings->label_AsymThreshold->setEnabled(toggled);
+}
+
 void InputWidget::runClicked()
 {
     m_params.setFactor(m_ui->spn_factor->value());
@@ -117,6 +125,10 @@ void InputWidget::runClicked()
         m_params.setTChunkSize(m_uiAdvancedSettings->spn_tChunkSize->value());
         m_params.setChunksInMemory(m_uiAdvancedSettings->spn_chunksInMemory->value());
         m_params.setDoAsymmetryCheck(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked());
+        if(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked()) {
+            m_params.setAsymmetryThreshold(m_uiAdvancedSettings->spn_AsymmetryThreshold->value());
+        }
+
     } else {
         int resx = m_params.shape()[0], resy = m_params.shape()[1], resz = m_params.shape()[2];
         int currValueXYSlider = m_uiBackgroundLevel->sldr_xyBackgroundLevel->value();

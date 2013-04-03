@@ -2,7 +2,8 @@
 /*                                                                      */
 /*                  ANALYSIS OF STORM DATA                              */
 /*                                                                      */
-/*    Copyright 2010-2011 by Joachim Schleicher and Ullrich Koethe      */
+/*    Copyright 2010-2013 by Joachim Schleicher, Ullrich Koethe         */
+/*		Frank Herrmannsdoerfer and Ilia Kats			*/
 /*                                                                      */
 /*    Please direct questions, bug reports, and contributions to        */
 /*    joachim.schleicher@iwr.uni-heidelberg.de                          */

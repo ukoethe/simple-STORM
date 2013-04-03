@@ -38,6 +38,7 @@ private Q_SLOTS:
     void settingsFileButtonClicked();
     void settingsFileEdited(const QString&);
     void advancedSettingsToggled(bool);
+    void doAsymmetryCheckToggled(bool);
     void runClicked();
     void factorEdited();
     void pixelSizeEdited();
