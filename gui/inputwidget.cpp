@@ -115,7 +115,7 @@ void InputWidget::runClicked()
     m_params.setFactor(m_ui->spn_factor->value());
     m_params.setPixelSize(m_ui->spn_pixelSize->value());
     m_params.setReconstructionResolution(m_ui->spn_reconstructionRes->value());
-    m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
+
     m_params.setAlpha((m_ui->spn_alpha->value())/100.);
     std::cout<<"Alpha: "<<m_params.getAlpha()<<" spn_skellamFrames: "<<m_ui->spn_skellamFrames->value()<<std::endl;
 
@@ -153,6 +153,9 @@ void InputWidget::runClicked()
     m_params.setUseSavedIntercept(m_ui->spn_offset->value() > 0);
     m_params.setSigma(m_ui->spn_sigma->value());
     m_params.setUseSavedSigma(m_ui->spn_sigma->value() > 0);
+    if (!(m_params.getSlopeSaved() and m_params.getInterceptSaved())) {
+        m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
+    }
 
     m_params.doSanityChecks();
     emit run(m_params);
