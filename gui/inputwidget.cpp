@@ -216,5 +216,5 @@ void InputWidget::pixelSizeEdited()
 void InputWidget::reconstructionResolutionEdited()
 {
     if (m_ui->spn_pixelSize->value() / m_ui->spn_reconstructionRes->value() > m_ui->spn_factor->value())
-        m_ui->spn_factor->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_reconstructionRes->value());
+        m_ui->spn_factor->setValue(std::ceil(m_ui->spn_pixelSize->value() / m_ui->spn_reconstructionRes->value()));
 }

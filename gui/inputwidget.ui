@@ -220,13 +220,10 @@
         <property name="text">
          <string>Reconstruction res&amp;olution</string>
         </property>
-        <property name="buddy">
-         <cstring>spn_reconstructionRes</cstring>
-        </property>
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="QSpinBox" name="spn_reconstructionRes">
+       <widget class="QDoubleSpinBox" name="spn_reconstructionRes">
         <property name="sizePolicy">
          <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -237,10 +234,13 @@
          <string> nm/px</string>
         </property>
         <property name="minimum">
-         <number>1</number>
+         <double>1.000000000000000</double>
         </property>
-        <property name="maximum">
-         <number>999999999</number>
+        <property name="singleStep">
+         <double>0.500000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
         </property>
        </widget>
       </item>

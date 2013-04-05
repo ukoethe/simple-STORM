@@ -20,12 +20,12 @@ void GuiParams::setAdvancedSettingsEnabled(bool enabled)
     m_advancedSettingsEnabled = enabled;
 }
 
-int GuiParams::getReconstructionResolution() const
+float GuiParams::getReconstructionResolution() const
 {
     return m_reconstructionResolution;
 }
 
-void GuiParams::setReconstructionResolution(int res)
+void GuiParams::setReconstructionResolution(float res)
 {
     m_reconstructionResolution = res;
 }
