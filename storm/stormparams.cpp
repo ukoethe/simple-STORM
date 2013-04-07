@@ -531,17 +531,17 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 		int this_option_optind = optind ? optind : 1;
 		int option_index = 0;
 		static struct option long_options[] = {
-			{"help",             no_argument,       0,  '?'},
-			{"verbose",          no_argument,       0,  'v'},
-			{"version",          no_argument,       0,  'V'},
-			{"factor",           required_argument, 0,  'g'},
-            {"cam-param-frames", required_argument, 0,  'P'},
-			{"coordsfile",       required_argument, 0,  'c'},
-            {"pixelsize",        required_argument, 0,  'p'},
-			{"settings",         required_argument, 0,  's'},
-			{"roi-len",          required_argument, 0,  'm'},
-			{"frames",           required_argument, 0,  'F'},
-            {"doAsymmetryCheck", required_argument, 0,  'a'},
+			{"help",                no_argument,       0,  '?'},
+			{"verbose",             no_argument,       0,  'v'},
+			{"version",             no_argument,       0,  'V'},
+			{"factor",              required_argument, 0,  'g'},
+            {"cam-param-frames",    required_argument, 0,  'P'},
+			{"coordsfile",          required_argument, 0,  'c'},
+            {"pixelsize",           required_argument, 0,  'p'},
+			{"settings",            required_argument, 0,  's'},
+			{"roi-len",             required_argument, 0,  'm'},
+// 			{"frames",              required_argument, 0,  'F'},
+            {"asymmetry-threshold", required_argument, 0,  'a'},
 			{0, 0, 0, 0 }
 
 		};
@@ -571,10 +571,11 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 		case 's': // settingsfile
 			setSettingsFile(optarg);
 			break;
-		case 'F': // frames
-			setFrameRange(optarg);
-			break;
+// 		case 'F': // frames
+// 			setFrameRange(optarg);
+// 			break;
         case 'a':
+            setAsymmetryThreshold(convertToFloat(optarg));
             setDoAsymmetryCheck(true);
             break;
 		case 'v':
