@@ -127,6 +127,8 @@ StormParams& StormParams::operator=(const StormParams &other)
     m_settingsfile = other.m_settingsfile;
     m_frames = other.m_frames;
     m_acceptedFileTypes = other.m_acceptedFileTypes;
+    m_doAsymmetryCheck = other.m_doAsymmetryCheck;
+    m_asymmetryThreshold = other.m_asymmetryThreshold;
 
     setInFile(other.m_infile, false);
     m_config->clear();
@@ -358,6 +360,10 @@ void StormParams::setDoAsymmetryCheck(bool doAsymmetryCheck) {
 
 bool StormParams::getDoAsymmetryCheck() const {
     return m_doAsymmetryCheck;
+}
+
+bool StormParams::getDoAsymmetryCheckSaved() const {
+    return m_doAsymmetryCheckSaved;
 }
 
 int StormParams::getMaxTChunkSize() const
@@ -762,6 +768,10 @@ void StormParams::save() const
     m_config->setIntValue("chunksInMemory", m_chunksInMemory);
     m_config->setDoubleValue("alpha", m_alpha);
     m_config->setBoolValue("doAsymmetryCheck", m_doAsymmetryCheck);
+    if (m_doAsymmetryCheck)
+        m_config->setDoubleValue("asymmetryThreshold", m_asymmetryThreshold);
+    else
+        std::cout<<"asymmetryThreshold not saved"<<std::endl;
     m_config->save();
 }
 
@@ -804,8 +814,14 @@ void StormParams::loadSettings(bool)
         m_chunksInMemorySaved = false;
     if (m_config->exists("alpha"))
         m_alpha = m_config->getDoubleValue("alpha");
-    if (m_doAsymmetryCheckSaved && m_config->exists("doAsymmetryCheck"))
+    if (m_config->exists("doAsymmetryCheck")){
         m_doAsymmetryCheck = m_config->getBoolValue("doAsymmetryCheck");
-    else
+        if (m_doAsymmetryCheck)
+            m_asymmetryThreshold = m_config->getDoubleValue("asymmetryThreshold");
+        m_doAsymmetryCheckSaved = m_config->getBoolValue("doAsymmetryCheck");;
+    }
+    else{
         m_doAsymmetryCheckSaved = false;
+    }
+
 }

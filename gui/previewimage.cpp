@@ -34,10 +34,11 @@ void PreviewImage::setUpdateInterval(const std::chrono::milliseconds &interval)
 void PreviewImage::setParams(const GuiParams *params)
 {
     m_params = params;
-    vigra::Shape2 resultShape(std::ceil(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution()), std::ceil(m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution()));
+//     vigra::Shape2 resultShape(std::ceil(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution()), std::ceil(m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution()));
+    vigra::Shape2 resultShape((m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution()), (m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution()));
+
     std::cout<< resultShape[0]<<" "<<resultShape[1]<<std::endl;
     m_sizeFactor = m_params->getPixelSize() / (m_params->getReconstructionResolution() * m_params->getFactor());
-    std::cout<<m_sizeFactor<<" "<<m_params->getPixelSize()<<" "<<m_params->getReconstructionResolution()<<" "<<m_params->getFactor()<<std::endl;
     m_size = m_resultSize = QSize(resultShape[0], resultShape[1]);
     setBaseSize(m_resultSize);
     std::function<void()> func([this, resultShape]() -> void {m_result.reshape(resultShape, 0.);});
@@ -70,7 +71,8 @@ void PreviewImage::updateImage()
     m_lastProcessed = std::chrono::steady_clock::now();
     for (int frame : m_unprocessed) {
         for (const Coord<float> &c : m_results->at(frame)) {
-            int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
+//             int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
+            int x = c.x * m_sizeFactor, y = c.y * m_sizeFactor;
             float val = m_result(x,y);
             if (val > 0) {
                 m_resultsForScaling.erase(m_resultsForScaling.find(val));

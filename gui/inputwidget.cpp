@@ -115,9 +115,7 @@ void InputWidget::runClicked()
     m_params.setFactor(m_ui->spn_factor->value());
     m_params.setPixelSize(m_ui->spn_pixelSize->value());
     m_params.setReconstructionResolution(m_ui->spn_reconstructionRes->value());
-
     m_params.setAlpha((m_ui->spn_alpha->value())/100.);
-    std::cout<<"Alpha: "<<m_params.getAlpha()<<" spn_skellamFrames: "<<m_ui->spn_skellamFrames->value()<<std::endl;
 
     if (m_ui->chk_advancedSettings->isChecked()) {
         m_params.setRoilen(m_uiAdvancedSettings->spn_roilen->value());
@@ -127,9 +125,10 @@ void InputWidget::runClicked()
         m_params.setDoAsymmetryCheck(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked());
         if(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked()) {
             m_params.setAsymmetryThreshold(m_uiAdvancedSettings->spn_AsymmetryThreshold->value());
+            m_params.setDoAsymmetryCheck(true);
         }
-
-    } else {
+    }
+    else {
         int resx = m_params.shape()[0], resy = m_params.shape()[1], resz = m_params.shape()[2];
         int currValueXYSlider = m_uiBackgroundLevel->sldr_xyBackgroundLevel->value();
         int maxXYSize = std::min(std::min(resx/2-1,resy/2-1), m_params.getMaxXyChunksize()), minXYSize = m_params.getMinXyChunksize();
@@ -188,6 +187,8 @@ void InputWidget::setFieldsFromDefaults()
         m_ui->spn_sigma->setValue(m_params.getSigma());
     else
         m_ui->spn_offset->setValue(0);
+    if (m_params.getDoAsymmetryCheck())
+        m_uiAdvancedSettings->spn_AsymmetryThreshold->setValue(m_params.getAsymmetryThreshold());
 }
 
 void InputWidget::enableInput(bool enable)
@@ -199,6 +200,8 @@ void InputWidget::enableInput(bool enable)
     m_ui->grp_general->setEnabled(enable);
     m_ui->stck_advancedSettings->setEnabled(enable);
     m_ui->grp_data->setEnabled(enable);
+    if (m_ui->chk_advancedSettings->isChecked() && m_params.getDoAsymmetryCheckSaved())
+        m_uiAdvancedSettings->chk_doAsymmetryCheck->setCheckState(Qt::Checked);
 }
 
 void InputWidget::factorEdited()
