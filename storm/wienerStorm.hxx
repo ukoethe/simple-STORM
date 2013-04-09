@@ -533,7 +533,7 @@ void getPoissonMeansForChunk(const DataParams &params, int tChunkSize,const Mult
             auto nthroi = img.subarray(vigra::Shape3(x * xyChunkSize, y * xyChunkSize, 0), index);
             std::vector<T> vec(nthroi.begin(), nthroi.end());
             std::nth_element(vec.begin(), vec.begin() + vec.size()/2, vec.end());
-            regionMeans(x, y) = vec[vec.size()/2] + 0.3333;
+            regionMeans(x, y) = vec[vec.size()/2];
         }
     }
 }
@@ -702,7 +702,7 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
 
     T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::min();
     for (auto i = maxima.begin(); i != maxima.end(); ++i) {
-        if (i->x < roiwidth2 || i->x > w - roiwidth2 || i->y < roiwidth2 || i->y > h - roiwidth2)
+        if (i->x < roiwidth2 + 1 || i->x > w - roiwidth2 - 1 || i->y < roiwidth2 + 1 || i->y > h - roiwidth2 - 1)
             continue;
         if (i->val < min)
             min = i->val;
@@ -835,7 +835,7 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
         return;}
     progressFunc.setStage(PSFWidth);
     unsigned int stacksize = params.getSkellamFrames();
-    int roiwidth = 5 * params.getRoilen();
+    int roiwidth = 3 * params.getRoilen();
     int nbrRoisPerFrame = 20;
     int rois = 0;
 
