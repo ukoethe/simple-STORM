@@ -533,7 +533,7 @@ void getPoissonMeansForChunk(const DataParams &params, int tChunkSize,const Mult
             auto nthroi = img.subarray(vigra::Shape3(x * xyChunkSize, y * xyChunkSize, 0), index);
             std::vector<T> vec(nthroi.begin(), nthroi.end());
             std::nth_element(vec.begin(), vec.begin() + vec.size()/2, vec.end());
-            regionMeans(x, y) = vec[vec.size()/2];
+            regionMeans(x, y) = vec[vec.size()/2] + 0.3333;
         }
     }
 }
@@ -549,6 +549,9 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
                                      [](T srcPixel, T poissonPixel) -> T {T val = srcPixel - poissonPixel; return (std::isnan(val)) ? 0 : val;});
+        char name[1000];
+        sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/frame%d.tif", middleChunkFrame+f);
+        vigra::exportImage(srcImageRange(currSrc), name);
         functor(params, currSrc, currframe + f);
         progressFunc.frameFinished(currframe + f);
     }
@@ -798,8 +801,10 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     progressFunc.setStage(ParameterCheck);
     processStack<T>(params, func, progressFunc, stacksize);
     T medBGVar;
-
+    int counter = 0;
+    T initialSlope = params.getSlope();
     while (true) {
+        counter += 1;
         processStack<T>(params, func, progressFunc, stacksize);
         std::nth_element(BGVars.begin(), BGVars.begin() + BGVars.size()/2, BGVars.end());
         medBGVar = BGVars[BGVars.size()/2];
@@ -811,6 +816,11 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
         std::cout<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*std::pow(medBGVar,2)<<" based on estimated background variance of: "<<medBGVar<<std::endl;
         params.setSlope(params.getSlope()*std::pow(medBGVar,2));
         BGVars.clear();
+        if (counter > 10){
+            std::cout<<"maximal number of iterations for parameter check is reached without converging variance. The slope is set to the initial guess."<<std::endl;
+            params.setSlope(initialSlope);
+            break;
+        }
     }
 }
 

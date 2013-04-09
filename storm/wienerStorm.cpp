@@ -26,7 +26,12 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
     double *sigmas = REAL(t);
     double sigmax = ps.shape(0) / (2 * std::sqrt(2) * M_PI * sigmas[0]);
     double sigmay = ps.shape(1) / (2 * std::sqrt(2) * M_PI * sigmas[1]);
-    params.setSigma((sigmax + sigmay) / 2);
+    if ((sigmax + sigmay)<0){
+        params.setSigma(0);
+        std::cout<<"fit result for sigma was negative, sigma is set to 0.";
+    }
+    else
+        params.setSigma((sigmax + sigmay) / 2);
 
     UNPROTECT(3);
     R_gc();
