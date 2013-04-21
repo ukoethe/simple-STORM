@@ -12,30 +12,6 @@
 std::mutex wienerStorm_R_mutex; // R is not thread-safe
 
 void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
-    wienerStorm_R_mutex.lock();
-    SEXP mat, fun, t;
-    PROTECT(mat = Rf_allocMatrix(REALSXP, ps.shape(1), ps.shape(0)));
-    std::memcpy(REAL(mat), ps.data(), ps.size() * sizeof(double));
-    PROTECT(fun = t = Rf_allocList(2));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("fit.filter"));
-    t = CDR(t);
-    SETCAR(t, mat);
-
-    PROTECT(t = Rf_eval(fun, R_GlobalEnv));
-    double *sigmas = REAL(t);
-    double sigmax = ps.shape(0) / (2 * std::sqrt(2) * M_PI * sigmas[0]);
-    double sigmay = ps.shape(1) / (2 * std::sqrt(2) * M_PI * sigmas[1]);
-    if ((sigmax + sigmay)<0){
-        params.setSigma(0);
-        std::cout<<"fit result for sigma was negative, sigma is set to 0.";
-    }
-    else
-        params.setSigma((sigmax + sigmay) / 2);
-
-    UNPROTECT(3);
-    R_gc();
-    std::cout<< (sigmax + sigmay) / 2<<std::endl;
     std::cout<<std::endl;
     for (int i = 0; i<ps.shape(0); ++i) {
         std::cout<<ps(i,ps.shape(1)/2)<<", ";
@@ -45,7 +21,33 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
         std::cout<<ps(i,ps.shape(1)/2+1)<<", ";
     }
     std::cout<<std::endl;
-    wienerStorm_R_mutex.unlock();
+    try {
+        wienerStorm_R_mutex.lock();
+        SEXP mat, fun, t;
+        PROTECT(mat = Rf_allocMatrix(REALSXP, ps.shape(1), ps.shape(0)));
+        std::memcpy(REAL(mat), ps.data(), ps.size() * sizeof(double));
+        PROTECT(fun = t = Rf_allocList(2));
+        SET_TYPEOF(fun, LANGSXP);
+        SETCAR(t, Rf_install("fit.filter"));
+        t = CDR(t);
+        SETCAR(t, mat);
+
+        PROTECT(t = Rf_eval(fun, R_GlobalEnv));
+        double *sigmas = REAL(t);
+        double sigmax = std::abs(ps.shape(0) / (2 * std::sqrt(2) * M_PI * sigmas[0]));
+        double sigmay = std::abs(ps.shape(1) / (2 * std::sqrt(2) * M_PI * sigmas[1]));
+
+        params.setSigma((sigmax + sigmay) / 2);
+
+        UNPROTECT(3);
+        R_gc();
+        wienerStorm_R_mutex.unlock();
+    }
+    catch (...) {
+        std::cout<<"Fit for PSF width did not converge. Width is set to 0."<<std::endl;
+        params.setSigma(0);
+    }
+
 }
 
 void preventRConsoleWrite(const char* buf, int buflen)

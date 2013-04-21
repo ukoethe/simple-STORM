@@ -76,6 +76,7 @@ private:
 
 // MAIN
 int main(int argc, char* argv[]) {
+
     try
     {
         DataParams params(argc, argv);
@@ -85,8 +86,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        //~ in.reshape(info.shape());
-        //~ readVolume(info, in);
+        params.doSanityChecks();
         int stacksize = params.shape(2);
         Size2D size2 (params.shape(0), params.shape(1)); // isnt' there a slicing operator?
 

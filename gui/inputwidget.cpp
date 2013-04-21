@@ -152,11 +152,15 @@ void InputWidget::runClicked()
     m_params.setUseSavedIntercept(m_ui->spn_offset->value() > 0);
     m_params.setSigma(m_ui->spn_sigma->value());
     m_params.setUseSavedSigma(m_ui->spn_sigma->value() > 0);
+
     if (!(m_params.getSlopeSaved() and m_params.getInterceptSaved())) {
         m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
     }
-
+    else
+        m_params.setIgnoreSkellamFramesSaved(true);
+    std::cout<<"IgnoreSkellamFramesSaved: "<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
     m_params.doSanityChecks();
+    m_params.setPrefactorSigma(m_ui->spn_factorSigma->value());
     emit run(m_params);
 }
 
@@ -175,6 +179,7 @@ void InputWidget::setFieldsFromDefaults()
     m_uiAdvancedSettings->spn_tChunkSize->setValue(m_params.getTChunkSize());
     m_uiAdvancedSettings->spn_chunksInMemory->setValue(m_params.getChunksInMemory());
 
+
     if (m_params.getSlopeSaved())
         m_ui->spn_gain->setValue(m_params.getSlope());
     else
@@ -189,6 +194,7 @@ void InputWidget::setFieldsFromDefaults()
         m_ui->spn_offset->setValue(0);
     if (m_params.getDoAsymmetryCheck())
         m_uiAdvancedSettings->spn_AsymmetryThreshold->setValue(m_params.getAsymmetryThreshold());
+    m_ui->spn_factorSigma->setValue(m_params.getPrefactorSigma());
 }
 
 void InputWidget::enableInput(bool enable)

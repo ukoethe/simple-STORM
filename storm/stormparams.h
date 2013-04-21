@@ -58,7 +58,7 @@ public:
     { }
 };
 
-/*! 
+/*!
 Class that contains all needed parameters, settings and also provides the information about the input file
 */
 class StormParams {
@@ -119,8 +119,12 @@ public:
     int getMinTChunkSize() const;
     float getMaxAsymmetryThreshold() const;
     float getMinAsymmetryThreshold() const;
+    bool getIgnoreSkellamFramesSaved() const;
+    void setIgnoreSkellamFramesSaved(bool);
     bool getVerbose() const;
     void setVerbose(bool);
+    void setPrefactorSigma(double);
+    double getPrefactorSigma() const;
 
     const Shape & shape() const;
     vigra::MultiArrayIndex shape(const int dim) const;
@@ -147,7 +151,7 @@ private:
 
     mutable void * ptr; // hack
     Shape m_shape;
-    FileType m_type;
+    FileType m_type = UNDEFINED;
     int m_factor;
     bool m_factorSaved;
     int m_roilen;
@@ -174,7 +178,10 @@ private:
     const int m_maxTChunksize = 100;
     const float m_minAsymmetryThreshold = 0;
     const float m_maxAsymmetryThreshold = 5;
+    bool m_ignoreSkellamFramesSaved = false;
     bool m_verbose;
+    double m_prefactorSigma = 0.8;
+
     std::string m_infile;
     std::string m_outfile;
     std::string m_coordsfile;

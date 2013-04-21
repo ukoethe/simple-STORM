@@ -70,7 +70,6 @@ void MainWindow::aboutClicked()
 
 void MainWindow::run(const GuiParams &params)
 {
-    std::cout<<"DoAsymmetryCheck: "<<params.getDoAsymmetryCheck()<<std::endl;
     ResultWidget *result = new ResultWidget(this);
     int index = m_widget->addTab(result, QFileInfo(QString::fromStdString(params.getInFile())).fileName());
     m_widget->setCurrentIndex(index);

@@ -93,6 +93,7 @@ using namespace vigra::functor;
 
 extern std::mutex wienerStorm_R_mutex;
 
+
 enum WienerStormStage{CameraParameters, ParameterCheck, PSFWidth, Localization};
 class ProgressFunctor
 {
@@ -258,7 +259,7 @@ int saveCoordsFile(const DataParams &params, std::ofstream &cfile, const std::ve
         for(it2=coords[j].begin(); it2 != coords[j].end(); it2++) {
             numSpots++;
             const Coord<float>& c = *it2;
-            cfile << std::setprecision(3) << (float)c.x/params.getFactor() * params.getPixelSize() << " " << (float)c.y/params.getFactor() * params.getPixelSize() << " "
+            cfile << std::setprecision(4) << (float)c.x/params.getFactor() * params.getPixelSize() << " " << (float)c.y/params.getFactor() * params.getPixelSize() << " "
                 << j << " " << std::setprecision(1) << c.val << " " << std::setprecision(3) << c.asymmetry << " "
                 << c.signalNoiseRatio << std::endl;
         }
@@ -380,6 +381,15 @@ Fit a straight line to the selected points using R
 template <class T>
 void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
     int nbins = 10;
+//     std::cout<<std::endl;
+//     for (int i =0; i< numberPoints; ++i){
+//         std::cout<<meanValues[i]<<", ";
+//     }
+//     std::cout<<std::endl;
+//     for (int i =0; i< numberPoints; ++i){
+//         std::cout<<skellamParameters[i]<<", ";
+//     }
+//     std::cout<<std::endl;
     wienerStorm_R_mutex.lock();
     SEXP fun, t, tmp;
     PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
@@ -403,13 +413,13 @@ void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],in
     PROTECT(tmp = Rf_eval(fun, R_GlobalEnv));
 
     if (tmp == R_NilValue) {
-        std::cerr << "Fit could not be performed, exiting..." << std::endl;
-        std::exit(1);
+        std::cerr << "Fit could not be performed, seting slope to one and intercept to zero..." << std::endl;
+        params.setSlope(1);
+        params.setIntercept(0);
     } else {
         double *coefs = REAL(tmp);
         params.setSlope(coefs[1]);
         params.setIntercept(-coefs[0] / coefs[1]);
-        std::cout<<"slope: "<< params.getSlope()<<" x0: "<<params.getIntercept() << std::endl;
     }
     UNPROTECT(4);
     R_gc();
@@ -425,6 +435,7 @@ template <class T>
 void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
 	//double cdf = params.getMaskThreshold();
     double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
+//     vigra::exportImage(srcImageRange(array),"/home/herrmannsdoerfer/tmpOutput/array.tif");
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
     vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
@@ -432,12 +443,18 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.25*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
+//     vigra::exportImage(srcImageRange(mask),"/home/herrmannsdoerfer/tmpOutput/mask.tif");
 }
 
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
 template <class T>
 void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
+    bool needSkellam = !((params.getIgnoreSkellamFramesSaved() or params.getSkellamFramesSaved()) && params.getSlopeSaved() && params.getInterceptSaved());
+    if (params.getIgnoreSkellamFramesSaved()) {
+        std::cout<<"Values from GUI dialog:"<<std::endl;
+        std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
+        return;
+    }
     if (!needSkellam) {
         std::cout<<"Values from settings-file:"<<std::endl;
         std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
@@ -451,7 +468,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
     progressFunc.setStackSize(stacksize);
     int maxNumberPoints = 2000;
 
-    T minVal = std::numeric_limits<T>::max();
+    T minVal = std::numeric_limits<T>::max(), maxVal = 0;
     MultiArray<3, T> meanArr(Shape3(w, h, 1)), *img = new MultiArray<3, T>(Shape3(w, h, 1)), *lastVal = new MultiArray<3, T>(Shape3(w, h, 1));
     MultiArray<2, vigra::acc::AccumulatorChain<T, vigra::acc::Select<vigra::acc::Sum, vigra::acc::Variance>>> skellamArr(Shape2(w, h));
     unsigned int passes = skellamArr(0, 0).passesRequired();
@@ -468,7 +485,9 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
             FindMinMax<T> minmax;
             inspectMultiArray(srcMultiArrayRange(*img), minmax);
             if(minVal > minmax.min)
-            minVal = minmax.min;
+                minVal = minmax.min;
+            if(maxVal < minmax.max)
+                maxVal = minmax.max;
             vigra::combineTwoMultiArrays(srcMultiArrayRange(*lastVal), srcMultiArrayRange(*img), destMultiArrayRange(*lastVal), std::minus<T>());
             auto imgIter = lastVal->begin(), imgEnd = lastVal->end();
             auto skellamIter = skellamArr.begin(), skellamEnd = skellamArr.end();
@@ -511,6 +530,12 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
         params.setIntercept(std::min(minVal, params.getIntercept()));
     else
         params.setIntercept(minVal);
+    if(params.getSlope() <= 0)
+        params.setSlope(1);
+    std::cout<<"slope: "<< params.getSlope()<<" x0: "<<params.getIntercept() << std::endl;
+    std::cout<<"min: "<<minVal<<" max: "<<maxVal<<std::endl;
+//     if(params.getSlope()>(maxVal-minVal)/10.) //if the data has no beads the slope might get very high values, if so it is set to a quarter of the range.
+//         params.setSlope((maxVal-minVal)/20.);
     delete lastVal;
     delete img;
     std::cout<<"Estimated values:"<<std::endl;
@@ -689,6 +714,7 @@ adds new powerspecra for each frame to the previous ones
 */
 template <class T, class S>
 void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
+
     int w = params.shape(0), h = params.shape(1);
     int roiwidth2 = roiwidth / 2;
     BasicImageView<T> input = makeBasicImageView(in);
@@ -701,13 +727,15 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
     }
 
     T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::min();
+    int nbrMaxima = 0;
     for (auto i = maxima.begin(); i != maxima.end(); ++i) {
-        if (i->x < roiwidth2 + 1 || i->x > w - roiwidth2 - 1 || i->y < roiwidth2 + 1 || i->y > h - roiwidth2 - 1)
+        if (i->x < roiwidth2 || i->x > w - roiwidth2  || i->y < roiwidth2 || i->y > h - roiwidth2 )
             continue;
         if (i->val < min)
             min = i->val;
         if (i->val > max)
             max = i->val;
+        nbrMaxima += 1;
     }
     int roi = 0;
     T thresh = 0.7 * (max - min) + min;
@@ -715,9 +743,11 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
     std::iota(maxima_indices.begin(), maxima_indices.end(), 0);
     std::random_shuffle(maxima_indices.begin(), maxima_indices.end());
 
+    nbrRoisPerFrame = std::min(nbrRoisPerFrame, nbrMaxima);
+
     for (auto i = maxima_indices.begin(); roi < nbrRoisPerFrame && i != maxima_indices.end(); ++i) {
-        const Coord<T> &maximum = maxima[*i];
-        if (maximum.x < roiwidth2 || maximum.x > w - roiwidth2 || maximum.y < roiwidth2 || maximum.y > h - roiwidth2 || maximum.val < thresh)
+        /*const*/ Coord<T> &maximum = maxima[*i];
+        if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh)
             continue;
         Shape2 roi_ul(maximum.x - roiwidth2, maximum.y - roiwidth2);
         Shape2 roi_lr(maximum.x - roiwidth2 + roiwidth, maximum.y - roiwidth2 + roiwidth);
@@ -726,13 +756,13 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
         MultiArray<2, FFTWComplex<S>> workImage(ps.shape()); //libfftw needs continuous memory
         vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul,  roi_lr)), destMultiArray(workImage, FFTWWriteRealAccessor<S>()));
         fplan.execute(workImage, fourier);
-
         vigra::combineTwoMultiArrays(srcMultiArrayRange(ps),
                                      srcMultiArray(fourier, FFTWSquaredMagnitudeAccessor<double>()),
                                      destMultiArray(ps), std::plus<double>());
         ++roi;
         ++rois;
     }
+
 }
 
 void fitPSF(DataParams&, MultiArray<2, double>&);
@@ -748,7 +778,9 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
     auto iterEnd = iter.getEndIterator();
     vigra::FindMinMax<T> imgMinMax;
     inspectImage(srcImageRange(img), imgMinMax);
-
+    char namePic[1000];
+    sprintf(namePic, "/home/herrmannsdoerfer/tmpOutput/bildforGetBgVar%d.tif",currframe);
+    vigra::exportImage(srcImageRange(img), namePic);
     double varBG = 0;
     int numberBins = 100;
     if (int(imgMinMax.max - imgMinMax.min)>0) {
@@ -758,7 +790,11 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
         accChain.setHistogramOptions(histogram_opt);
         vigra::acc::extractFeatures(iter, iterEnd, accChain);
         vigra::MultiArray<1, double> hist2 = get<vigra::acc::AutoRangeHistogram<0>>(accChain);
-
+//         std::cout<<std::endl;
+//         for (auto it =hist2.begin(); it != hist2.end(); it++){
+//             std::cout<<*it<<", ";
+//         }
+//         std::cout<<std::endl;
         SEXP vec, minimum, maximum, nbrbins, fun, t;
         PROTECT(vec = Rf_allocVector(REALSXP, hist2.size()));
         std::memcpy(REAL(vec), hist2.data(), hist2.size() * sizeof(double));
@@ -792,33 +828,39 @@ The gain factor is adjusted iteratively until the backgrounds variance is equal 
 */
 template <class T>
 void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    bool needSkellam = !(params.getSkellamFramesSaved() && params.getSlopeSaved() && params.getInterceptSaved());
+    std::cout<<params.getSkellamFramesSaved()<<" "<<params.getIgnoreSkellamFramesSaved()<<" "<<(params.getIgnoreSkellamFramesSaved() or params.getSkellamFramesSaved())<<" "<<params.getSlopeSaved()<<" "<<params.getInterceptSaved()<<std::endl;
+    bool needSkellam = !((params.getIgnoreSkellamFramesSaved() or params.getSkellamFramesSaved()) && params.getSlopeSaved() && params.getInterceptSaved());
     if (!needSkellam)
         return;
     unsigned int stacksize = params.getSkellamFrames();
     std::vector<T> BGVars(stacksize);
     auto func = [&params, &BGVars](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance(params, currSrc, BGVars, currframe);};
     progressFunc.setStage(ParameterCheck);
-    processStack<T>(params, func, progressFunc, stacksize);
     T medBGVar;
+    T medBGVar2;
+    int maxIterLimit = 10;
     int counter = 0;
+    std::vector<T> slopeResults(maxIterLimit+1);
     T initialSlope = params.getSlope();
+    slopeResults[0] = initialSlope;
     while (true) {
         counter += 1;
         processStack<T>(params, func, progressFunc, stacksize);
         std::nth_element(BGVars.begin(), BGVars.begin() + BGVars.size()/2, BGVars.end());
         medBGVar = BGVars[BGVars.size()/2];
-        if ((medBGVar - 1)< 0.1 ){
-            std::cout<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*std::pow(medBGVar,2)<<" based on estimated background variance of: "<<medBGVar<<std::endl;
-            params.setSlope(params.getSlope()*std::pow(medBGVar,2));
+        medBGVar2 = medBGVar * medBGVar;
+        if (std::abs(medBGVar - 1)< 0.1 ){
+            std::cout<<std::endl<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*medBGVar2<<" based on estimated background variance of: "<<medBGVar<<std::endl;
+            params.setSlope(params.getSlope()*medBGVar2);
             break;
         }
-        std::cout<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*std::pow(medBGVar,2)<<" based on estimated background variance of: "<<medBGVar<<std::endl;
-        params.setSlope(params.getSlope()*std::pow(medBGVar,2));
+        std::cout<<std::endl<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*medBGVar2<<" based on estimated background variance of: "<<medBGVar<<std::endl;
+        params.setSlope(params.getSlope()*medBGVar2);
+        slopeResults[counter] = params.getSlope();
         BGVars.clear();
-        if (counter > 10){
-            std::cout<<"maximal number of iterations for parameter check is reached without converging variance. The slope is set to the initial guess."<<std::endl;
-            params.setSlope(initialSlope);
+        if (counter == maxIterLimit){
+            std::cout<<"maximal number of iterations for parameter check is reached without converging variance. The slope is set to the average of the last 2 guesses."<<std::endl;
+            params.setSlope((slopeResults[counter-1]+slopeResults[counter-2])/2.);
             break;
         }
     }
@@ -911,7 +953,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     BasicImageView<T> filteredView(filtered.data(), filtered.size());
 
     vigra::copyImage(srcImageRange(input), destImage(unfiltered));
-    float kernelWidth = params.getSigma()*0.8;// tests have shown best accuracy for 0.8 sigma
+    float kernelWidth = params.getSigma()*params.getPrefactorSigma();// tests have shown best accuracy for 0.8 sigma
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
 
     MultiArray<2, T> mask(Shape2(w, h));

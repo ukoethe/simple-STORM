@@ -49,4 +49,6 @@ set(CMAKE_LIBRARY_PATH
     )
 
 add_subdirectory(storm)
+add_subdirectory(tests)
 add_subdirectory(gui)
+

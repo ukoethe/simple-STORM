@@ -94,7 +94,7 @@ StormParams::StormParams()
 }
 
 StormParams::StormParams(const StormParams &other)
-: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames), m_acceptedFileTypes(other.m_acceptedFileTypes) {
+: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames), m_ignoreSkellamFramesSaved(other.m_ignoreSkellamFramesSaved), m_acceptedFileTypes(other.m_acceptedFileTypes) {
     setInFile(other.m_infile, false);
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
@@ -129,6 +129,8 @@ StormParams& StormParams::operator=(const StormParams &other)
     m_acceptedFileTypes = other.m_acceptedFileTypes;
     m_doAsymmetryCheck = other.m_doAsymmetryCheck;
     m_asymmetryThreshold = other.m_asymmetryThreshold;
+    m_ignoreSkellamFramesSaved = other.m_ignoreSkellamFramesSaved;
+
 
     setInFile(other.m_infile, false);
     m_config->clear();
@@ -214,6 +216,15 @@ bool StormParams::getSkellamFramesSaved() const {
     return m_skellamFramesSaved;
 }
 
+void StormParams::setPrefactorSigma(double prefac) {
+    m_prefactorSigma = prefac;
+}
+
+double StormParams::getPrefactorSigma() const {
+    return m_prefactorSigma;
+}
+
+
 unsigned int StormParams::getXYChunkSize() const {
     return m_xyChunkSize;
 }
@@ -221,6 +232,7 @@ void StormParams::setXYChunkSize(unsigned int chunksize) {
     if (chunksize != m_xyChunkSize) {
         m_xyChunkSize = chunksize;
         m_xyChunkSizeSaved = false;
+        std::cout<<"chunksize changed"<<std::endl;
     }
 }
 bool StormParams::getXYChunkSizeSaved() const {
@@ -396,9 +408,21 @@ float StormParams::getMinAsymmetryThreshold() const
     return m_minAsymmetryThreshold;
 }
 
+bool StormParams::getIgnoreSkellamFramesSaved() const
+{
+    return m_ignoreSkellamFramesSaved;
+}
+
+void StormParams::setIgnoreSkellamFramesSaved(bool ignore)
+{
+    std::cout<<"ignore"<<ignore<<std::endl;
+    m_ignoreSkellamFramesSaved = ignore;
+}
+
 bool StormParams::getVerbose() const {
     return m_verbose;
 }
+
 void StormParams::setVerbose(bool verbose) {
     m_verbose = verbose;
 }
@@ -434,12 +458,14 @@ void StormParams::printUsage() const {
 	<< "  --factor=Arg           Resize factor equivalent to the subpixel-precision" << std::endl
 	<< "  --cam-param-frames=Arg Number of frames to use for estimation of gain and offset." << std::endl
     << "                         Set to 0 to use the whole stack." << std::endl
+    << "  --t=Arg                 Set the p value." << std::endl
 	<< "  --coordsfile=Arg       filename for output of the found Coordinates" << std::endl
 	<< "  --pixelsize=Arg        Pixel size in nanometers. If set, the coordinates" << std::endl
 	<< "                         will be in nanometers, otherwise in pixels" << std::endl
 	<< "  --filter=Arg           Text file with filter width (in pixels) for filtering in the" << std::endl
     << "                         FFT domain. If the file does not exist, generate a new filter" << std::endl
 	<< "                         from the data" << std::endl
+	<< "  --p=Arg                Set pixelsize of inputimage."
 	<< "  --roi-len=Arg          size of the roi around maxima candidates" << std::endl
 	<< "  --frames=Arg           run only on a subset of the stack (frames=start:end)" << std::endl
 	<< "  --a                    enables check for asymmetry of points to skip asymmetric ones" <<std::endl
@@ -474,7 +500,7 @@ void StormParams::setDefaults() {
     m_chunksInMemory = 5;
     m_chunksInMemorySaved = true;
     m_thresholdMask = 0;
-    setAlpha(0.1);
+    setAlpha(0.001);
     setDoAsymmetryCheck(false);
     m_verbose = false;
 }
@@ -536,6 +562,7 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 			{"version",             no_argument,       0,  'V'},
 			{"factor",              required_argument, 0,  'g'},
             {"cam-param-frames",    required_argument, 0,  'P'},
+            {"t",                   required_argument, 0,  't'},
 			{"coordsfile",          required_argument, 0,  'c'},
             {"pixelsize",           required_argument, 0,  'p'},
 			{"settings",            required_argument, 0,  's'},
@@ -547,7 +574,7 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 		};
 
 		// valid options: "vc:" => -v option without parameter, c flag requires parameter
-		c = getopt_long(argc, argv, "?vVg:P:t:c:s:p:m:F:a",
+		c = getopt_long(argc, argv, "?vVg:P:t:c:s:p:m:F:a:pV",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -558,6 +585,9 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 			break;
         case 'P': // cam-param-frames
             setSkellamFrames(convertToULong(optarg));
+            break;
+        case 't':
+            setAlpha(convertToULong(optarg));
             break;
 		case 'm': // roi-len
 			setRoilen(convertToLong(optarg));
@@ -769,6 +799,7 @@ void StormParams::save() const
     m_config->setIntValue("chunksInMemory", m_chunksInMemory);
     m_config->setDoubleValue("alpha", m_alpha);
     m_config->setBoolValue("doAsymmetryCheck", m_doAsymmetryCheck);
+    m_config->setDoubleValue("prefactorSigma", m_prefactorSigma);
     if (m_doAsymmetryCheck)
         m_config->setDoubleValue("asymmetryThreshold", m_asymmetryThreshold);
     else
@@ -823,6 +854,9 @@ void StormParams::loadSettings(bool)
     }
     else{
         m_doAsymmetryCheckSaved = false;
+    }
+    if (m_config->exists("prefactorSigma")){
+        m_prefactorSigma = m_config->getDoubleValue("prefactorSigma");
     }
 
 }

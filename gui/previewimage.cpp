@@ -39,7 +39,8 @@ void PreviewImage::setParams(const GuiParams *params)
 
     std::cout<< resultShape[0]<<" "<<resultShape[1]<<std::endl;
     m_sizeFactor = m_params->getPixelSize() / (m_params->getReconstructionResolution() * m_params->getFactor());
-    m_size = m_resultSize = QSize(resultShape[0], resultShape[1]);
+    m_size = QSize(resultShape[0], resultShape[1]);
+    m_resultSize = QSize(resultShape[0], resultShape[1]);
     setBaseSize(m_resultSize);
     std::function<void()> func([this, resultShape]() -> void {m_result.reshape(resultShape, 0.);});
     QFuture<void> f = QtConcurrent::run(func);
@@ -71,8 +72,9 @@ void PreviewImage::updateImage()
     m_lastProcessed = std::chrono::steady_clock::now();
     for (int frame : m_unprocessed) {
         for (const Coord<float> &c : m_results->at(frame)) {
-            int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
-            //int x = c.x * m_sizeFactor, y = c.y * m_sizeFactor;
+            //int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
+            int x = c.x * m_sizeFactor, y = c.y * m_sizeFactor;
+            //std::cout<<"x: "<<x<<" y: "<<y<<std::endl;
             float val = m_result(x,y);
             if (val > 0) {
                 m_resultsForScaling.erase(m_resultsForScaling.find(val));
@@ -95,7 +97,8 @@ void PreviewImage::updateImage()
     if (m_scalex < 1) {
         for (int frame : m_unprocessed) {
             for (const Coord<float> &c : m_results->at(frame)) {
-                int x = std::round(c.x * m_sizeFactor), y = std::round(c.y * m_sizeFactor);
+                int x = (c.x * m_sizeFactor), y = (c.y * m_sizeFactor);
+                //std::cout<<"x2: "<<x<<" y2: "<<y<<std::endl;
                 m_toPaint.insert(QPair<int, int>(x, y));
             }
         }
@@ -124,8 +127,10 @@ void PreviewImage::updatePixmap(const QRect &rect)
         m_painter.fillRect(QRect(ul, lr), QColor(0, 0, 0));
         for (int y = ul.y(); y < lr.y(); ++y) {
             for (int x = ul.x(); x < lr.x(); ++x) {
-                if (x < m_result.shape()[0] and y < m_result.shape()[1] and m_result(x, y) > 0)
+                if (x < m_result.shape()[0] and y < m_result.shape()[1] and m_result(x, y) > 0) {
+                    //std::cout<<"x3: "<<x<<" y3: "<<y<<std::endl;
                     m_painter.fillRect(x, y, 1, 1, QColor(255, 255, 255));
+                }
             }
         }
     } else if (m_toPaint.empty() || m_needCompleteRepaint) {
@@ -181,9 +186,9 @@ void PreviewImage::paintEvent(QPaintEvent *event)
     if (rect.width() > m_size.width() || rect.height() > m_size.height())
         rect.setSize(m_size);
     if (rect.right() >= m_size.width())
-        rect.moveRight(m_size.width() - 1);
+        rect.moveRight(m_size.width() -1);
     if (rect.bottom() >= m_size.height())
-        rect.moveBottom(m_size.height() - 1);
+        rect.moveBottom(m_size.height() -1);
     init(rect);
     updatePixmap(rect);
     if (!isEnabled()) {
@@ -193,8 +198,9 @@ void PreviewImage::paintEvent(QPaintEvent *event)
         opt.initFrom(this);
         p = style()->generatedIconPixmap(QIcon::Disabled, p, &opt);
         QPainter(this).drawPixmap(rect, p);
-    } else
+    } else {
         QPainter(this).drawImage(rect, m_pixmap, m_pixmapGeometry);
+    }
 }
 
 void PreviewImage::init(const QRect &rect)
