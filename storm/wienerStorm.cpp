@@ -17,10 +17,12 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
         std::cout<<ps(i,ps.shape(1)/2)<<", ";
     }
     std::cout<<std::endl;
+    std::cout<<std::endl;
     for (int i = 0; i<ps.shape(0); ++i) {
         std::cout<<ps(i,ps.shape(1)/2+1)<<", ";
     }
     std::cout<<std::endl;
+    vigra::exportImage(srcImageRange(ps), ImageExportInfo("/home/herrmannsdoerfer/ps.tif").setPixelType("UINT32"));
     try {
         wienerStorm_R_mutex.lock();
         SEXP mat, fun, t;

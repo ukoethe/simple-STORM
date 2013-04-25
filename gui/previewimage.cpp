@@ -37,7 +37,6 @@ void PreviewImage::setParams(const GuiParams *params)
     vigra::Shape2 resultShape(std::ceil(m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution()), std::ceil(m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution()));
 //     vigra::Shape2 resultShape((m_params->shape(0) * m_params->getPixelSize() / m_params->getReconstructionResolution()), (m_params->shape(1) * m_params->getPixelSize() / m_params->getReconstructionResolution()));
 
-    std::cout<< resultShape[0]<<" "<<resultShape[1]<<std::endl;
     m_sizeFactor = m_params->getPixelSize() / (m_params->getReconstructionResolution() * m_params->getFactor());
     m_size = QSize(resultShape[0], resultShape[1]);
     m_resultSize = QSize(resultShape[0], resultShape[1]);

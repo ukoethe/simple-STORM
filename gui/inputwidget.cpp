@@ -152,8 +152,8 @@ void InputWidget::runClicked()
     m_params.setUseSavedIntercept(m_ui->spn_offset->value() > 0);
     m_params.setSigma(m_ui->spn_sigma->value());
     m_params.setUseSavedSigma(m_ui->spn_sigma->value() > 0);
-
-    if (!(m_params.getSlopeSaved() and m_params.getInterceptSaved())) {
+    std::cout<<"getSlopeSaved:"<<m_params.getSlopeSaved()<<std::endl;
+    if (!(m_params.getSlopeSaved() or m_params.getInterceptSaved())) {
         m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
     }
     else

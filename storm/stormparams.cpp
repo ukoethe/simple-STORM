@@ -296,7 +296,7 @@ void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
     else {
         vigra_precondition(false, "Wrong infile-extension given. Currently supported: .sif .h5 .hdf .hdf5 .tif .tiff");
     }
-
+    setMaxXyChunksize(std::min(m_shape[0], m_shape[1])/2-1);
     if (forceDefaults)
         setDefaults();
     setDefaultFileNames(forceDefaults);
@@ -391,6 +391,10 @@ int StormParams::getMinTChunkSize() const
 int StormParams::getMaxXyChunksize() const
 {
     return m_maxXyChunksize;
+}
+
+void StormParams::setMaxXyChunksize(float chunksizexy){
+    m_maxXyChunksize = chunksizexy;
 }
 
 int StormParams::getMinXyChunksize() const
@@ -534,10 +538,12 @@ void StormParams::doSanityChecks() {
         std::cout<<"selected value for chunksInMemory ("<<m_chunksInMemory<<") is smaller than 3, it is therefore set to 3"<<std::endl;
         m_chunksInMemory = 3;}
     if (m_xyChunkSize > m_maxXyChunksize) {
-        std::cout<<"selected value for xyChunkSize ("<<m_xyChunkSize<<") is smaller than 3, it is therefore set to 3"<<std::endl;
+        std::cout<<"selected value for xyChunkSize ("<<m_xyChunkSize<<") is greater than "<<m_maxXyChunksize<<", it is therefore set to "<<m_maxXyChunksize<<std::endl;
         m_xyChunkSize = m_maxXyChunksize;}
-    if (m_xyChunkSize < m_minXyChunksize)
+    if (m_xyChunkSize < m_minXyChunksize){
+        std::cout<<"selected value for xyChunkSize ("<<m_xyChunkSize<<") is smaller than "<<m_minXyChunksize<<", it is therefore set to "<<m_minXyChunksize<<std::endl;
         m_xyChunkSize = m_minXyChunksize;
+    }
     if (m_tChunkSize < m_minTChunksize)
         m_tChunkSize = m_minTChunksize;
     if (m_tChunkSize >m_skellamFrames/m_chunksInMemory)

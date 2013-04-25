@@ -114,6 +114,7 @@ public:
     void setAsymmetryThreshold(float);
     bool getDoAsymmetryCheckSaved() const;
     int getMaxXyChunksize() const;
+    void setMaxXyChunksize(float);
     int getMinXyChunksize() const;
     int getMaxTChunkSize() const;
     int getMinTChunkSize() const;
@@ -173,7 +174,7 @@ private:
     bool m_doAsymmetryCheck;
     bool m_doAsymmetryCheckSaved;
     const int m_minXyChunksize = 3;
-    const int m_maxXyChunksize = 100;
+    int m_maxXyChunksize = 100;
     const int m_minTChunksize = 3;
     const int m_maxTChunksize = 100;
     const float m_minAsymmetryThreshold = 0;

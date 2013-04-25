@@ -381,15 +381,15 @@ Fit a straight line to the selected points using R
 template <class T>
 void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
     int nbins = 10;
-//     std::cout<<std::endl;
-//     for (int i =0; i< numberPoints; ++i){
-//         std::cout<<meanValues[i]<<", ";
-//     }
-//     std::cout<<std::endl;
-//     for (int i =0; i< numberPoints; ++i){
-//         std::cout<<skellamParameters[i]<<", ";
-//     }
-//     std::cout<<std::endl;
+    std::cout<<std::endl;
+    for (int i =0; i< numberPoints; ++i){
+        std::cout<<meanValues[i]<<", ";
+    }
+    std::cout<<std::endl;
+    for (int i =0; i< numberPoints; ++i){
+        std::cout<<skellamParameters[i]<<", ";
+    }
+    std::cout<<std::endl;
     wienerStorm_R_mutex.lock();
     SEXP fun, t, tmp;
     PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
@@ -437,13 +437,18 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
     double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
 //     vigra::exportImage(srcImageRange(array),"/home/herrmannsdoerfer/tmpOutput/array.tif");
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
+    char name[1000];
+    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/maskBeforeCC%d.tif", framenumber);
+    vigra::exportImage(srcImageRange(mask), name);
     vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.25*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
-//     vigra::exportImage(srcImageRange(mask),"/home/herrmannsdoerfer/tmpOutput/mask.tif");
+    char name2[1000];
+    sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/maskAfterCC%d.tif", framenumber);
+    vigra::exportImage(srcImageRange(mask), name2);
 }
 
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
@@ -592,12 +597,23 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     unsigned int chunksInMemory = params.getChunksInMemory();
     unsigned int middleChunk = std::floor(0.5 * chunksInMemory);
     auto *tmp = srcImage[0];
+    auto *tmp2 = srcImage[0];
     for (int i = 0; i < middleChunk; ++i) {
         srcImage[i] = srcImage[i + 1];
     }
     srcImage[middleChunk] = tmp;
     params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), tmp->shape(), *tmp);
-    vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params, &tF](T p){return tF((p - params.getIntercept()) / params.getSlope());});
+    char name[1000];
+    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/NotAtAllCorrectedFrame%d.tif", chunk*lastChunkSize);
+    vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
+    vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
+    char name2[1000];
+    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/PoissonCorrectedFrame%d.tif", chunk*lastChunkSize);
+    vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
+    vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&tF](T p){return tF(p);});
+    char name3[1000];
+    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/AnscombeCorrectedFrame%d.tif", chunk*lastChunkSize);
+    vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     //vigra::exportImage(srcImageRange(tmp->bindOuter(0)),"/home/herrmannsdoerfer/tmpOutput/skellamCorrectedFrame.tif");
     for (int z = 0; z < chunksInMemory - 1; ++z) {
         for (int x = 0; x < xChunks; ++x) {
@@ -828,7 +844,6 @@ The gain factor is adjusted iteratively until the backgrounds variance is equal 
 */
 template <class T>
 void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    std::cout<<params.getSkellamFramesSaved()<<" "<<params.getIgnoreSkellamFramesSaved()<<" "<<(params.getIgnoreSkellamFramesSaved() or params.getSkellamFramesSaved())<<" "<<params.getSlopeSaved()<<" "<<params.getInterceptSaved()<<std::endl;
     bool needSkellam = !((params.getIgnoreSkellamFramesSaved() or params.getSkellamFramesSaved()) && params.getSlopeSaved() && params.getInterceptSaved());
     if (!needSkellam)
         return;
@@ -878,7 +893,7 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
     progressFunc.setStage(PSFWidth);
     unsigned int stacksize = params.getSkellamFrames();
     int roiwidth = 3 * params.getRoilen();
-    int nbrRoisPerFrame = 20;
+    int nbrRoisPerFrame = 10;
     int rois = 0;
 
     MultiArray<2, double> ps(Shape2(roiwidth, roiwidth));
@@ -955,6 +970,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     vigra::copyImage(srcImageRange(input), destImage(unfiltered));
     float kernelWidth = params.getSigma()*params.getPrefactorSigma();// tests have shown best accuracy for 0.8 sigma
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
+    //gaussianSharpening(srcImageRange(input), destImage(filteredView), 0.85, kernelWidth);
 
     MultiArray<2, T> mask(Shape2(w, h));
     getMask(params, unfiltered, framenumber, mask);
@@ -962,6 +978,9 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
                                                  // (from overlapping ROIs)
     SetPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_candidates(maxima_candidates_vect, filtered.upperLeft(), 1, mask);
     vigra::localMaxima(srcImageRange(filtered), destImage(filtered, maxima_candidates), vigra::LocalMinmaxOptions().neighborhood(4));
+    char name2[1000];
+    sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/imgBeforeMaximaDetection%d.tif", framenumber);
+    vigra::exportImage(srcImageRange(filtered), name2);
 
     SetPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_acc(maxima_coords, im_xxl.upperLeft(), factor, mask);
     //upscale filtered image regions with spline interpolation
