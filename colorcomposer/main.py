@@ -361,7 +361,7 @@ class MyColorcomposerApp(QtCore.QObject):
 		pearsonCoeff = colocalizationDetection.calcPearsonCorrelationCoeff(imgR, imgG)
 		MR, MG = colocalizationDetection.calcMandersColocalizationCoeffs(imgR, imgG)
 		overlap = colocalizationDetection.calcOverlapCoeff(imgR, imgG)
-		self.m_colocalizationHeatmap = colocalizationDetection.createColocHeatmap(imgR,imgG)
+		#self.m_colocalizationHeatmap = colocalizationDetection.createColocHeatmap(imgR,imgG)
 		self.m_colocalizationHeatmap = colocalizationDetection.coloc(imgR,imgG)
 		self.recalculateResult()
 		

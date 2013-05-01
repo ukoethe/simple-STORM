@@ -437,18 +437,19 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
     double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
 //     vigra::exportImage(srcImageRange(array),"/home/herrmannsdoerfer/tmpOutput/array.tif");
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
-    char name[1000];
-    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/maskBeforeCC%d.tif", framenumber);
-    vigra::exportImage(srcImageRange(mask), name);
+//     char name[1000];
+//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/maskBeforeCC%d.tif", framenumber);
+//     vigra::exportImage(srcImageRange(mask), name);
     vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
     std::valarray<int> bins(0, nbrCC + 1);
     auto fun = [&bins](int32_t p){++bins[p];};
     vigra::inspectImage(srcImageRange(labels), fun);
-    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.25*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
-    char name2[1000];
-    sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/maskAfterCC%d.tif", framenumber);
-    vigra::exportImage(srcImageRange(mask), name2);
+//     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.25*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
+    vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < 3) return 0; else return 1;});
+//     char name2[1000];
+//     sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/maskAfterCC%d.tif", framenumber);
+//     vigra::exportImage(srcImageRange(mask), name2);
 }
 
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
@@ -579,9 +580,9 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
                                      [](T srcPixel, T poissonPixel) -> T {T val = srcPixel - poissonPixel; return (std::isnan(val)) ? 0 : val;});
-        char name[1000];
-        sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/frame%d.tif", middleChunkFrame+f);
-        vigra::exportImage(srcImageRange(currSrc), name);
+//         char name[1000];
+//         sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/frame%d.tif", middleChunkFrame+f);
+//         vigra::exportImage(srcImageRange(currSrc), name);
         functor(params, currSrc, currframe + f);
         progressFunc.frameFinished(currframe + f);
     }
@@ -603,17 +604,17 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     }
     srcImage[middleChunk] = tmp;
     params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), tmp->shape(), *tmp);
-    char name[1000];
-    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/NotAtAllCorrectedFrame%d.tif", chunk*lastChunkSize);
-    vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
+//     char name[1000];
+//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/NotAtAllCorrectedFrame%d.tif", chunk*lastChunkSize);
+//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
     char name2[1000];
-    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/PoissonCorrectedFrame%d.tif", chunk*lastChunkSize);
-    vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
+//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/PoissonCorrectedFrame%d.tif", chunk*lastChunkSize);
+//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&tF](T p){return tF(p);});
-    char name3[1000];
-    sprintf(name, "/home/herrmannsdoerfer/tmpOutput/AnscombeCorrectedFrame%d.tif", chunk*lastChunkSize);
-    vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
+//     char name3[1000];
+//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/AnscombeCorrectedFrame%d.tif", chunk*lastChunkSize);
+//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     //vigra::exportImage(srcImageRange(tmp->bindOuter(0)),"/home/herrmannsdoerfer/tmpOutput/skellamCorrectedFrame.tif");
     for (int z = 0; z < chunksInMemory - 1; ++z) {
         for (int x = 0; x < xChunks; ++x) {
@@ -794,9 +795,9 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
     auto iterEnd = iter.getEndIterator();
     vigra::FindMinMax<T> imgMinMax;
     inspectImage(srcImageRange(img), imgMinMax);
-    char namePic[1000];
-    sprintf(namePic, "/home/herrmannsdoerfer/tmpOutput/bildforGetBgVar%d.tif",currframe);
-    vigra::exportImage(srcImageRange(img), namePic);
+//     char namePic[1000];
+//     sprintf(namePic, "/home/herrmannsdoerfer/tmpOutput/bildforGetBgVar%d.tif",currframe);
+//     vigra::exportImage(srcImageRange(img), namePic);
     double varBG = 0;
     int numberBins = 100;
     if (int(imgMinMax.max - imgMinMax.min)>0) {
@@ -978,9 +979,9 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
                                                  // (from overlapping ROIs)
     SetPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_candidates(maxima_candidates_vect, filtered.upperLeft(), 1, mask);
     vigra::localMaxima(srcImageRange(filtered), destImage(filtered, maxima_candidates), vigra::LocalMinmaxOptions().neighborhood(4));
-    char name2[1000];
-    sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/imgBeforeMaximaDetection%d.tif", framenumber);
-    vigra::exportImage(srcImageRange(filtered), name2);
+//     char name2[1000];
+//     sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/imgBeforeMaximaDetection%d.tif", framenumber);
+//     vigra::exportImage(srcImageRange(filtered), name2);
 
     SetPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_acc(maxima_coords, im_xxl.upperLeft(), factor, mask);
     //upscale filtered image regions with spline interpolation

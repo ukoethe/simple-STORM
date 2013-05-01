@@ -393,8 +393,12 @@ int StormParams::getMaxXyChunksize() const
     return m_maxXyChunksize;
 }
 
-void StormParams::setMaxXyChunksize(float chunksizexy){
+void StormParams::setMaxXyChunksize(int chunksizexy){
     m_maxXyChunksize = chunksizexy;
+}
+
+void StormParams::setMaxTChunksize(int chunksizet){
+    m_maxTChunksize = chunksizet;
 }
 
 int StormParams::getMinXyChunksize() const

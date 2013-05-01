@@ -7,13 +7,13 @@ from munkres import Munkres
 import copy
 
 def getRandomElements(list, numberElements):
-	
+
 	if len(list) < numberElements:
 		print 'list does not contain enough elements'
 		return 0
 	randomElements = []
 	indices = []
-	
+
 	while 1:
 		index = np.random.randint(len(list))
 		addItem = True
@@ -26,7 +26,7 @@ def getRandomElements(list, numberElements):
 			indices.append(index)
 			if len(randomElements)==numberElements:
 				break
-		
+
 	return np.array(randomElements), np.array(indices)
 
 def getGoodPartnerIndex(indicesS, distMat, d):
@@ -39,7 +39,7 @@ def getGoodPartnerIndex(indicesS, distMat, d):
 		randomValue = np.random.random() * np.sum(actuallColumnProb)
 		for j in range(len(actuallColumn)):
 			if (np.sum(actuallColumnProb[0:j]) < randomValue < (np.sum(actuallColumnProb[0:j+1]))):
-				indicesD[i] = j	
+				indicesD[i] = j
 				break
 	indicesD = np.array(indicesD, dtype = int)
 	return d[indicesD], indicesD
@@ -52,7 +52,7 @@ def performRansac(s,d,dims,pointsNeeded, numberIterations, distanceTolerated):
 	trafoCollection = []
 	matchedPoints = []
 	distanceMatrixSD = getDistanceMatrix(s,d)
-	
+
 	for i in range(numberIterations):
 		sSet, indicesS = getRandomElements(s,pointsNeeded)
 		dSet, indicesD = getGoodPartnerIndex(indicesS, distanceMatrixSD, d)
@@ -64,14 +64,14 @@ def performRansac(s,d,dims,pointsNeeded, numberIterations, distanceTolerated):
 		trafoCollection.append(trafo)
 		sTransformed = np.dot(trafo, np.vstack([s.T,np.ones(len(s))])).T[:,:2]
 		distanceMatrix = getDistanceMatrix(sTransformed, d)
-		minimumRow = np.min(distanceMatrix, 1)		
+		minimumRow = np.min(distanceMatrix, 1)
 		matchedPoints.append(np.sum(np.where(minimumRow < distanceTolerated,1,0)))  #all red bead that are closer than distanceTolerated to a green bead are added
 		row, col =np.where(distanceMatrix < distanceTolerated)
 		additionalCandidatesD.append(row)
 		additionalCandidatesS.append(col)
 		#if i%500 == 0:
 		#	print '(%i/%i)'%(i,numberIterations)
-		
+
 	return matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection, trafoCollection
 
 def preselectPoints(s,d,maxDist):
@@ -84,7 +84,7 @@ def preselectPoints(s,d,maxDist):
 			if ((s[i][0]-d[j][0])**2 + (s[i][1]-d[j][1])**2) < maxDist**2:
 				inRange = True
 		if inRange:
-			snew.append(s[i])		
+			snew.append(s[i])
 
 	for j in range(len(d)):
 		inRange = False
@@ -93,33 +93,33 @@ def preselectPoints(s,d,maxDist):
 				inRange = True
 		if inRange:
 			dnew.append(d[j])
-		 
+
 	return np.array(snew), np.array(dnew)
 
 def doRansac(s,d,dims):
 	pointsNeeded = 3
 	numberIterations = 1000
 	numberRestarts = 100
-	distanceTolerated = (dims[0]+dims[1])/40  #This sets the distance for the check of how much more beads are overlapping 
+	distanceTolerated = (dims[0]+dims[1])/100  #This sets the distance for the check of how much more beads are overlapping
 	toleranceForShearing = 0.1				#set this variable to a small value, to suppress shearing
 	maxDist = (dims[0]+dims[1])/2./5				#Beads that have no nearer neighbor of the other color than maxDist are not considered
 	print len(s), len(d)
 	s,d = preselectPoints(s,d,maxDist)
 	print len(s), len(d)
-	
+
 	sc=copy.deepcopy(s)		#affineMatrix2DFromCorrespondingPoints changes the values given
 	dc=copy.deepcopy(d)
-	
+
 	if len(s) < pointsNeeded or len(d)< pointsNeeded:
 		print 'To few points found, there might have been no pairs of matching points'
 		return
-	
+
 	print 'begin Ransac'
 	for i in range(numberRestarts):
 		matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection, trafo = performRansac(sc,dc,dims,pointsNeeded, numberIterations, distanceTolerated)
 		maximalMatchedPoints = np.max(matchedPoints)
 		print maximalMatchedPoints
-		if maximalMatchedPoints > np.min(matchedPoints):	# more combined points are found than points that are necessary for the calculation of the transformation 
+		if maximalMatchedPoints > np.min(matchedPoints):	# more combined points are found than points that are necessary for the calculation of the transformation
 			indexWithMaximalAlignment = np.where(matchedPoints==maximalMatchedPoints)[0][0]
 			#breaks if the trafo has no shear
 			print trafo[indexWithMaximalAlignment]
@@ -137,21 +137,21 @@ def doRansac(s,d,dims):
 			if doBreak:
 				break
 			print 'Start Iteration again (%i/%i), reason: shearing' %(i, numberRestarts)
-			
+
 	print maximalMatchedPoints
 	finalIndicesS = []
 	finalIndicesD = []
-	
+
 	indexWithMaximalAlignment = np.where(matchedPoints==maximalMatchedPoints)[0][0]
-	
+
 	finalIndicesS = additionalCandidatesS[indexWithMaximalAlignment]
 	finalIndicesD = additionalCandidatesD[indexWithMaximalAlignment]
-			
+
 	finalIndicesS = (np.reshape(np.array(finalIndicesS),-1))
 	finalIndicesD = (np.reshape(np.array(finalIndicesD),-1))
-	
+
 	finalTrafo, delR, delPhi = affineMatrix2DFromCorrespondingPoints(s[finalIndicesS], d[finalIndicesD], dims)
-	
+
 	print 'Found %i, Points for transformation' %len(finalIndicesS)
 	print finalTrafo
 	print finalTrafo[0,0]**2+finalTrafo[0,1]**2,finalTrafo[1,0]**2+finalTrafo[1,1]**2
@@ -161,24 +161,24 @@ def getDistanceMatrix(s,d):
 	numberBeadsRed = d.shape[0]
 	numberBeadsGreen = s.shape[0]
 	#matrix is the distance matrix between all red and green points
-	matrix = np.zeros((numberBeadsRed, numberBeadsGreen))		
+	matrix = np.zeros((numberBeadsRed, numberBeadsGreen))
 	for i in range(numberBeadsRed):
 		for j in range(numberBeadsGreen):
 			matrix[i,j] = np.sqrt((d[i,0]-s[j,0])**2+(d[i,1]-s[j,1])**2)
-			
+
 	return matrix
 
 def alignCandidates(s,d):
 	matrix = getDistanceMatrix(s,d)
 	numberBeadsRed = d.shape[0]
 	numberBeadsGreen = s.shape[0]
-	
+
 	m = Munkres()
 	indexes = m.compute(matrix)
-	
+
 	alignedd = []
 	aligneds = []
-	
+
 	total = 0
 	for row, column in indexes:
 	    value = matrix[row][column]
@@ -186,7 +186,7 @@ def alignCandidates(s,d):
 
 	    alignedd.append(d[row])
 	    aligneds.append(s[column])
-	   
+
 	return np.array(aligneds), np.array(alignedd)
 
 def tryHungarianApproach(s,d,dims):
@@ -200,33 +200,33 @@ def tryHungarianApproach(s,d,dims):
 	#This is a very rough ansatz
 	minimumRow = np.min(matrix, 1)
 	meanMinRow = np.mean(minimumRow)	#gets the mean of the smallest values of each row, this is used to detect points far away from any partner
-	
-	minimumCol = np.min(matrix, 0)		
+
+	minimumCol = np.min(matrix, 0)
 	meanMinCol = np.mean(minimumCol)	#same but for the green points
-	
-	row,col = np.where(matrix<2*meanMinRow)	
+
+	row,col = np.where(matrix<2*meanMinRow)
 	d = d[np.unique(row)]					#red points that are far away from any green point are deleted
 	row,col = np.where(matrix<2*meanMinCol)
 	s = s[np.unique(col)]					#green points that are far away from any green point are deleted
-	
+
 	######################################################
 	#Distance matrix is calculated again, but without the outliers
 	matrix = getDistanceMatrix(s,d)
 	numberBeadsRed = d.shape[0]
 	numberBeadsGreen = s.shape[0]
-	
+
 	if numberBeadsRed>numberBeadsGreen:
 		matrix = np.transpose(matrix)
 		transposed = True						#munkres can't handle mxn matrices with n>m
 	else:
 		transposed = False
-	
+
 	m = Munkres()
 	indexes = m.compute(matrix)
-	
+
 	alignedd = []
 	aligneds = []
-	
+
 	total = 0
 	for row, column in indexes:
 	    value = matrix[row][column]
@@ -243,20 +243,20 @@ def tryHungarianApproach(s,d,dims):
 	    	aligneds.append(s[row])
 	    	indicesDCollection = column
 	    	indicesSCollection = row
-	    	
+
 	trafo, _,_ = affineMatrix2DFromCorrespondingPoints(s[indicesSCollection], d[indicesDCollection], dims)
 	sTransformed = np.dot(trafo, np.vstack([s.T,np.ones(len(s))])).T[:,:2]
 	distanceMatrix = getDistanceMatrix(sTransformed, d)
-	minimumRow = np.min(distanceMatrix, 1)		
+	minimumRow = np.min(distanceMatrix, 1)
 	matchedPoints=[0,(np.sum(np.where(minimumRow < distanceTolerated,1,0)))]
-	
+
 	additionalCandidatesD = indicesDCollection
 	additionalCandidatesS = indicesSCollection
 	matchedPoints = [0,10]				#Just fake numbers, but because min != max, the programm will go on
-    	   
+
 	#aligneds=np.array(aligneds)
 	#alignedd=np.array(alignedd)
-	
+
 	#return aligneds, alignedd
 	return matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection
 
@@ -266,7 +266,7 @@ def affineMatrix2DFromCorrespondingPoints(s, d, dims):
 	if len(s) < 3:
 		print "at least three points required"
 		return
-	
+
 	#dims = [0,0]
 	deltaX=dims[0]/2.
 	deltaY=dims[1]/2.
@@ -274,14 +274,14 @@ def affineMatrix2DFromCorrespondingPoints(s, d, dims):
 	#deltaY=np.mean(d[:,1])
 	#deltaX=0
 	#deltaY=0
-	
+
 	s[:,0]=s[:,0]-deltaX
 	s[:,1]=s[:,1]-deltaY
 	d[:,0]=d[:,0]-deltaX
 	d[:,1]=d[:,1]-deltaY
-	
+
 	m  = np.zeros((3,3))
-	
+
 	s = np.hstack([s,np.ones((n,1))]) # add third column with ones
 	d = np.hstack([d,np.ones((n,1))]) # add third column with ones
 	rx = np.sum(d[:,0:1]*s,axis=0)
@@ -296,31 +296,31 @@ def affineMatrix2DFromCorrespondingPoints(s, d, dims):
 	#d.T*s = A * s.T*s
 	#A = D.T*S*(S.T*S).I
 	row3 = np.array([0,0,1])
-	
+
 	A = np.vstack([solx,soly,row3])
 	R=np.matrix([[1, 0, deltaX],[0, 1, deltaY],[0, 0, 1]])
 	Ap = np.dot(R,np.dot(A,R.I))
-	
+
 	Atotalleast = affineMatrix2DFromCorrespondingPointsUseTotalLeastSquares(s, d, dims)
 	Atp = np.dot(R,np.dot(Atotalleast,R.I))
-	
+
 	#print (d[:,0:2]).T-np.dot(Atp[0:2,:],s.T)
 	#print "matrix:",[solx,soly,row3]
 	a=np.vstack([solx,soly])
-	
+
 	error=(d[:,0:2]).T-np.dot(a,s.T)
-	
+
 	coeffMat = np.ones([n,2])
 	vector = np.ones(n)
 	for i in range(n):
 		coeffMat[i,1] = (np.sqrt((d[i,0] )**2 + (d[i,1])**2))/ (2*np.pi) #r/(2pi)
 		vector[i] = np.sqrt(error[0,i]**2 + error[1,i]**2)
-	
+
 	#this gives an estimate of the origin of the errors, either from the shift coefficients in the transformation matrix
 	#or from an not accurate angle
 	[deltaR, deltaPhi],_,_,_ = np.linalg.lstsq(coeffMat, vector)
 	#print error
-	
+
 	estimatederror = np.zeros(n)
 	for i in range(n):
 		estimatederror[i] = deltaR + np.abs((np.sqrt((d[i,0] )**2 + (d[i,1])**2)) * deltaPhi/(2*np.pi))
@@ -328,10 +328,10 @@ def affineMatrix2DFromCorrespondingPoints(s, d, dims):
 		#print 'real:', np.sqrt(error[0,i]**2+error[1,i]**2)
 	#print error,"=",(d[:,0:2]).T,"-",np.dot(a,s.T)
 	#print "error",error
-	
+
 	#dA=-np.dot(error,(np.dot(s,np.linalg.pinv(np.dot(s.T,s)))))
 	#print np.linalg.pinv(s).shape, error.shape
-	
+
 	#return np.vstack([solx,soly,row3])
 	return np.array([[Ap[0,0],Ap[0,1],Ap[0,2]],[Ap[1,0],Ap[1,1],Ap[1,2]],[Ap[2,0],Ap[2,1],Ap[2,2]]]), deltaR, deltaPhi
 
@@ -339,78 +339,78 @@ def affineMatrix2DFromCorrespondingPointsUseTotalLeastSquares(s, d, dims):
 	B0 = np.hstack([s[:,0:2],d[:,0:1]])
 	B0 = B0 - np.mean(B0,0)
 	U0,sig0,Vt0 = np.linalg.svd(B0)
-	
+
 	B1 = np.hstack([s[:,0:2],d[:,1:2]])
 	B1 = B1 - np.mean(B1,0)
 	U1,sig1,Vt1 = np.linalg.svd(B1)
-	
-	
+
+
 	A2 = np.zeros([3,3])
 
 	index1 = np.where(sig1 == np.min(sig1))[0][0]
 	index0 = np.where(sig0 == np.min(sig0))[0][0]
 
-		
-	
+
+
 	facest0 = -Vt0[index0,0]/(Vt0[index0,2]*np.cos(np.arcsin(-Vt0[index0,1]/Vt0[index0,2])))
 	phiest0 = np.arccos(-Vt0[index0,0]/(Vt0[index0,2]*facest0))
-	
+
 	phiest1 = np.arcsin(Vt1[index1,0]/(Vt1[index1,2]))
 	facest1 = -Vt1[index1,1]/(Vt1[index1,2]*np.cos(phiest1))
-	
+
 	'''print facest0
 	print phiest0 / 2. / np.pi *360
-		
+
 	print facest1
 	print phiest1 / 2. / np.pi *360
 	'''
 	facest = (facest0 + facest1)/2
 	phiest = (phiest0 + phiest1)/2
-	
-	
+
+
 	A2[0,0] = facest * np.cos(phiest)
-		
+
 	A2[0,1] = np.sin(phiest)
 	A2[1,0] = -np.sin(phiest)
 	A2[1,1] = facest * np.cos(phiest)
-	
+
 	A2[0,2] = np.mean(d[:,0]) - (A2[0,0] * np.mean(s,0)[0] + A2[0,1] * np.mean(s,0)[1])
 	A2[1,2] = np.mean(d[:,1]) - (A2[1,0] * np.mean(s,0)[0] + A2[1,1] * np.mean(s,0)[1])
 	A2[2,2] = 1
-	
-	
+
+
 	return A2
 
 def linFun(B,x):
   return (B[0]*x+B[1])
- 
+
 def calculateRegression(s,d):
-	
+
 	#pyplot.scatter(s[:,0],d[:,0])
 	#pyplot.show()
 	#pyplot.scatter(s[:,1],d[:,1])
 	#pyplot.show()
 	xbead=d[:,0]
 	xsbead=s[:,0]
-	
+
 	ybead=d[:,1]
 	ysbead=s[:,1]
-	
+
 	linearModel = odr.Model(linFun)
 	myDataX = odr.Data(xbead,xsbead)
 	myodrX = odr.ODR(myDataX,linearModel,beta0=[1,1])
 	myoutputX = myodrX.run()
-	
+
 	myDataY = odr.Data(ybead,ysbead)
 	myodrY = odr.ODR(myDataY,linearModel,beta0=[1,1])
 	myoutputY = myodrY.run()
 	#myoutput.pprint()
-	
+
 	parametersX = myoutputX.res_var
 	parametersY = myoutputY.res_var
-	
+
 	return [parametersX, parametersY]
-	
+
 # if run standalone
 if __name__ == "__main__":
 	import matplotlib.pyplot as plt

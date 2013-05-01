@@ -21,7 +21,7 @@ def coloc(dataR, dataG):
         print 'images must have same shape'
         return 0
     
-    tol=0.05
+    tol=0.02
     dataB = np.zeros(dataR.shape)
     dataB[...,0]=np.tan(dataR[...,2]/dataG[...,1])
     dataB[...,0]=np.where((dataB[...,0]-np.pi/2.)**2>tol,0,dataB[...,0])   

@@ -123,6 +123,7 @@ void InputWidget::runClicked()
         m_params.setTChunkSize(m_uiAdvancedSettings->spn_tChunkSize->value());
         m_params.setChunksInMemory(m_uiAdvancedSettings->spn_chunksInMemory->value());
         m_params.setDoAsymmetryCheck(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked());
+        m_params.setPrefactorSigma(m_uiAdvancedSettings->spn_factorSigma->value());
         if(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked()) {
             m_params.setAsymmetryThreshold(m_uiAdvancedSettings->spn_AsymmetryThreshold->value());
             m_params.setDoAsymmetryCheck(true);
@@ -135,7 +136,7 @@ void InputWidget::runClicked()
         int maxValueXYSlider = m_uiBackgroundLevel->sldr_xyBackgroundLevel->maximum();
         m_params.setXYChunkSize((int)((maxValueXYSlider-currValueXYSlider)/(float)maxValueXYSlider*(maxXYSize - minXYSize) + minXYSize));
         int currValueTSlider = m_uiBackgroundLevel->sldr_tBackgroundLevel->value();
-        int maxTSize = std::min((int)(resz/m_params.getChunksInMemory()), m_params.getMaxTChunkSize()), minTSize = m_params.getMinTChunkSize();
+        int maxTSize = std::min((int)(m_ui->spn_skellamFrames->value()/m_params.getChunksInMemory()), m_params.getMaxTChunkSize()), minTSize = m_params.getMinTChunkSize();
         int maxValueTSlider = m_uiBackgroundLevel->sldr_tBackgroundLevel->maximum();
         m_params.setTChunkSize((int)((maxValueTSlider-currValueTSlider)/(float)maxValueTSlider*(maxTSize - minTSize) + minTSize));
         int currValueSpotSlider = m_uiBackgroundLevel->sldr_spotDensity->value();
@@ -143,6 +144,8 @@ void InputWidget::runClicked()
         int maxValueSpotSlider = m_uiBackgroundLevel->sldr_tBackgroundLevel->maximum();
         m_params.setDoAsymmetryCheck(true);
         m_params.setAsymmetryThreshold(currValueSpotSlider/(float)maxValueSpotSlider*(maxAsymmVal-minAsymmVal)+minAsymmVal);
+        float maxPSFFactorVal = 1, minPSFFactorVal = 0;
+        m_params.setPrefactorSigma((maxValueSpotSlider-currValueSpotSlider)/(float)maxValueSpotSlider*(maxPSFFactorVal-minPSFFactorVal)+minPSFFactorVal);
         m_params.setChunksInMemory(m_uiAdvancedSettings->spn_chunksInMemory->value());
         m_params.setRoilen(m_uiAdvancedSettings->spn_roilen->value());
     }
@@ -153,14 +156,14 @@ void InputWidget::runClicked()
     m_params.setSigma(m_ui->spn_sigma->value());
     m_params.setUseSavedSigma(m_ui->spn_sigma->value() > 0);
     std::cout<<"getSlopeSaved:"<<m_params.getSlopeSaved()<<std::endl;
-    if (!(m_params.getSlopeSaved() or m_params.getInterceptSaved())) {
+    if (!(m_params.getSlopeSaved() and m_params.getInterceptSaved())) {
         m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
     }
     else
         m_params.setIgnoreSkellamFramesSaved(true);
     std::cout<<"IgnoreSkellamFramesSaved: "<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
     m_params.doSanityChecks();
-    m_params.setPrefactorSigma(m_ui->spn_factorSigma->value());
+
     emit run(m_params);
 }
 
@@ -194,7 +197,7 @@ void InputWidget::setFieldsFromDefaults()
         m_ui->spn_offset->setValue(0);
     if (m_params.getDoAsymmetryCheck())
         m_uiAdvancedSettings->spn_AsymmetryThreshold->setValue(m_params.getAsymmetryThreshold());
-    m_ui->spn_factorSigma->setValue(m_params.getPrefactorSigma());
+    m_uiAdvancedSettings->spn_factorSigma->setValue(m_params.getPrefactorSigma());
 }
 
 void InputWidget::enableInput(bool enable)
