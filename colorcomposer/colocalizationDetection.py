@@ -5,7 +5,10 @@ from matplotlib import pyplot
 import coords
 import vigra
 import scipy.stats
-
+import math
+from scipy.stats import spearmanr
+from PIL import Image
+import matplotlib.pyplot as plot
 
 def contributionFunc(x,G,gamma, gamma_minus_one):
     return(max(G, min(G + 1, x*np.tan(gamma))) - min(G + 1, max(G, x*np.tan(gamma_minus_one))))
@@ -16,15 +19,15 @@ def calcContribution(point, gammas, j): #point i, list of all angles, j = angle 
 def coloc(dataR, dataG):
     #returns heatmap for colocalization based on the angle in the red- green value plot
     #regions with low intensity are filterd out
-    
+
     if dataR.shape != dataG.shape:
         print 'images must have same shape'
         return 0
-    
+
     tol=0.02
     dataB = np.zeros(dataR.shape)
     dataB[...,0]=np.tan(dataR[...,2]/dataG[...,1])
-    dataB[...,0]=np.where((dataB[...,0]-np.pi/2.)**2>tol,0,dataB[...,0])   
+    dataB[...,0]=np.where((dataB[...,0]-np.pi/2.)**2>tol,0,dataB[...,0])
     maskG=np.where(dataG[...,1]<np.mean(dataG[...,1]),0,dataG[...,1])
     maskR=np.where(dataR[...,2]<np.mean(dataR[...,2]),0,dataR[...,2])
     from matplotlib import pyplot
@@ -33,18 +36,18 @@ def coloc(dataR, dataG):
     #pyplot.matshow(maskG)
     #pyplot.show()
 
-    dataB[...,0]=dataB[...,0]*maskG*maskR     
+    dataB[...,0]=dataB[...,0]*maskG*maskR
     dataB=dataB*255/np.max(dataB)
     dataB = np.array(dataB, dtype=np.uint8)
     print np.mean(dataB[...,0])
-    
-    import matplotlib.pyplot as plot
+
+
     plot.matshow(dataB[...,0])
     plot.show()
-    
+
     return dataB
-    #return dataB+dataR, dataG       
-    
+    #return dataB+dataR, dataG
+
 
 def Colocdetection(dataR, dataG):
     #similar to the function coloc, but the angle is much wider, and can be set individually for the upper and lower bound
@@ -53,54 +56,54 @@ def Colocdetection(dataR, dataG):
     combImg = dataR+dataG
     index = np.where(combImg[...,2]>threshR)
     indexres = np.where(combImg[index[0],index[1],1]>threshG)
-    
+
     dataB = np.zeros((dataR.shape))
-    
+
     for i in range(len(indexres[0])):
         x=index[0][indexres[0][i]]
         y=index[1][indexres[0][i]]
         dataB[x,y,0]=np.min([dataR[x,y,2],dataG[x,y,1]])
-        
+
     dataB=dataB*255/np.max(dataB[x,y,0])
     dataB = np.array(dataB, dtype=np.uint8)
     #return dataB,np.zeros((dataR.shape))
     return dataB+dataR, dataG
-    
+
 
 def calcPearsonCorrelationCoeff(dataR, dataG):
     dataR=dataR[...,2]
     dataG=dataG[...,1]
-    
+
     res=np.corrcoef(dataR.flatten(), dataG.flatten())[0,1]
-    
+
     if np.isnan(res):
         res=0
-  
+
     return res
 
 def calcOverlapCoeff(dataR, dataG):
-    
+
     dataR= dataR[...,2].astype(np.float64)
     dataG= dataG[...,1].astype(np.float64)
-    
-    
+
+
     numerator=np.sum((dataR*dataG).flatten())
     a=np.sum((dataR*dataR).flatten())
     b=np.sum((dataG*dataG).flatten())
     denominator=np.sqrt(a*b)
     #denominator=np.sqrt(sum(dataR*dataR)*sum(dataG*dataG))
-    
+
     return numerator/denominator
 
 def calcMandersColocalizationCoeffs(dataR, dataG):
     TG=np.max(dataG)*.1
     TR=np.max(dataR)*.1
-    
+
     indR = np.where(dataG[:,:,1]>TG)
     indG = np.where(dataR[:,:,2]>TR)
     MR = np.sum(dataR[indR[0],indR[1],2])/float(np.sum((dataR[...,2]).flatten()))
     MG = np.sum(dataG[indG[0],indG[1],1])/float(np.sum((dataG[...,1]).flatten()))
-    
+
     return MR, MG
 
 def cropROI(data,ROI):
@@ -114,48 +117,48 @@ def gaussianRect(data, xmean,ymean,varx,vary):
     for x in range(-3*varx,3*varx+1):
         for y in range(-3*vary,3*vary+1):
             resultMatrix[x,y] = data[xmean+x,ymean+y]*1/np.sqrt(2*np.pi*varx*vary)*np.exp(np.sqrt((x)**2+(y)**2)/(varx*vary))
-            
-    
+
+
     return resultMatrix
-            
+
 def createHeatmap2(dataR,dataG):
     dataRm = np.array(dataR[...,2],dtype=np.float32)
     dataRm = np.array(vigra.gaussianSmoothing(dataRm, 3),dtype=np.uint8)
     dataGm = np.array(dataG[...,1],dtype=np.float32)
     dataGm = np.array(vigra.gaussianSmoothing(dataGm, 3),dtype=np.uint8)
-    
+
     dataRR = dataR[:,:,2] * dataR[:,:,2]
     dataGG = dataG[:,:,1] * dataG[:,:,1]
-    
+
     dataRR = np.array(dataRR,dtype = np.float32)
     dataGG = np.array(dataGG,dtype = np.float32)
-    
+
     dataRRm = np.array(vigra.gaussianSmoothing(dataRR, 3),dtype=np.uint8)
     dataGGm = np.array(vigra.gaussianSmoothing(dataGG, 3),dtype=np.uint8)
-    
+
     dataRG = dataR[:,:,2] * dataG[:,:,1]
     dataRG = np.array(dataRG,dtype=np.float32)
     dataRGm = np.array(vigra.gaussianSmoothing(dataRG, 3),dtype=np.uint8)
-    
+
     suspectedBackgroundR = scipy.stats.scoreatpercentile(dataR[...,2].flatten(), 50)
     suspectedBackgroundG = scipy.stats.scoreatpercentile(dataG[...,1].flatten(), 50)
-    
+
     dataRwichtung = np.where(dataR[:,:,2]>suspectedBackgroundR,1,0)
     dataGwichtung = np.where(dataG[:,:,1]>suspectedBackgroundG,1,0)
-    
+
     dataB = np.zeros((dataR.shape))
     dataB[:,:,0]=(dataRGm-dataRm*dataGm)*dataRwichtung*dataGwichtung
-    
-    
+
+
     Var1=np.sqrt(dataRRm-dataRm**2)
     Var2=np.sqrt(dataGGm-dataGm**2)
-    
+
     dataRVarwichtung = np.where(Var1!=0,1,0)
     dataGVarwichtung = np.where(Var2!=0,1,0)
-    
+
     Var1=np.where(Var1==0,10,Var1)      #dataRVarwichtung cutts them out anyway
     Var2=np.where(Var2==0,10,Var2)
-    
+
     dataB[:,:,0]=dataB[:,:,0]/(Var1*Var2)*dataRVarwichtung*dataGVarwichtung
     #mmx = scipy.stats.scoreatpercentile(dataB[dataB>0].flatten(), 90)
     #if mmx.max() > 0:
@@ -165,9 +168,9 @@ def createHeatmap2(dataR,dataG):
     dataR=dataR+ dataB
     return dataB
     #return dataB,np.zeros(dataR.shape, dtype=np.uint8)
-    
+
 def createHeatmap(dataR, dataG):
-    np.seterr(invalid='ignore') 
+    np.seterr(invalid='ignore')
     numberBinsX=200
     numberBinsY=200
     dims = dataR.shape
@@ -183,14 +186,14 @@ def createHeatmap(dataR, dataG):
                 for j in range(numberBinsY-1):
                     [xmin, xmax,ymin,ymax] = [int(i*width+shift),int((i+1)*width+shift), int(j*height+shift2), int((j+1)*height+shift2)]
                     temp=calcPearsonCorrelationCoeff(dataR[xmin:xmax,ymin:ymax],dataG[xmin:xmax,ymin:ymax])
-                    
+
                     if not np.isnan(temp) and temp > 0:
                         ValueHeatmap[i,j]=temp
                         #dataR[xmin:xmax,ymin:ymax,0]=dataR[xmin:xmax,ymin:ymax,0]+temp*255./(N1*N2)
                         dataB[xmin:xmax,ymin:ymax,0]=dataB[xmin:xmax,ymin:ymax,0]+temp*np.mean(dataR[xmin:xmax,ymin:ymax,2])/(N1*N2)
                         #dataG[xmin:xmax,ymin:ymax,0]=dataG[xmin:xmax,ymin:ymax,0]+temp*255
-    
-    
+
+
     #dataB = vigra.RGBImage(np.array(dataB,dtype=np.float32))
     #dataB = np.array(vigra.gaussianSmoothing(dataB, 1),dtype=np.uint8)
     dataB = dataB *255./np.max(dataB)
@@ -206,13 +209,13 @@ def createColocHeatmap(dataR, dataG):
     dataGc = np.zeros_like(dataRc)
     dataRc[borderWidth:-borderWidth,borderWidth:-borderWidth]=dataR[borderWidth:-borderWidth,borderWidth:-borderWidth,2]
     dataGc[borderWidth:-borderWidth,borderWidth:-borderWidth]=dataG[borderWidth:-borderWidth,borderWidth:-borderWidth,1]
-    
-    
+
+
     indicesRc = np.array(np.where(dataRc>0))
     indicesGc = np.array(np.where(dataGc>0))
 
     for i in range(indicesRc.shape[1]):
-        uli = indicesRc[0,i] + borderWidth #upper limit 
+        uli = indicesRc[0,i] + borderWidth #upper limit
         lli = indicesRc[0,i] - borderWidth #lower limit
         ulj = indicesRc[1,i] + borderWidth
         llj = indicesRc[1,i] - borderWidth
@@ -221,7 +224,7 @@ def createColocHeatmap(dataR, dataG):
             res=0
         dataB[indicesRc[0,i],indicesRc[1,i],0] = res
     for i in range(indicesGc.shape[1]):
-        uli = indicesGc[0,i] + borderWidth #upper limit 
+        uli = indicesGc[0,i] + borderWidth #upper limit
         lli = indicesGc[0,i] - borderWidth #lower limit
         ulj = indicesGc[1,i] + borderWidth
         llj = indicesGc[1,i] - borderWidth
@@ -230,11 +233,11 @@ def createColocHeatmap(dataR, dataG):
             res=0
         #print res
         dataB[indicesGc[0,i],indicesGc[1,i],0] = res
-    
+
  #   for i in range(borderWidth, dataR.shape[0] - borderWidth):
  #       print i
  #       for j in range(borderWidth, dataR.shape[1] - borderWidth):
- #           uli = i + borderWidth #upper limit 
+ #           uli = i + borderWidth #upper limit
  #           lli = i - borderWidth #lower limit
  #           ulj = j + borderWidth
  #           llj = j - borderWidth
@@ -242,10 +245,10 @@ def createColocHeatmap(dataR, dataG):
  #           if np.isnan(res):
  #               res=0
  #           dataB[i,j,0] = res
-  
+
     factor = np.mean(np.where(dataR>0))/np.max(np.abs(dataB))
-    dataB = np.abs(dataB) * factor 
-    
+    dataB = np.abs(dataB) * factor
+
     import matplotlib.pyplot as plot
     plot.matshow(dataB[...,0])
     plot.show()
@@ -262,7 +265,7 @@ def getAngleHistogram(dataR, dataG, dims, factor=1):
         c = np.zeros_like(a)*255
         colors=np.hstack([a,b,c])/255.0
         print a,b
-        print 
+        print
         print
         print np.max(a)
         print np.min(a)
@@ -274,9 +277,9 @@ def getAngleHistogram(dataR, dataG, dims, factor=1):
         pyplot.xlabel('Intensity red channel')
         pyplot.ylabel('Intensity green channel')
         pylab.show()
-        
+
     angles = np.linspace(0,90,K)'''
-    
+
     mergedPoints = np.array(mergePoints3(dataR,dataG,factor))
     '''histo = np.zeros(K)
 
@@ -291,15 +294,15 @@ def getAngleHistogram(dataR, dataG, dims, factor=1):
             else:
                 cij = matrixc[mergedPoints[i,2],mergedPoints[i,3]]
             #cij,_ = calcContribution([mergedPoints[i,2],mergedPoints[i,3]],angles,j+1)      #use of j+1, because j is the upper bound
-            
+
             histo[j] += max(mergedPoints[i,2],mergedPoints[i,3])*cij
-            
-            
+
+
         print time.time()-start
-         
+
     for i in range(K):
         print "Angle: %3.2f, Number entries: %i" %(angles[i]*180/np.pi, histo[i])
-        
+
     phi=np.linspace(0,90,128)
     pyplot.plot(phi,histo)
     pyplot.show()
@@ -311,52 +314,52 @@ def getAngleHistogram(dataR, dataG, dims, factor=1):
 #print calcContribution([0,255],gammas,1)
 
 def coordinateBasedColocalization(dataR, dataG):
-    
+
     originaldataR = np.array(dataR)
     originaldataG = np.array(dataG)
     maximumR = np.max(dataR)
     dataR[:,:,2]=np.where(dataR[:,:,2]>=maximumR*0.1,255,0)
-    
-    dataRnp = vigra.RGBImage(np.array(dataR, dtype = np.float32))    
-    labelsR = np.zeros((dataR.shape[0], dataR.shape[1]))   
+
+    dataRnp = vigra.RGBImage(np.array(dataR, dtype = np.float32))
+    labelsR = np.zeros((dataR.shape[0], dataR.shape[1]))
     labelsR = (vigra.analysis.labelImageWithBackground(dataRnp[...,2], 8,background_value=0))
-    
+
     maximumG = np.max(dataG)
     dataG[:,:,1]=np.where(dataG[:,:,1]>=maximumG*0.1,255,0)
-    
-    dataGnp = vigra.RGBImage(np.array(dataG, dtype = np.float32))    
-    labelsG = np.zeros((dataR.shape[0], dataR.shape[1]))   
+
+    dataGnp = vigra.RGBImage(np.array(dataG, dtype = np.float32))
+    labelsG = np.zeros((dataR.shape[0], dataR.shape[1]))
     labelsG = (vigra.analysis.labelImageWithBackground(dataGnp[...,1], 8,background_value=0))
-    
+
     '''pyplot.matshow(dataR[...,2],1)
     pyplot.matshow(dataG[...,1],2)
     pyplot.matshow(labelsR,3)
     pyplot.matshow(labelsG,4)
     pyplot.show()
     '''
-    
+
     numberClassesR = np.max(labelsR)
     numberClassesG = np.max(labelsG)
-    
+
     classesR = []
     classesR.append([])
     for i in range(1,numberClassesR + 1):
         coordinatesOfCurrentClass = np.where(labelsR == i,1,0)
         classesR.append(coordinatesOfCurrentClass)
-        
+
     classesG = []
     classesG.append([])
     for i in range(1,numberClassesG + 1):
         coordinatesOfCurrentClass = np.where(labelsG == i,1,0)
         classesG.append(coordinatesOfCurrentClass)
-        
-    
+
+
     DAMatrix = np.zeros(dataR.shape)
     DBMatrix = np.zeros(dataR.shape)
-      
+
     radius = 10
 
-    for i in range(radius,dataR.shape[0]-radius):             
+    for i in range(radius,dataR.shape[0]-radius):
         for j in range(radius,dataR.shape[1]-radius):
             print i,j
             actuallClass = labelsR[i,j]
@@ -366,7 +369,7 @@ def coordinateBasedColocalization(dataR, dataG):
                     for y in range(j-radius, j+radius):
                         if (x-i)**2+(y-j)**2<=radius**2:
                             Naa = Naa + classesR[actuallClass][x,y]
-            
+
                 if Naa!=0:
                     Rmax=0
                     coords = np.where(classesR[actuallClass] == 1)
@@ -374,7 +377,7 @@ def coordinateBasedColocalization(dataR, dataG):
                         tempMax = np.sqrt((coords[0][n]-i)**2+(coords[1][n]-j)**2)
                         if tempMax>Rmax:
                             Rmax=tempMax
-                            
+
                     Naamax = 0
                     Rmax = int(Rmax)
                     for x in range(i-Rmax,i+Rmax):
@@ -382,7 +385,7 @@ def coordinateBasedColocalization(dataR, dataG):
                             if (x-i)**2+(y-j)**2<=radius**2:
                                 Naamax = Naamax + classesR[actuallClass][x,y]
 
-                    
+
                     #######Achtung sollte alle classen durchlaufen!!!!
                     Rminb = int(100)
                     coords = np.where(classesG[actuallClass] == 1)
@@ -391,23 +394,23 @@ def coordinateBasedColocalization(dataR, dataG):
                         if tempMin<Rminb:
                             Rminb=tempMin
                     if Rminb<2:
-                        print i,j            
-                    
-                    
+                        print i,j
+
+
                     DAMatrix[i,j,2] = Naa / (np.pi*radius**2)* np.pi*Rmax**2/Naamax*np.exp(-Rminb)
                 else:
                     DAMatrix[i,j,2] = 0
-                
-                
+
+
                 Nab = 0
-    
+
                 for x in range(i-radius,i+radius):
                     for y in range(j-radius, j+radius):
                         if (x-i)**2+(y-j)**2<=radius**2:
                             for k in range(1,numberClassesG+1):
                                 Nab = Nab + classesG[k][x,y]
-                
-                
+
+
                 if Nab!=0:                              #if there is no class B in the radius this block is skipped
                     Rmax=0
                     coords = np.where(classesG[actuallClass] == 1)
@@ -415,9 +418,9 @@ def coordinateBasedColocalization(dataR, dataG):
                         tempMax = np.sqrt((coords[0][n]-i)**2+(coords[1][n]-j)**2)
                         if tempMax>Rmax:
                             Rmax=tempMax
-                            
+
                     Rmaxb=Rmax
-                            
+
                     Nabmax = 0
                     Rmax=int(Rmax)
                     for x in range(i-Rmax,i+Rmax):
@@ -428,19 +431,19 @@ def coordinateBasedColocalization(dataR, dataG):
                     DBMatrix[i,j,1] = Nab / (np.pi*radius**2)* np.pi*Rmax**2/Nabmax
                 else:
                     DBMatrix[i,j,1] = 0   #if there is no class B in the radius
-                
+
                 dataR[:,:,2]=np.where(dataR[:,:,2]>=maximumR*0.1,255,0)
             else:
                 DAMatrix[i,j,2] = 0
                 DBMatrix[i,j,1] = 0
-            
-            
+
+
     dataR=np.where(dataR<0,0,dataR)
     dataG=np.where(dataG<0,0,dataG)
-    
+
     dataR=DAMatrix*255./np.max(DAMatrix)
     dataG=DBMatrix*255./np.max(DBMatrix)
-    
+
     dataRm = np.array(dataR[...,2],dtype=np.float32)
     dataRm = np.array(vigra.gaussianSmoothing(dataRm, 3),dtype=np.uint8)
     dataGm = np.array(dataG[...,1],dtype=np.float32)
@@ -449,23 +452,95 @@ def coordinateBasedColocalization(dataR, dataG):
     dataRG = dataR[:,:,2] * dataG[:,:,1]
     dataRG = np.array(dataRG,dtype=np.float32)
     dataRGm = np.array(vigra.gaussianSmoothing(dataRG, 3),dtype=np.uint8)
-    
+
     dataRwichtung = np.where(dataR[:,:,2]>np.max(dataR)/10.,dataR[:,:,2],0)
     dataGwichtung = np.where(dataG[:,:,1]>np.max(dataG)/10.,dataG[:,:,1],0)
-    
+
     dataB = np.zeros((dataR.shape))
     dataB[:,:,0]=(dataRGm-dataRm*dataGm)*dataRwichtung*dataGwichtung
-    
-    
+
+
     dataB = dataB *255./np.max(dataB)
-    
+
     dataB = np.array(dataB, dtype=np.uint8)
     dataR=originaldataR+ dataB
     dataR = np.array(dataR,dtype=np.uint8)
     dataG = np.array(originaldataG,dtype=np.uint8)
     #return dataB, np.zeros(originaldataR.shape)
     return dataR, dataG
-        
 
-    
-       
+
+def coordinateBasedColocalization2(dataR, dataG):
+    print dataR.shape
+    dim0, dim1,_ = dataR.shape
+    ch1 = Image.fromarray(dataR).getdata()
+    ch2 = Image.fromarray(dataG).getdata()
+    ch1objects = []
+    ch2objects = []
+
+    for y in xrange(dim1):
+        index = y * dim0
+        for x in xrange(dim0):
+            if ch1[index + x] > 25:
+                ch1objects.append((x,y))
+                if ch2[index + x] > 25:
+                    ch2objects.append((x,y))
+    C = []
+    for A in ch1objects:
+        ra = []
+        ramax = 0
+        rb = []
+        rbmax = 0
+        for cA in ch1objects:
+            if (A == cA):
+                continue
+            cra = math.sqrt((cA[0] - A[0])**2 + (cA[1] - A[1])**2)
+            ra.append(cra)
+            if (cra > ramax):
+                ramax = cra
+        for cB in ch2objects:
+            crb = math.sqrt((cB[0] - A[0])**2 + (cB[1] - A[1])**2)
+            rb.append(crb)
+            if (crb > rbmax):
+                rbmax = crb
+        ramax=round(ramax)
+        rbmax=round(rbmax)
+        ra = np.histogram(ra, bins=ramax, range=(0, ramax))[0]
+        rb = np.histogram(rb, bins=rbmax, range=(0, rbmax))[0]
+
+        # make cumulative histograms
+        for i in xrange(1, len(ra)):
+            ra[i] = ra[i - 1] + ra[i]
+        for i in xrange(1, len(rb)):
+            rb[i] = rb[i - 1] + rb[i]
+        if len(ra) > len(rb):
+            n = len(rb) - 1
+            rb.resize(len(ra))
+            for i in xrange(n + 1, len(ra)):
+                rb[i] = rb[n]
+        elif len(rb) > len(ra):
+            n = len(ra) - 1
+            ra.resize(len(rb))
+            for i in xrange(n + 1, len(rb)):
+                ra[i] = ra[n]
+
+        E = 0
+        while rb[E] == 0:
+            E += 1
+        E += 1
+        Rmax = max(len(ra) - 1, len(rb) - 1) + 1
+        Da = [float(ra[r]) / float(ra[-1]) * float(Rmax**2) / float((r + 1)**2) for r in xrange(len(ra))]
+        Db = [float(rb[r]) / float(rb[-1]) * float(Rmax**2) / float((r + 1)**2) for r in xrange(len(rb))]
+
+        S = spearmanr(Da, Db)[0]
+        C.append(S * math.exp(-E / Rmax))
+
+    res = np.zeros([dim1, dim0])
+    for i in xrange(len(ch1objects)):
+        res[ch1objects[i][1], ch1objects[i][0]] = C[i]
+        #print "x=%d, y=%d, C=%f" % (ch1objects[i][0], ch1objects[i][1], C[i])
+    plot.matshow(res)
+    plot.colorbar()
+    plot.show()
+    plot.hist(C)
+    plot.show()

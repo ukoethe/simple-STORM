@@ -260,8 +260,7 @@ int saveCoordsFile(const DataParams &params, std::ofstream &cfile, const std::ve
             numSpots++;
             const Coord<float>& c = *it2;
             cfile << std::setprecision(4) << (float)c.x/params.getFactor() * params.getPixelSize() << " " << (float)c.y/params.getFactor() * params.getPixelSize() << " "
-                << j << " " << std::setprecision(1) << c.val << " " << std::setprecision(3) << c.asymmetry << " "
-                << c.signalNoiseRatio << std::endl;
+                << j << " " << std::setprecision(1) << c.val << " " << std::setprecision(3) << c.asymmetry << std::endl;
         }
     }
     return numSpots;
@@ -969,7 +968,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     BasicImageView<T> filteredView(filtered.data(), filtered.size());
 
     vigra::copyImage(srcImageRange(input), destImage(unfiltered));
-    float kernelWidth = params.getSigma()*params.getPrefactorSigma();// tests have shown best accuracy for 0.8 sigma
+    float kernelWidth = params.getSigma()*params.getPrefactorSigma();
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
     //gaussianSharpening(srcImageRange(input), destImage(filteredView), 0.85, kernelWidth);
 

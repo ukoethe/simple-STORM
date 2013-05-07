@@ -182,7 +182,7 @@ private:
     const float m_maxAsymmetryThreshold = 5;
     bool m_ignoreSkellamFramesSaved = false;
     bool m_verbose;
-    double m_prefactorSigma = 0.8;
+    double m_prefactorSigma = 1;
 
     std::string m_infile;
     std::string m_outfile;

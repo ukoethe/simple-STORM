@@ -3,9 +3,20 @@ import numpy as np
 import os.path
 from scipy import signal
 
+def getQimage(dims, cc, color=(1.,1.,0.), factor = 4):
+    print dims
+    img = coords.coords2Image(dims, cc, factor, True)
+    colorimg = np.zeros((img.shape[0],img.shape[1],4),dtype=np.uint8)
+    mx = np.max(img)
+    colorimg[:,:,0] = color[2]*img*(255./mx) # blue = LSB
+    colorimg[:,:,1] = color[1]*img*(255./mx) # green
+    colorimg[:,:,2] = color[0]*img*(255./mx) # red
+
+    return colorimg
+
 def loadImage(filename, color=(1.,1.,0.), factor=4):
 	print "reading file %s" % filename
-	
+
 	dims, cc = coords.readfile(filename)
 	img = coords.coords2Image(dims, cc, factor=factor)
 	colorimg = np.zeros((img.shape[0],img.shape[1],4),dtype=np.uint8)
@@ -18,7 +29,7 @@ def loadImage(filename, color=(1.,1.,0.), factor=4):
 
 def countDetections(cc,x,y,radius):
 	roi = x-radius, x+radius, y-radius, y+radius
-	
+
 	cc = coords.cropROI(cc, roi)
 	number = 0
 	intensity = 0.
@@ -61,7 +72,7 @@ def smooth_image_according_to_heatmatrix_new(img, heatmatrix, factor):
 	res_img = np.zeros_like(img)
 	pos0, pos1 = np.where(img[filter_width:-filter_width,filter_width:-filter_width,1] > 0)
 	pos0 = pos0 + filter_width #indices have to be corrected, because they are searched in a smaller array (with borders of width filter_width)
-	pos1 = pos1 + filter_width 
+	pos1 = pos1 + filter_width
 	for k in range(len(pos0)):
 		i = pos0[k]
 		j = pos1[k]

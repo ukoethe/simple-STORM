@@ -30,11 +30,11 @@ class TransformController(QtCore.QObject):
 		self.m_transform = {}
 		self.mainview = view
 		self.connectSignals()
-		
+
 	def connectSignals(self):
 		QtCore.QObject.connect(self.mainview, QtCore.SIGNAL("setBeadSelected(float,float,int,bool)"), self.setBeadSelected)
 		QtCore.QObject.connect(self.mainview, QtCore.SIGNAL("unselectAllBeads()"), self.unselectAllBeads)
-		
+
 
 	def getResultImage(self):
 		return self.combinedImage
@@ -71,7 +71,7 @@ class TransformController(QtCore.QObject):
 			#if len(fg) != len(bg):
 			#	print "Different number of foreground points in layer %i and background points in layer 0" % layer
 			#	continue
-			
+
 			print "transforming layer %i using %i beads as landmarks" % (layer, len(fg))
 
 			fgc = copy.deepcopy(fg)
@@ -82,50 +82,50 @@ class TransformController(QtCore.QObject):
 			rss = np.sum((tt-bg)**2)
 			rms = np.sqrt(rss/len(fg))
 			print "Residual sum of squares (RSS): %fpx^2,     RMS: %fpx" % (rss, rms)
-			
+
 			heatMatrix.append(self.getHeatmatrix(dims, fg, bg, delR, delPhi,rms))
-			
+
 		return heatMatrix
-	
+
 	def getHeatmatrix(self, dims, fg, bg, delR, delPhi,rms):
-		
-		
+
+
 		dims=[int(dims[1]),int(dims[0])]	#now the first dimension is assosiated with right
 		deltaX=np.mean(bg[:,0])
 		deltaY=np.mean(bg[:,1])
-		
+
 		n = len(fg)
-		
+
 		fg[:,0]=fg[:,0]-deltaX
 		fg[:,1]=fg[:,1]-deltaY
 		bg[:,0]=bg[:,0]-deltaX
 		bg[:,1]=bg[:,1]-deltaY
-		
+
 		#paramX,paramY = calcTrafo.calculateRegression(fg, bg)
 		Heatmatrix = np.zeros((dims[1],dims[0]))
 		contributionX = np.zeros([dims[0],dims[1]])
 		contributionY = np.zeros([dims[0],dims[1]])
 		student_coeff95 = np.ones(2000) * 2
 		student_coeff95[:19] = [12.7, 4.3, 3.18, 2.77, 2.57, 2.447, 2.365, 2.30, 2.25, 2.28,2.22,2.18,2.16,2.145,2.13,2.12,2.11,2.10,2.09]
-		
+
 		constantX = student_coeff95[n-3]*rms
 		constantY = student_coeff95[n-3]*rms
 		#The error for x and y direction is calculated independently, (confidence interval)
 		'''
 		for i in range(int(dims[0])):
 			contributionX[i] = constantX * np.sqrt(1/len(bg)+((i-deltaX)-np.mean(bg[:,0]))**2/np.sum((bg[:,0]-np.mean(bg[:,0]))**2))
-			
+
 		for j in range(int(dims[1])):
 			contributionY[j] = constantY * np.sqrt(1/len(bg)+((j-deltaY)-np.mean(bg[:,1]))**2/np.sum((bg[:,1]-np.mean(bg[:,1]))**2))
 		'''
 		MX_inv = (np.matrix(fg).T * np.matrix(fg)).I
-		
+
 		for i in range(int(dims[0])):
 			for j in range(int(dims[1])):
 				x0 = np.matrix([i-deltaX, j- deltaY]).T
 				contributionX[i,j] = constantX * np.sqrt(rms/len(bg) * x0.T * MX_inv * x0)
 				contributionY[i,j] = constantY * np.sqrt(rms/len(bg) * x0.T * MX_inv * x0)
-		
+
 		'''
 		contribMatX=np.ones((dims[1],dims[0]))*contributionX
 		contribMatY=np.tile(contributionY,(int(dims[0]),1)).T
@@ -134,23 +134,23 @@ class TransformController(QtCore.QObject):
 		#contribMatX=np.ones((dims[1],dims[0]))*contributionX**2
 		#contribMatY=np.tile(contributionY**2,(int(dims[0]),1)).T
 		Heatmatrix = np.sqrt(contributionX+contributionY).T
-		
+
 		from matplotlib import pyplot
 		pyplot.matshow(Heatmatrix)
 		pyplot.colorbar()
 		pyplot.gray()
 		pyplot.show()
-		
+
 		'''deltaX = dims[0]/2
 		deltaY = dims[1]/2
-		
+
 		Heatmatrix = np.ones([dims[0], dims[1],4])
-		
+
 		for i in range(int(dims[0])):
 			for j in range(int(dims[1])):
 				Heatmatrix[i,j,0] = delR + np.abs(np.sqrt((i-deltaX)**2+(j-deltaY)**2) * delPhi/(2*np.pi))
-		
-		
+
+
 		from matplotlib import pyplot
 		pyplot.matshow(Heatmatrix[...,0])
 		pyplot.colorbar()
@@ -158,7 +158,7 @@ class TransformController(QtCore.QObject):
 		pyplot.show()
 		Heatmatrix=Heatmatrix.T'''
 		return Heatmatrix
-		
+
 	def getCoordinates(self, layer):
 		cc = []
 		for l in self.m_landmarksList:
@@ -182,6 +182,6 @@ class TransformController(QtCore.QObject):
 		'''transform the points with the previously calculated transform
 		from the coordinates at layer l to the coordinate system of the
 		background layer (layer 0)'''
-		
+
 		return np.dot(self.m_transform[layer], np.vstack([points.T,np.ones(len(points))])).T[:,:2] # fg transformed in bg coords
 
