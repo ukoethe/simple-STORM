@@ -161,9 +161,7 @@ void InputWidget::runClicked()
     }
     else
         m_params.setIgnoreSkellamFramesSaved(true);
-    std::cout<<"IgnoreSkellamFramesSaved: "<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
     m_params.doSanityChecks();
-
     emit run(m_params);
 }
 

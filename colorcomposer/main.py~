@@ -484,11 +484,11 @@ class MyColorcomposerApp(QtCore.QObject):
 
     def toggleUncertaintyImage(self):
         self.m_uncertaintyToggled = not self.m_uncertaintyToggled
-        #if len(self.m_npimages) > 0 and not self.m_ErrorImagesCalculated:
-            #self.m_ErrorImagesCalculated = True
-            #for i in range(len(self.m_npimages)):
-                #self.m_errorAppliednpimages.append(worker.getQimage(self.m_dims[i], self.m_coords[i], self.m_colors[i], self.m_factor))
-            #self.recalculateResult()
+        if len(self.m_npimages) > 0 and not self.m_ErrorImagesCalculated:
+            self.m_ErrorImagesCalculated = True
+            for i in range(len(self.m_npimages)):
+                self.m_errorAppliednpimages.append(worker.getQimage(self.m_dims[i], self.m_coords[i], self.m_colors[i], self.m_factor))
+        self.recalculateResult()
 
     def zoomOutButton_clicked(self):
         self.zoomGraphicsView(1/1.2)

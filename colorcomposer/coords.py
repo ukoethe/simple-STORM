@@ -47,6 +47,8 @@ def readfile(filename):
         npcoords = np.hstack([npcoords, 10*np.ones([npcoords.shape[0],1])])
 
     npdims = np.asarray(dimline[0:3])
+    pixelsize = dimline[3]
+    npcoords[:,:2]/= pixelsize
     dimensions = npdims
     np.savez(str(filename), dims=npdims, coords=npcoords)
     return npdims, npcoords

@@ -253,7 +253,7 @@ template <class C>
 int saveCoordsFile(const DataParams &params, std::ofstream &cfile, const std::vector<std::set<C> >& coords) {
     int numSpots = 0;
     std::set<Coord<float> >::iterator it2;
-    cfile << params.shape(0) << " " << params.shape(1) << " " << params.shape(2) << std::endl;
+    cfile << params.shape(0) << " " << params.shape(1) << " " << params.shape(2) << " "<< params.getPixelSize()<< " " <<params.getFactor()<< " " << params.getSigma()<< std::endl;
     cfile << std::fixed; // fixed instead of scientific format
     for(unsigned int j = 0; j < coords.size(); j++) {
         for(it2=coords[j].begin(); it2 != coords[j].end(); it2++) {
