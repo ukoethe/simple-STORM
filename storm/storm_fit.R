@@ -14,7 +14,7 @@ fit.skellam.points <- function(data, bins) {
 
     for (i in seq(from=dmin, to=dmax - interval, by=interval)) {
         cmax <- i + interval
-        currbin <- data[data$V1 >= i & data$V1 <= cmax,2]
+        currbin <- data[data[,1] >= i & data[,1] <= cmax,2]
         weight <- 1 / var(currbin)
         if (is.na(weight) || weight == Inf) {
             weight <- 0
@@ -24,6 +24,75 @@ fit.skellam.points <- function(data, bins) {
     fit <- lm(data[mcd$best,2] ~ data[mcd$best,1], weights=data[mcd$best,3])
 
     return(coefficients(fit))
+}
+
+fit.minimalValuesWeighted <- function(data, bins) {
+
+    data <- data.frame(data, weight=1)
+
+    dmin <- min(data[,1])
+    dmax <- max(data[,1])
+    interval <- (dmax - dmin) / bins
+    x = c()
+    y = c()
+    w = c()
+    for (i in seq(from=dmin, to=dmax - interval, by=interval)) {
+        cmax <- i + interval
+        currbin <- data[data[,1] >= i & data[,1] <= cmax,2]
+        currbinx <- data[data[,1] >= i & data[,1] <= cmax,1]
+        weight <- 1 / var(currbin)
+        if (is.na(weight) || weight == Inf) {
+            weight <- 0
+        }
+        data[data$V1 >= i & data$V1 <= cmax,3] <- weight
+        x = c(x,currbinx[currbin == min(currbin)][1])
+        y = c(y,currbin[currbin==min(currbin)][1])
+        w = c(w,weight)
+    }
+
+    fit <- lm(y ~ x, weights=w)
+    err = 0
+    m = coefficients(fit)[2]
+    c = coefficients(fit)[1]
+    for (i in 1:bins){
+        err = err + (y[i] - (m*x[i]+c))**2
+    }
+    err = err/bins
+
+    return(c(coefficients(fit)[2],coefficients(fit)[1],err))
+}
+
+fit.allValuesWeighted <- function(data, bins) {
+    data <- data.frame(data, weight=1)
+
+    dmin <- min(data[,1])
+    dmax <- max(data[,1])
+    interval <- (dmax - dmin) / bins
+    x = c()
+    y = c()
+    w = c()
+    for (i in seq(from=dmin, to=dmax - interval, by=interval)) {
+        cmax <- i + interval
+        currbin <- data[data[,1] >= i & data[,1] <= cmax,2]
+        currbinx <- data[data[,1] >= i & data[,1] <= cmax,1]
+        weight <- 1 / var(currbin)
+        if (is.na(weight) || weight == Inf) {
+            weight <- 0
+        }
+        data[data$V1 >= i & data$V1 <= cmax,3] <- weight
+        x = c(x,currbinx)
+        y = c(y,currbin)
+        w = c(w,rep(weight, length(currbin)))
+    }
+    fit <- lm(y ~ x, weights=w)
+    err = 0
+    m = coefficients(fit)[2]
+    c = coefficients(fit)[1]
+    for (i in 1:length(x)){
+        err = err + (y[i] - (m*x[i]+c))**2
+    }
+    err = err/length(x)
+    return(c(coefficients(fit)[2],coefficients(fit)[1],err))
 }
 
 fit.filter <- function(img) {
@@ -51,25 +120,25 @@ fit.filter <- function(img) {
 
 
 fit.BG <- function(vec) {
-    muxstart <- which.max(vec) 
+    muxstart <- which.max(vec)
     sigmaxstart = 3
     data <- data.frame(bin=1:length(vec), val=vec)
 
     offset <- min(vec)
     scaling <- max(vec)
-    
+
     fit <- nls(val ~ a+(b-a)*exp(-((bin - mux)^2)/(2*sigmax^2)),start=list(sigmax=sigmaxstart, a=offset,b=scaling, mux=muxstart), data=data, trace=F, control=list(warnOnly=T))
 
     return(coefficients(fit)[1])
 }
 
 fit.BG2 <- function(vec,minimum,maximum,nbrbins) {
-    muxstart <- which.max(vec) 
+    muxstart <- which.max(vec)
     sigmaxstart = 5
     data <- data.frame(bin=1:length(vec), val=vec)
     offset <- min(vec)
     scaling <- max(vec)
-    
+
     fit <- nls(val ~ a+(b-a)*exp(-((bin - mux)^2)/(2*sigmax^2)),start=list(sigmax=sigmaxstart, a=offset,b=scaling, mux=muxstart), data=data, trace=F, control=list(warnOnly=T))
 
     return(abs(coefficients(fit)[1]*(maximum-minimum)/nbrbins))

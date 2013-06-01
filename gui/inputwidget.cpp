@@ -158,10 +158,12 @@ void InputWidget::runClicked()
     std::cout<<"getSlopeSaved:"<<m_params.getSlopeSaved()<<std::endl;
     if (!(m_params.getSlopeSaved() and m_params.getInterceptSaved())) {
         m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
+        std::cout<<"IgnoreSkellamFrames:"<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
     }
     else
         m_params.setIgnoreSkellamFramesSaved(true);
     m_params.doSanityChecks();
+    std::cout<<"IgnoreSkellamFrames:"<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
     emit run(m_params);
 }
 
