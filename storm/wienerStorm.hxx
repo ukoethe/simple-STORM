@@ -197,19 +197,6 @@ template <class T>
 void fitAllWeighted(std::vector<T>& meanValues,std::vector<T>& skellamParameters,std::vector<int>& indicesVector,int numberPoints,T &m, T &c, T &error){
     int nbins = 10;
     typename std::vector<T>::iterator it;
-    //std::cout<<"begin fit line"<<std::endl;
-//     std::vector<T> tempVx;
-//     std::vector<T> tempVy;
-//     //tempVx.reserve(100);
-//     std::cout<<"nbrPointsChosen: "<<nbrPointsChosen<<std::endl;
-//     for(int i = 0; i<numberPoints; i++){
-//         tempVx.push_back(meanValues[indicesVector[i]]);
-//         tempVy.push_back(skellamParameters[indicesVector[i]]);
-//
-//     }
-//     std::cout<<tempVx[0]<<" "<<tempVy[0]<<" "<<indicesVector[0]<< " ";
-//     std::cout<<std::endl;
-//     std::cout<<" numberPoints: "<<numberPoints<< " len(meanValues)"<< meanValues.size()<<" len(skellamParam):"<<skellamParameters.size()<<std::endl;
     wienerStorm_R_mutex.lock();
     SEXP fun, t, tmp;
     PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
@@ -1013,29 +1000,29 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
         }
     }
 
-//     std::cout<<std::endl;
-//     for (int i =0; i< intervalCounter; ++i){
-//         std::cout<<meanValues[i]<<", ";
-//     }
-//     std::cout<<std::endl;
-//     for (int i =0; i< intervalCounter; ++i){
-//         std::cout<<skellamParameters[i]<<", ";
-//     }
-    std::cout<<std::endl<<std::endl<<std::endl;
-
-    fitSkellamPoints(params, meanValues, skellamParameters, intervalCounter);
-    std::cout<<"y1 = "<< params.getSlope()<<" * x1 + "<<-params.getIntercept()* params.getSlope()<<"#(Covariance minimization)"<< std::endl;
-    fitMinimalWithWeights(params, meanValues, skellamParameters, intervalCounter);
-    std::cout<<"y2 = "<< params.getSlope()<<" * x1 + "<<-params.getIntercept()* params.getSlope()<<"#(Weighted fit of lowes 10 points, half of the set used for each run)"<< std::endl;
-    findBestFit(params,meanValues,skellamParameters,intervalCounter);
-    std::cout<<"y3 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(lowest points from each interval, linear fit over random number of points between 5 and 10)"<< std::endl;
-    doRansacReal(params, meanValues, skellamParameters, intervalCounter);
-    std::cout<<"y4 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC)"<< std::endl;
+    std::cout<<std::endl;
+    for (int i =0; i< intervalCounter; ++i){
+        std::cout<<meanValues[i]<<", ";
+    }
+    std::cout<<std::endl;
+    for (int i =0; i< intervalCounter; ++i){
+        std::cout<<skellamParameters[i]<<", ";
+    }
+//     std::cout<<std::endl<<std::endl<<std::endl;
+//
+//     fitSkellamPoints(params, meanValues, skellamParameters, intervalCounter);
+//     std::cout<<"y1 = "<< params.getSlope()<<" * x1 + "<<-params.getIntercept()* params.getSlope()<<"#(Covariance minimization)"<< std::endl;
+//     fitMinimalWithWeights(params, meanValues, skellamParameters, intervalCounter);
+//     std::cout<<"y2 = "<< params.getSlope()<<" * x1 + "<<-params.getIntercept()* params.getSlope()<<"#(Weighted fit of lowes 10 points, half of the set used for each run)"<< std::endl;
+//     findBestFit(params,meanValues,skellamParameters,intervalCounter);
+//     std::cout<<"y3 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(lowest points from each interval, linear fit over random number of points between 5 and 10)"<< std::endl;
+//     doRansacReal(params, meanValues, skellamParameters, intervalCounter);
+//     std::cout<<"y4 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC)"<< std::endl;
     doRansacRealWeighted(params, meanValues, skellamParameters, intervalCounter);
     std::cout<<"y5 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC with weighted fit instead of linear fit)"<< std::endl;
-    doFit2(params,meanValues,skellamParameters, intervalCounter);
-    std::cout<<"y6 = "<< params.getSlope()<<" * x1+ "<<-params.getSlope()*params.getIntercept() <<"#(linear fit of 8 randomly selected points)"<< std::endl;
-    std::cout<<std::endl<<std::endl;
+//     doFit2(params,meanValues,skellamParameters, intervalCounter);
+//     std::cout<<"y6 = "<< params.getSlope()<<" * x1+ "<<-params.getSlope()*params.getIntercept() <<"#(linear fit of 8 randomly selected points)"<< std::endl;
+//     std::cout<<std::endl<<std::endl;
 
 //     if(params.getIntercept() > 0)
 //         params.setIntercept(std::min(minVal, params.getIntercept()));
@@ -1237,7 +1224,8 @@ adds new powerspecra for each frame to the previous ones
 */
 template <class T, class S>
 void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
-
+    vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
+                               [](double p){return std::pow((p+3./8.)/2.,2)-3./8.;}); //inverse Anscombe transform to avoid spread of PSF
     int w = params.shape(0), h = params.shape(1);
     int roiwidth2 = roiwidth / 2;
     BasicImageView<T> input = makeBasicImageView(in);
@@ -1491,11 +1479,11 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     float kernelWidth = params.getSigma()*params.getPrefactorSigma();
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
     //gaussianSharpening(srcImageRange(input), destImage(filteredView), 0.85, kernelWidth);
-    BasicImage<T> output(w,h);
-    vigra::copyImage(srcImageRange(input), destImage(output));
-    char name2[1000];
-    sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/imgBeforeMaximaDetection%d.tif", framenumber);
-    vigra::exportImage(srcImageRange(filtered), name2);
+//     BasicImage<T> output(w,h);
+//     vigra::copyImage(srcImageRange(input), destImage(output));
+//     char name2[1000];
+//     sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/imgBeforeMaximaDetection%d.tif", framenumber);
+//     vigra::exportImage(srcImageRange(filtered), name2);
 
     MultiArray<2, T> mask(Shape2(w, h));
     getMask(params, unfiltered, framenumber, mask);

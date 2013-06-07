@@ -4,8 +4,6 @@ import coords as coord2im
 import sys
 import time
 
-cutoff=95
-
 def getCandidates(dims,cc,frames):
 	#finds good candidates without to much redundancy by skipping too near points
 	for i in range(cc.shape[0]):
@@ -75,24 +73,18 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 	# sort beads in 'bins'
 	intensities = cc[:,3]
 	#~ allCandidates = cc[intensities > 2*np.mean(intensities)] # only high intensities
-	#allCandidates = cc # all spots
-	if dims[2]>=50:
-		initialCandidates = getCandidates(dims, cc, 50)
-	else:
-		initialCandidates = getCandidates(dims, cc, dims[2])
-
+	print dims[2]
+	initialCandidates = cc[cc[:,2]<50]#getCandidates(dims,cc, np.min([50, dims[2]]))
 	#initialCandidates = allCandidates[allCandidates[:,2]<100] # from frame 0 to 49
 	counter=0
 
 	for x, y, frame, intensity in initialCandidates[:,0:4]:
 		counter=counter+1
 		#print counter
-		start2=time.time()
 		nearestDist, nearestIdx = nearestNeighbor((x,y,intensity), beads, maxDist)
-		print 'nearestDist: %1.2f, Bead: (%3.2f, %3.2f)' %(nearestDist, x,y)
+# 		print 'nearestDist: %1.2f, Bead: (%3.2f, %3.2f)' %(nearestDist, x,y)
 		if nearestDist > 2*maxDist:
 			beads.append([x,y,intensity])
-			#print 'greater', time.time()-start2
 		else:
 			#print "merging beads too close together: ", (x,y,intensity), beads[nearestIdx]
 			beads.append([(x+beads[nearestIdx][0])/2., (y+beads[nearestIdx][1])/2.,(intensity+beads[nearestIdx][2])/2.])
@@ -111,7 +103,7 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 			continue
 		mm,stddev,intensitiy = beadVariance(candidate)
 		if stddev < maxStdDev:
-			print "mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate)
+ 			print "mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate)
 			scatterplotData.append( (intensity, stddev))
 			meanData.append(mm)
 		else:

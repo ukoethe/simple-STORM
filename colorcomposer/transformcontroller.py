@@ -77,16 +77,16 @@ class TransformController(QtCore.QObject):
 
             fgc = copy.deepcopy(fg)
             bgc = copy.deepcopy(bg)
-            self.m_transform[layer], fg, bg = calcTrafo.doRansac(fgc, bgc, dims)
+            self.m_transform[layer], fg, bg = calcTrafo.doRansac2(fgc, bgc, dims)
             #self.m_transform[layer] = calcTrafo.affineMatrix2DFromCorrespondingPoints(fg, bg, dims)
             tt = np.dot(self.m_transform[layer], np.vstack([fg.T,np.ones(len(fg))])).T[:,:2] # fg transformed in bg coords
             rss = np.sum((tt-bg)**2)
             rms = np.sqrt(rss/len(fg))
             print "Residual sum of squares (RSS): %fpx^2,     RMS: %fpx" % (rss, rms)
 
-            m_errorMatrix.append(self.getHeatmatrix(dims, fg, bg,rms))
-
-        return m_errorMatrix
+            self.m_errorMatrix.append(self.getHeatmatrix(dims, fg, bg,rms))
+            bg = bgc
+        return self.m_errorMatrix
 
     def getHeatmatrix(self, dims, fg, bg,rms):
 
@@ -109,8 +109,8 @@ class TransformController(QtCore.QObject):
         student_coeff95 = np.ones(2000) * 2
         student_coeff95[:19] = [12.7, 4.3, 3.18, 2.77, 2.57, 2.447, 2.365, 2.30, 2.25, 2.28,2.22,2.18,2.16,2.145,2.13,2.12,2.11,2.10,2.09]
 
-        constantX = student_coeff95[n-3]*rms
-        constantY = student_coeff95[n-3]*rms
+        constantX = student_coeff95[n-2]*rms/np.sqrt(2)
+        constantY = student_coeff95[n-2]*rms/np.sqrt(2)
         #The error for x and y direction is calculated independently, (confidence interval)
         '''
         for i in range(int(dims[0])):
@@ -124,8 +124,10 @@ class TransformController(QtCore.QObject):
         for i in range(int(dims[0])):
             for j in range(int(dims[1])):
                 x0 = np.matrix([i-deltaX, j- deltaY]).T
-                contributionX[i,j] = constantX * np.sqrt(rms/len(bg) * x0.T * MX_inv * x0)
-                contributionY[i,j] = constantY * np.sqrt(rms/len(bg) * x0.T * MX_inv * x0)
+                #contributionX[i,j] = constantX**2 * (x0.T * MX_inv * x0)
+                contributionX[i,j] = rms**2 * (x0.T * MX_inv * x0)
+                #contributionY[i,j] = constantY**2 * (x0.T * MX_inv * x0)
+                contributionY[i,j] = rms**2 * (x0.T * MX_inv * x0)
 
         '''
         contribMatX=np.ones((dims[1],dims[0]))*contributionX
@@ -176,8 +178,7 @@ class TransformController(QtCore.QObject):
             trafo = np.diag([1,1,1]) # identity
         # convert to QMatrix
         matrix = QtGui.QMatrix(trafo[0,0], trafo[1,0], trafo[0,1], trafo[1,1], trafo[0,2], trafo[1,2])
-        maximalMatchedPoints
-        return matrix
+        return matrix, trafo
 
     def doTransform(self, points, layer):
         '''transform the points with the previously calculated transform
@@ -185,8 +186,8 @@ class TransformController(QtCore.QObject):
         background layer (layer 0)'''
 
         return np.dot(self.m_transform[layer], np.vstack([points.T,np.ones(len(points))])).T[:,:2] # fg transformed in bg coords
-
+        
     def addTransformationError(self, cc, factor, layer):
         for i in range(cc.shape[0]):
-            print i, cc.shape[0]
-            cc[i,5] += m_errorMatrix[layer][cc[i,0],cc[i,1]]
+            #print i, cc.shape[0], self.m_errorMatrix[layer].shape
+            cc[i,5] += self.m_errorMatrix[layer][cc[i,1],cc[i,0]]

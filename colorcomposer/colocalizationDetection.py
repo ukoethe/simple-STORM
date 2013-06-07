@@ -544,3 +544,102 @@ def coordinateBasedColocalization2(dataR, dataG):
     plot.show()
     plot.hist(C)
     plot.show()
+
+
+def CBC_ROI2(tree, loc, locs, r, R):
+    idxR = set(tree.query_ball_point(loc[:2],R))
+    idxr = set(tree.query_ball_point(loc[:2],r))
+    roi = locs[list(idxR-idxr)]
+    L = roi.shape[0]
+    if L == 0:
+        roi = np.zeros([1,5])
+    return roi, L
+
+def CBC_ROI3(tree, loc, r, R):
+    idxR = set(tree.query_ball_point(loc[:2],R))
+    idxr = set(tree.query_ball_point(loc[:2],r))
+    return len(idxR-idxr)
+
+def CBC(locsAo,locsBo, dims, factor, pixelsize = 100):
+    import numpy as np
+    import scipy.stats
+    import scipy as sp
+    from scipy import spatial
+    locsA = np.copy(locsAo)
+    locsB = np.copy(locsBo)
+    locsA[:,:2] = locsA[:,:2] * pixelsize
+    locsB[:,:2] = locsB[:,:2] * pixelsize
+    R = 100#int(5*np.sqrt(pixelsize))
+    Int = 5
+    thresholdLA = 20
+    thresholdLB = 20
+    Weight = 1
+    import time
+    st = time.time()
+
+    listcorr = []
+#     locsA[:,:2]*=pixelsize
+#     locsB[:,:2]*=pixelsize
+    treeA = spatial.cKDTree(locsA[:,:2],10)
+    treeB = spatial.cKDTree(locsB[:,:2],10)
+
+    for i in range (0,(len(locsA))):
+        print i, len(locsA)
+        # selection
+
+        loc=locsA[i,:]
+        LA = CBC_ROI3(treeA, loc, 0 ,R)
+        LB = CBC_ROI3(treeB, loc, 0 ,R)
+
+        # correlation
+        if (LA>thresholdLA) and (LB>thresholdLB):
+            TraceA=np.zeros([Int,2])
+            TraceA[:,0]=range (0,R-np.mod(R,Int),(R/Int))
+            TraceB=np.zeros([Int,2])
+            TraceB[:,0]=range (0,R-np.mod(R,Int),(R/Int))
+            for n in range (1,Int):
+                m=n*(R/float(Int))
+                o=0
+                la=CBC_ROI3(treeA,loc,0,m)#CBC_ROI(roiA,o,m)
+                lb=CBC_ROI3(treeB,loc,0,m)#CBC_ROI(roiB,o,m)
+                TraceA[n,1]=(la/(np.pi*m*m))*(np.pi*R*R/(LA))
+                TraceB[n,1]=(lb/(np.pi*m*m))*(np.pi*R*R/(LB))
+
+            Corr=sp.stats.spearmanr(TraceA[:,1], TraceB[:,1])
+            if np.isnan(Corr[0]):
+                Corr = [0,0]
+            #Weighting
+            #Dist=np.exp(-Weight*(min(roiB[:,5]))/R)
+            NN = 0
+            counter = 0
+            while NN == 0:
+                NN = treeB.query(loc[:2],2+counter)[0][counter]
+                counter += 1
+            Dist=np.exp(-Weight*(NN)/R)
+            Coloc=Corr[0]*Dist
+        else:
+           Coloc=0
+        #saving
+        listcorr.append(Coloc)
+        #out_file.write(str(loc[0])+' '+str(loc[1])+' '+str(loc[2])+' '+str(int(loc[3]))+' '+str(Coloc)+"\n")
+
+    dataB = np.zeros([dims[1]*factor, dims[0]*factor,4])
+    for i in range(len(listcorr)):
+        print i
+        if listcorr[i]>0:
+            try: 
+                dataB[int(factor * locsA[i,1]/pixelsize),int(factor * locsA[i,0]/pixelsize),0] = listcorr[i]*255
+            except IndexError:
+                tmp = 1
+        else:
+            try:
+                dataB[int(factor * locsA[i,1]/pixelsize),int(factor * locsA[i,0]/pixelsize),1] = (-listcorr[i])*255
+            except IndexError:
+                tmp = 1
+    dataB = np.array(dataB, dtype=np.uint8)
+
+    print "Total time for colocalization detection:",time.time() - st
+    plot.matshow(dataB[...,0])
+    plot.show()
+
+    return dataB

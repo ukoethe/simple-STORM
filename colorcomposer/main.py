@@ -111,6 +111,7 @@ class MyColorcomposerApp(QtCore.QObject):
         self.heatmatrix = []    # contains information about errors after transformation
         self.m_dims   = []
         self.m_qimage = QtGui.QImage()
+        self.heatmap = QtGui.QImage()
         self.scene = CursorGraphicsScene()
         self.ui.graphicsView.setScene(self.scene)
         self.pixmap = self.scene.addPixmap(QtGui.QPixmap())
@@ -124,8 +125,8 @@ class MyColorcomposerApp(QtCore.QObject):
         self.counter_beads = []
 
         self.cutoff=.55
-        self.maxVariance=4
-        self.maxDistance=3 #this value determines  if near beads are treated as one bigger bead or separately, small values mean more bead detections
+        self.maxVariance=0.6
+        self.maxDistance=1 #this value determines  if near beads are treated as one bigger bead or separately, small values mean more bead detections
 
 
         self.connectSignals()
@@ -140,10 +141,11 @@ class MyColorcomposerApp(QtCore.QObject):
         QtCore.QObject.connect(self.ui.actionDiscard_selected_beads, QtCore.SIGNAL("triggered()"), self.clearAll_selected_beads)
         QtCore.QObject.connect(self.ui.actionColocalization, QtCore.SIGNAL("triggered()"), self.colocalization)
         QtCore.QObject.connect(self.ui.actionToggle_colocalization_heatmap, QtCore.SIGNAL("triggered()"), self.toggleColocalizationHeatmap)
-        QtCore.QObject.connect(self.ui.actionToggle_uncertainty_image, QtCore.SIGNAL("triggered()"), self.toggleUncertaintyImage)
+        QtCore.QObject.connect(self.ui.actionTransformation_Matrix, QtCore.SIGNAL("triggered()"), self.showTransformation_Matrix)
         QtCore.QObject.connect(self.ui.actionAuto_align_images, QtCore.SIGNAL("triggered()"), self.autoalign)
         QtCore.QObject.connect(self.ui.actionAbout, QtCore.SIGNAL("triggered()"), self.about_triggered)
         QtCore.QObject.connect(self.ui.actionExport_Composed_image, QtCore.SIGNAL("triggered()"), self.exportComposed_triggered)
+        QtCore.QObject.connect(self.ui.actionExport_Colocalisation_heatmap, QtCore.SIGNAL("triggered()"), self.exportHeatmap_triggered)
         QtCore.QObject.connect(self.ui.actionExport_transformed_coordinates, QtCore.SIGNAL("triggered()"), self.exportTransformedCoordinates_triggered)
         QtCore.QObject.connect(self.scene, QtCore.SIGNAL("cursorMoved(float, float, float)"), self.displayStats)
 
@@ -160,15 +162,25 @@ class MyColorcomposerApp(QtCore.QObject):
         self.ui.maximalDistanceSlider.valueChanged.connect(self.maximalDistanceSliderChanged)
         self.ui.maximalDistanceSpinBox.valueChanged.connect(self.maximalDistanceSpinBoxChanged)
 
-
+        if 0:
+            self.addFileButton_clicked('/home/herrmannsdoerfer/MasterArbeit/daten/StormResults/Pos11_2_red.txt')
+            self.addFileButton_clicked('/home/herrmannsdoerfer/MasterArbeit/daten/StormResults/Pos11_2_green.txt')
 
         if 0:
-            self.addFileButton_clicked('/home/herrmannsdoerfer/master/workspace/PythonPrograms/Colocalization/ColocBlockRed.txt')
-            self.addFileButton_clicked('/home/herrmannsdoerfer/master/workspace/PythonPrograms/Colocalization/ColocBlockGreen.txt')
+            self.addFileButton_clicked('/home/herrmannsdoerfer/workspace/colorComposer/Pos2_2_red2.txt')
+            self.addFileButton_clicked('/home/herrmannsdoerfer/workspace/colorComposer/Pos2_2_red2.txt')
 
         if 0:
-            self.addFileButton_clicked('/home/herrmannsdoerfer/master/data/murany-bioquant/data2/data/Pos033_Soo1C0-Av-647.txt')
-            self.addFileButton_clicked('/home/herrmannsdoerfer/master/data/murany-bioquant/data2/data/Pos033_Soo1C0-Av-532b.txt')
+            self.addFileButton_clicked('/home/herrmannsdoerfer/workspace/colorComposer/Pos2_2_red2.txt')
+            self.addFileButton_clicked('/home/herrmannsdoerfer/workspace/colorComposer/Pos2_2_green.txt')
+
+        if 0:
+            self.addFileButton_clicked('/home/herrmannsdoerfer/workspace/colorComposer/Pos2_2_red2Full.txt')
+            self.addFileButton_clicked('/home/herrmannsdoerfer/workspace/colorComposer/Pos2_2_greenFull.txt')
+
+        if 0:
+            self.addFileButton_clicked('/home/herrmannsdoerfer/tmpOutput/20randomPoints.txt')
+            self.addFileButton_clicked('/home/herrmannsdoerfer/tmpOutput/20randomPoints2.txt')
 
         if 0:
             self.addFileButton_clicked('/home/herrmannsdoerfer/master/data/murany-bioquant/data2/data/Pos6_1_red.txt')
@@ -194,7 +206,7 @@ class MyColorcomposerApp(QtCore.QObject):
 
     def addImage(self, filename, color=(1,1,0)):
         '''load a file and add it to the list of QImages'''
-        npimg, cc, dims = worker.loadImage(filename, color, self.m_factor)
+        npimg, cc, dims, self.m_factor = worker.loadImage(filename, color)
         self.m_npimages.append(npimg)
         self.m_coords.append(cc)
         self.m_colors.append(color)
@@ -221,7 +233,11 @@ class MyColorcomposerApp(QtCore.QObject):
         self.pixmap.setPixmap(QtGui.QPixmap.fromImage(self.m_qimage))
         self.ui.graphicsView.fitInView(self.pixmap, QtCore.Qt.KeepAspectRatio)
 
-
+    def showTransformation_Matrix(self):
+        for i in range(1,len(self.m_npimages)):
+            mat,trafo =  self.transformcontroller.getTransform(i)
+            print "Transformation matrix transforming layer %i on layer 0" % (i)
+            print trafo
 
     def autoMarkBeads(self):
         for i in xrange(self.ui.fileWidget.count()):
@@ -261,6 +277,11 @@ class MyColorcomposerApp(QtCore.QObject):
 
     def saveImage(self, filename):
         if not self.m_qimage.save(filename):
+            QtGui.QMessageBox.critical(self.main_window, "Error saving file", "Could not save image as %s" %filename)
+        return
+
+    def saveHeatmap(self, filename):
+        if not self.heatmap.save(filename):
             QtGui.QMessageBox.critical(self.main_window, "Error saving file", "Could not save image as %s" %filename)
         return
 
@@ -354,23 +375,20 @@ class MyColorcomposerApp(QtCore.QObject):
         imgR = self.m_npimages[0]
         imgG = self.m_npimages[1]
         #worker.smooth_image_according_to_heatmatrix(imgG, self.heatmatrix, self.m_factor)
-        if self.heatmatrix != []:
-            imgG = worker.smooth_image_according_to_heatmatrix_new(imgG, self.heatmatrix, self.m_factor)
-
-
 
         #Histogram = colocalizationDetection.getAngleHistogram(imgR, imgG, self.m_dims)
         pearsonCoeff = colocalizationDetection.calcPearsonCorrelationCoeff(imgR, imgG)
         MR, MG = colocalizationDetection.calcMandersColocalizationCoeffs(imgR, imgG)
         overlap = colocalizationDetection.calcOverlapCoeff(imgR, imgG)
-        #self.m_colocalizationHeatmap = colocalizationDetection.createColocHeatmap(imgR,imgG)
-        a= colocalizationDetection.coordinateBasedColocalization2(imgR,imgG)
-        self.m_colocalizationHeatmap = colocalizationDetection.coloc(imgR,imgG)
-        self.recalculateResult()
-
-        print overlap
         message='Pearson = %.3f '%pearsonCoeff+' Manders Green = %.3f '%MG+' Manders Red = %.3f '%MR+' overlap coeff= %.3f '%overlap
         self.main_window.statusBar().showMessage(message)
+        #self.m_colocalizationHeatmap = colocalizationDetection.createColocHeatmap(imgR,imgG)
+        #a= colocalizationDetection.coordinateBasedColocalization2(imgR,imgG)
+        self.m_colocalizationHeatmap.append(colocalizationDetection.CBC(self.m_coords[0], self.m_coords[1], self.m_dims[0], self.m_factor, self.m_dims[0][3]))
+        self.m_colocalizationHeatmap.append(colocalizationDetection.CBC(self.m_coords[1], self.m_coords[0], self.m_dims[0], self.m_factor, self.m_dims[0][3]))
+        self.toggleColocalizationHeatmap()
+        self.recalculateResult()
+
 
 
     def deleteBead(self):
@@ -424,6 +442,31 @@ class MyColorcomposerApp(QtCore.QObject):
             filename += ".png" # add default extension
         self.saveImage(filename)
 
+    def exportHeatmap_triggered(self):
+        if len(self.m_npimages)>1:
+            filename = QtGui.QFileDialog.getSaveFileName(self.main_window, "Save Heatmap", filter="Image (*.png *.jpg *.bmp)")
+            filenames =[]
+            if not filename.contains('.'):
+                for i in range(len(self.m_colocalizationHeatmap)):
+                    filenames.append(filename+str(i)+".png") # add default extension
+            else:
+                for i in range(len(self.m_colocalizationHeatmap)):
+                    filenames.append(filename[:-4]+str(i)+".png")
+            painter = QtGui.QPainter()
+            for i in range(len(self.m_colocalizationHeatmap)):
+                height, width = self.m_npimages[0].shape[0], self.m_npimages[0].shape[1]
+                self.heatmap = QtGui.QImage(width, height, QtGui.QImage.Format_RGB32)
+                self.heatmap.fill(0)
+                painter = QtGui.QPainter(self.heatmap);
+                painter.setCompositionMode(QtGui.QPainter.CompositionMode_Plus);
+                qimg_i = QtGui.QImage(self.m_colocalizationHeatmap[i],self.m_colocalizationHeatmap[i].shape[1],self.m_colocalizationHeatmap[i].shape[0],QtGui.QImage.Format_RGB32)
+                painter.drawImage(0,0,qimg_i)
+                self.saveHeatmap(filenames[i])
+                del painter
+                del self.heatmap
+        else:
+            print "Colocalisation has to be calculated first."
+
     def exportTransformedCoordinates_triggered(self):
         '''export coordinate file list of tranformed points for all layers'''
         for i in xrange(1,self.ui.fileWidget.count()):
@@ -435,16 +478,17 @@ class MyColorcomposerApp(QtCore.QObject):
                 newfilename += ".txt" # add default extension
             dimensions, points = coords.readfile(filename)
             p_transformed = self.transformcontroller.doTransform(points[:,0:2], i)
+            print self.m_dims[0][3]
             points[:,0:2] = p_transformed
-            coords.writefile(newfilename, dimensions[0:2], points)
+            coords.writefile(newfilename, dimensions[0:2], points, self.m_dims[0])
 
 
     def maximalDistanceSliderChanged(self,value):
-        self.ui.maximalDistanceSpinBox.setValue(value/10.)
-        self.maxDistance=value/10.
+        self.ui.maximalDistanceSpinBox.setValue(value)
+        self.maxDistance=value
 
     def maximalDistanceSpinBoxChanged(self,value):
-        self.ui.maximalDistanceSlider.setValue(value*10)
+        self.ui.maximalDistanceSlider.setValue(value)
         self.maxDistance=value
 
     def maximalVarianceSliderChanged(self,value):
@@ -488,8 +532,8 @@ class MyColorcomposerApp(QtCore.QObject):
 
             self.m_ErrorImagesCalculated = True
             for i in range(len(self.m_npimages)):
-                tc.addTransformationError(self.m_coords[i], self.m_factor, i)
-                self.m_errorAppliednpimages.append(worker.getQimage(self.m_dims[i], self.m_coords[i], self.m_colors[i], self.m_factor))
+                self.transformcontroller.addTransformationError(self.m_coords[i], self.m_factor, i)
+                #self.m_errorAppliednpimages.append(worker.getQimage(self.m_dims[i], self.m_coords[i], self.m_colors[i], self.m_factor))
         self.recalculateResult()
 
     def zoomOutButton_clicked(self):

@@ -43,26 +43,29 @@ def readfile(filename):
         sys.exit('file %s, line %d: %s' % (filename, reader.line_num, e))
 
     npcoords = np.asarray(coords, dtype='float') #numpy-array
+    npdims = np.asarray(dimline[0:7]) #0: x, 1:y, 2:stacksize, 3:pixelnmratio, 4:factor, 5: PSF width, 6: prefactor
+    npcoords[:,:2]/= npdims[3]
+    psfWidth = dimline[5]
+    #prefactor = npdims[6]
     if npcoords.shape[1] < 6:
-        npcoords = np.hstack([npcoords, 10*np.ones([npcoords.shape[0],1])])
+        npcoords = np.hstack([npcoords, 1/npcoords[:,1:2]**2*np.sqrt(2)/2*np.pi*psfWidth**4*(2+1/prefactor**2+prefactor**2)**2+1/12.])
 
-    npdims = np.asarray(dimline[0:3])
-    pixelsize = dimline[3]
-    npcoords[:,:2]/= pixelsize
     dimensions = npdims
     np.savez(str(filename), dims=npdims, coords=npcoords)
     return npdims, npcoords
 
 
-def writefile(filename, shape, coords):
+def writefile(filename, shape, coords, dims):
     '''write an array of coordinates found in an image of dimensions
     shape back to disk.'''
 
     fp = open(filename, 'wb')
     csvwriter = csv.writer(fp, delimiter=' ', lineterminator='\n')
-    shape2 = [int(shape[0]), int(shape[1])] # map tuple to array of ints
-    shape2.append(int(np.max(coords[:,2]))+1) # number of frames
+    #shape2 = [int(shape[0]), int(shape[1])] # map tuple to array of ints
+    #shape2.append(int(np.max(coords[:,2]))+1) # number of frames
+    shape2 = dims
     coordsVisible = cropROI(coords, (0, shape2[0]-1, 0, shape2[1]-1)) # drop points outside visible area
+    coordsVisible[:,:2]*=dims[3]
     if len(coordsVisible) != len(coords):
         print "%i out of %i coordinates are outside of the field of view (dropping)" % \
                 (len(coords)-len(coordsVisible), len(coords))
@@ -111,7 +114,7 @@ def coords2Image(dimension, coords, factor=8, applyError = False):
             im[cc[i,1],cc[i,0]] += intensity
 
     #limit maximum value
-    mmx = scipy.stats.scoreatpercentile(im[np.where(im>0)].flat, 95.0)
+    mmx = scipy.stats.scoreatpercentile(im[np.where(im>0)].flat, 90.)
     if mmx > 0:
         im[im>mmx] = mmx # crop maximum at above percentile
     print np.max(im)
