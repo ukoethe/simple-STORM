@@ -199,7 +199,7 @@ void fitGaussian1D(double data[], int size, T &sigma = 2, T &scale = 0.5, T &off
                 j(0,0) = scale * e * xs / sigma;
                 j(1,0) = e;
                 j(2,0) = 1.0;
-                j(3,0) = scale * e * xs/ (points(i,0) - x0);
+                j(3,0) = scale * e * (points(i,0) - x0)/sq(sigma);
 
                 jr += r * j;
                 jj += j * transpose(j);
@@ -255,7 +255,7 @@ void fitGaussian1D(double data[], int size, T &sigma = 2, T &scale = 0.5, T &off
                     l *= t;
                 }
             }
-            std::cerr << "tr: " << (0.5*tr) << " sigma: " << sigma << " scale: " << scale << " offset: " << offset << " center: "<< x0 << "\n";
+            //std::cerr << "tr: " << (0.5*tr) << " sigma: " << sigma << " scale: " << scale << " offset: " << offset << " center: "<< x0 << "\n";
             if(std::abs((tr - std::min(tr1, tr2)) / tr) < 1e-15)
                 break;
         }
@@ -1068,13 +1068,20 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
 
         double data[2*numberBins];
         T minimum = imgMinMax.min, maximum = imgMinMax.max;
-        T sigma = 5, scale = maximum - minimum, offset = minimum, center = 0;
-        T delta = (maximum - minimum)/ (1.*numberBins);
-        for (auto counter = 0; counter < numberBins; ++counter){
-            data[counter] = imgMinMax.min + counter * delta;
-            data[counter+1] = hist2(counter);
-        }
 
+        T delta = (maximum - minimum)/ (1.*numberBins);
+        std::cout<<std::endl;
+        T mindata = 9999999, maxdata = 0;
+        for (auto counter = 0; counter < numberBins; ++counter){
+            data[2*counter] = minimum + counter * delta;
+            data[2*counter+1] = hist2(counter);
+            std::cout<<hist2(counter)<<",";
+            if (hist2(counter)>maxdata){maxdata = hist2(counter);}
+            if (hist2(counter)<mindata){mindata = hist2(counter);}
+        }
+        T sigma = 5, scale = maxdata - mindata, offset = mindata, center = 0;
+        std::cout<<std::endl;
+        std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
         fitGaussian1D(data, numberBins, sigma, scale, offset, center);
     }
     BGStd[currframe] = sigma;
