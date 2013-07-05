@@ -24,7 +24,6 @@ int main(int argc, char* argv[])
     fileSaveDialogDirectory = QDir::homePath();
 
     QApplication app(argc, argv);
-    initR(argc, argv);
     std::setlocale(LC_NUMERIC,"C");
 
     MainWindow mainWindow(0, Qt::Window);
@@ -33,6 +32,5 @@ int main(int argc, char* argv[])
     //mainWindow.setWindowState(Qt::WindowMaximized);
     mainWindow.show();
     int ret = app.exec();
-    endR();
     return ret;
 }

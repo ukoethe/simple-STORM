@@ -45,6 +45,10 @@
 #include <vigra/accumulator.hxx>
 #include <vigra/multi_resize.hxx>
 #include <vigra/multi_impex.hxx>
+#include <vigra/linear_solve.hxx>
+
+#include <iostream>
+
 
 #include <set>
 #include <fstream>
@@ -63,11 +67,9 @@
 #include "util.h"
 #include "dataparams.h"
 
-#define R_NO_REMAP
-#include <Rembedded.h>
-#include <Rinternals.h>
+
 #include <Rmath.h>
-#include <R_ext/Memory.h>
+
 
 using namespace vigra;
 using namespace vigra::functor;
@@ -90,8 +92,6 @@ using namespace vigra::functor;
  *
  * @date 2010-2011 Diploma thesis J. Schleicher
  */
-
-extern std::mutex wienerStorm_R_mutex;
 
 
 enum WienerStormStage{CameraParameters, ParameterCheck, PSFWidth, Localization};
@@ -136,107 +136,6 @@ class BSplineWOPrefilter
     }
 };
 
-template <class T>
-void fitMinimalWeighted(T meanValues[],T skellamParameters[],std::vector<int>& indicesVector,int numberPoints,T &m, T &c, T &error){
-    int nbins = 10;
-    typename std::vector<T>::iterator it;
-    //std::cout<<"begin fit line"<<std::endl;
-    std::vector<T> tempVx;
-    std::vector<T> tempVy;
-    //tempVx.reserve(100);
-    //std::cout<<"nbrPointsChosen: "<<nbrPointsChosen<<std::endl;
-    for(int i = 0; i<numberPoints; i++){
-        tempVx.push_back(meanValues[indicesVector[i]]);
-        tempVy.push_back(skellamParameters[indicesVector[i]]);
-
-    }
-//     std::cout<<tempVx[0]<<" "<<tempVy[0]<<" "<<indicesVector[0]<< " ";
-//     std::cout<<std::endl;
-    wienerStorm_R_mutex.lock();
-    SEXP fun, t, tmp;
-    PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
-    double *mat = REAL(tmp);
-    for (int row = 0; row < numberPoints; ++row) {
-        mat[row] = tempVx[row];
-    }
-    for (int row = 0; row < numberPoints; ++row) {
-        mat[numberPoints + row] = tempVy[row];
-    }
-
-    SEXP bins;
-    PROTECT(bins = Rf_ScalarInteger(nbins));
-    PROTECT(fun = t = Rf_allocList(3));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("fit.minimalValuesWeighted"));
-    t = CDR(t);
-    SETCAR(t, tmp);
-    t = CDR(t);
-    SETCAR(t, bins);
-    PROTECT(tmp = Rf_eval(fun, R_GlobalEnv));
-
-    if (tmp == R_NilValue) {
-        std::cerr << "Fit could not be performed, seting slope to one and intercept to zero..." << std::endl;
-        m=1;
-        c=0;
-    } else {
-        double *coefs = REAL(tmp);
-        m = coefs[0];
-        c = coefs[1];
-        error = coefs[2];
-    }
-    UNPROTECT(4);
-    R_gc();
-    wienerStorm_R_mutex.unlock();
-    //     for(int i = 0; i< numberPoints;i++){
-        //         error += pow((tempVy[i] - (c + m * tempVx[i])),2);
-    //     }
-    //     error /= numberPoints;
-}
-
-template <class T>
-void fitAllWeighted(std::vector<T>& meanValues,std::vector<T>& skellamParameters,std::vector<int>& indicesVector,int numberPoints,T &m, T &c, T &error){
-    int nbins = 10;
-    typename std::vector<T>::iterator it;
-    wienerStorm_R_mutex.lock();
-    SEXP fun, t, tmp;
-    PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
-    double *mat = REAL(tmp);
-    for (int row = 0; row < numberPoints; ++row) {
-        mat[row] = meanValues[row];
-    }
-    for (int row = 0; row < numberPoints; ++row) {
-        mat[numberPoints + row] = skellamParameters[row];
-    }
-
-    SEXP bins;
-    PROTECT(bins = Rf_ScalarInteger(nbins));
-    PROTECT(fun = t = Rf_allocList(3));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("fit.allValuesWeighted"));
-    t = CDR(t);
-    SETCAR(t, tmp);
-    t = CDR(t);
-    SETCAR(t, bins);
-    PROTECT(tmp = Rf_eval(fun, R_GlobalEnv));
-
-    if (tmp == R_NilValue) {
-        std::cerr << "Fit could not be performed, seting slope to one and intercept to zero..." << std::endl;
-        m=1;
-        c=0;
-    } else {
-        double *coefs = REAL(tmp);
-        m = coefs[0];
-        c = coefs[1];
-        error = coefs[2];
-    }
-    UNPROTECT(4);
-    R_gc();
-    wienerStorm_R_mutex.unlock();
-    //     for(int i = 0; i< numberPoints;i++){
-        //         error += pow((tempVy[i] - (c + m * tempVx[i])),2);
-    //     }
-    //     error /= numberPoints;
-}
 
 template <class T>
 void fitLine(std::vector<T>& MeanValues, std::vector<T>& SkellamValues,
@@ -277,77 +176,190 @@ void fitLine(std::vector<T>& MeanValues, std::vector<T>& SkellamValues,
 }
 
 template <class T>
-void fitLineArr(T MeanValues[], T SkellamValues[],
-             std::vector<int>& indicesVector,int& nbrPointsChosen,
-             T &slope, T &intercept, T &gof){
-    int numberPoints = nbrPointsChosen;
-    typename std::vector<T>::iterator it;
-    //std::cout<<"begin fit line"<<std::endl;
-    std::vector<T> tempVx;
-    std::vector<T> tempVy;
-    //tempVx.reserve(100);
-    //std::cout<<"nbrPointsChosen: "<<nbrPointsChosen<<std::endl;
-    for(int i = 0; i<nbrPointsChosen; i++){
-        tempVx.push_back(MeanValues[indicesVector[i]]);
-        tempVy.push_back(SkellamValues[indicesVector[i]]);
-    }
-    //std::cout<<"middle fit line"<<std::endl;
-    T mXY = 0, mX = 0,mY = 0, mXX = 0, mXmX = 0;// mXY: mean of all products x*y, mX: mean x, mY: meanY, mXX: mean of pow(x,2), mXmX: pow(mX,2)
-    for(int i = 0; i < nbrPointsChosen; i++){
-        mXY += (tempVx[i] * tempVy[i]);
-        mX += tempVx[i];
-        mY += tempVy[i];
-        mXX += (tempVx[i]*tempVx[i]);
-    }
-    mXY /= nbrPointsChosen;
-    mX /= nbrPointsChosen;
-    mY /= nbrPointsChosen;
-    mXX /= nbrPointsChosen;
-    slope = (mXY - mX*mY)/(mXX - mX*mX); // calculates slope based on total least squares
-    //std::cout<<mXY<<" "<<mX<<" "<<mY<<" "<< mXX  << std::endl;
-    intercept = mY - slope * mX;
-    gof = 0;
-    for(int i = 0; i< nbrPointsChosen;i++){
-        gof += pow((tempVy[i] - (intercept + slope * tempVx[i])),2);
-    }
-    gof /= numberPoints;
-    //std::cout<<"slope: "<< slope<<" intercept:"<<intercept<<" goodness: "<<gof<<std::endl;
-}
+void fitGaussian1D(double data[], int size, T &sigma = 2, T &scale = 0.5, T &offset = 0, T &x0 = 0){
+    try
+    {
+        vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
 
+        //double sigma = 2.0, scale = 0.5, offset = 0.0;
 
-template <class T>
-void doFit2(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
-    int minNumberPointsRequired = 8;
-    int passes = 10000;
-    T bestm=0, bestc=0, besterr = 99999999;
+        double t = 1.4, l = 0.1;
 
-    for (int i = 0;i <passes;++i){
-        std::vector<int> iter(numberPoints);
-        linearSequence(iter.begin(), iter.end());
-        std::random_shuffle(iter.begin(), iter.end());
-        T m,c,err;
-        fitLineArr(meanValues, skellamParameters,
-                iter,minNumberPointsRequired,
-                m, c, err);
-        if (err<besterr){
-            besterr = err;
-            bestm = m;
-            bestc = c;
+        for(int k=0; k< 30; ++k)
+        {
+            vigra::linalg::Matrix<double> jr(4,1), jj(4,4), j(4,1);
+            double tr = 0.0;
+
+            for(int i=0; i<size; ++i)
+            {
+                double xs = sq((points(i,0) - x0) / sigma);
+                double e = std::exp(-0.5 * xs);
+                double r = points(i, 1) - (scale * e + offset);
+
+                j(0,0) = scale * e * xs / sigma;
+                j(1,0) = e;
+                j(2,0) = 1.0;
+                j(3,0) = scale * e * xs/ (points(i,0) - x0);
+
+                jr += r * j;
+                jj += j * transpose(j);
+                tr += sq(r);
+            }
+
+            vigra::linalg::Matrix<double> jj1(jj), jj2(jj), d1(4,1), d2(4,1);
+
+            jj1.diagonal() *= 1.0 + l;
+            jj2.diagonal() *= 1.0 + l / t;
+
+            vigra::linearSolve(jj1, jr, d1);
+            vigra::linearSolve(jj2, jr, d2);
+
+            double si1 = sigma + d1(0,0), s1 = scale + d1(1,0), o1 = offset + d1(2,0), c1 = x0 + d1(3,0);
+            double si2 = sigma + d2(0,0), s2 = scale + d2(1,0), o2 = offset + d2(2,0), c2 = x0 + d2(3,0);
+            double tr1 = 0.0, tr2 = 0.0;
+
+            for(int i=0; i<size; ++i)
+            {
+                double r1 = points(i, 1) - (s1 * std::exp(-0.5 * sq((points(i,0) - c1) / si1)) + o1);
+                double r2 = points(i, 1) - (s2 * std::exp(-0.5 * sq((points(i,0) - c2) / si2)) + o2);
+                tr1 += sq(r1);
+                tr2 += sq(r2);
+            }
+
+            if(tr1 < tr2)
+            {
+                if(tr1 < tr)
+                {
+                    sigma = si1;
+                    scale = s1;
+                    offset = o1;
+                    x0 = c1;
+                }
+                else
+                {
+                    l *= t;
+                }
+            }
+            else
+            {
+                if(tr2 < tr)
+                {
+                    sigma = si2;
+                    scale = s2;
+                    offset = o2;
+                    x0 = c2;
+                    l /= t;
+                }
+                else
+                {
+                    l *= t;
+                }
+            }
+            std::cerr << "tr: " << (0.5*tr) << " sigma: " << sigma << " scale: " << scale << " offset: " << offset << " center: "<< x0 << "\n";
+            if(std::abs((tr - std::min(tr1, tr2)) / tr) < 1e-15)
+                break;
         }
+        std::cerr << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
     }
-
-    if (bestm!=0 or bestc!=0){
-        params.setSlope(bestm);
-        params.setIntercept(-bestc/bestm);
+    catch (std::exception & e)
+    {
+        // catch any errors that might have occurred and print their reason
+        std::cout << e.what() << std::endl;
     }
-    else{
-        std::cout<<"no fit found"<<std::endl;
-    }
-
 }
 
 template <class T>
-void doRansacReal(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
+void fitGaussian(double data[], int size, T &sigma = 2, T &scale = 0.5, T &offset = 0){
+    try
+    {
+        vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
+
+        //double sigma = 2.0, scale = 0.5, offset = 0.0;
+
+        double t = 1.4, l = 0.1;
+
+        for(int k=0; k< 30; ++k)
+        {
+            vigra::linalg::Matrix<double> jr(3,1), jj(3,3), j(3,1);
+            double tr = 0.0;
+
+            for(int i=0; i<size; ++i)
+            {
+                double xs = sq(points(i,0) / sigma);
+                double e = std::exp(-0.5 * xs);
+                double r = points(i, 1) - (scale * e + offset);
+                j(0,0) = scale * e * xs / sigma;
+                j(1,0) = e;
+                j(2,0) = 1.0;
+
+                jr += r * j;
+                jj += j * transpose(j);
+                tr += sq(r);
+            }
+
+            vigra::linalg::Matrix<double> jj1(jj), jj2(jj), d1(3,1), d2(3,1);
+
+            jj1.diagonal() *= 1.0 + l;
+            jj2.diagonal() *= 1.0 + l / t;
+
+            vigra::linearSolve(jj1, jr, d1);
+            vigra::linearSolve(jj2, jr, d2);
+
+            double si1 = sigma + d1(0,0), s1 = scale + d1(1,0), o1 = offset + d1(2,0);
+            double si2 = sigma + d2(0,0), s2 = scale + d2(1,0), o2 = offset + d2(2,0);
+            double tr1 = 0.0, tr2 = 0.0;
+
+            for(int i=0; i<size; ++i)
+            {
+                double r1 = points(i, 1) - (s1 * std::exp(-0.5 * sq(points(i,0) / si1)) + o1);
+                double r2 = points(i, 1) - (s2 * std::exp(-0.5 * sq(points(i,0) / si2)) + o2);
+                tr1 += sq(r1);
+                tr2 += sq(r2);
+            }
+
+            if(tr1 < tr2)
+            {
+                if(tr1 < tr)
+                {
+                    sigma = si1;
+                    scale = s1;
+                    offset = o1;
+                }
+                else
+                {
+                    l *= t;
+                }
+            }
+            else
+            {
+                if(tr2 < tr)
+                {
+                    sigma = si2;
+                    scale = s2;
+                    offset = o2;
+                    l /= t;
+                }
+                else
+                {
+                    l *= t;
+                }
+            }
+            std::cerr << "tr: " << (0.5*tr) << " sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
+            if(std::abs((tr - std::min(tr1, tr2)) / tr) < 1e-15)
+                break;
+        }
+        std::cerr << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
+    }
+    catch (std::exception & e)
+    {
+        // catch any errors that might have occurred and print their reason
+        std::cout << e.what() << std::endl;
+    }
+}
+
+
+template <class T>
+void doRansac(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
     int minNumberRequired = 2;
     int numberIterations = 10000;
     int numberClose = numberPoints/10;
@@ -395,158 +407,6 @@ void doRansacReal(DataParams &params,T meanValues[],T skellamParameters[],int nu
 
 }
 
-template <class T>
-void doRansacRealWeighted(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
-    int minNumberRequired = 2;
-    int numberIterations = 1000;
-    int numberClose = numberPoints/10;
-    int threshold = (skellamParameters[numberPoints-2]-skellamParameters[0])/20;
-    T bestm =0, bestc=0;
-    T lasterror = 9999999999;
-    for(int i=0;i<numberIterations;++i){
-        std::vector<int> iter(numberPoints);
-        linearSequence(iter.begin(), iter.end());
-        std::random_shuffle(iter.begin(), iter.end());
-        T m = (skellamParameters[iter[1]]-skellamParameters[iter[0]])/(meanValues[iter[1]]-meanValues[iter[0]]);
-        T c = skellamParameters[iter[0]]-meanValues[iter[0]]*m;
-        int numberPointsInRange = 0;
-        T currentError = 0;
-        std::vector<T> consSetX, consSetY;
-        for (int j=0; j< numberPoints; ++j){
-            //             currentError += std::pow(skellamParameters[j]-meanValues[j]*m+c,2);
-            if((std::abs(skellamParameters[j]-meanValues[j]*m+c))<threshold){
-                consSetX.push_back(meanValues[j]);
-                consSetY.push_back(skellamParameters[j]);
-                numberPointsInRange+=1;
-            }
-        }
-        if (numberPointsInRange>2){
-            std::vector<int> indices(numberPointsInRange);
-            linearSequence(indices.begin(), indices.end());
-            fitAllWeighted(consSetX, consSetY, indices, numberPointsInRange, m,c,currentError);
-        }
-
-
-        //         std::cout<<"error: "<<currentError<<" m:"<<m<<"c: "<<c<<" numberPoints: "<<numberPointsInRange<<std::endl;
-
-        if (numberPointsInRange>numberClose and currentError < lasterror){
-            lasterror = currentError;
-            bestm = m;
-            bestc = c;
-        }
-
-    }
-    if (bestm!=0 or bestc!=0){
-        params.setSlope(bestm);
-        params.setIntercept(-bestc/bestm);
-    }
-    else{
-        std::cout<<"no fit found"<<std::endl;
-    }
-
-
-}
-
-template <class T>
-void doRansac(std::vector<T>& MeanValues, std::vector<T>& SkellamValues,
-            int numberIterations, T& bestSlope, T& bestIntercept, T& lowestGof,DataParams &params){
-    //std::cout<<"begin ransac"<<std::endl;
-    int numberPoints = MeanValues.size();
-    int minNumberPoints = 5, maxNumberPoints = numberPoints;
-    if(minNumberPoints > maxNumberPoints){std::cout<<"not enough points found by findGoodPixelsForScellamApproach!"<<std::endl;}
-    T slope, intercept, gof;
-    std::vector<int> indicesVector(numberPoints);
-    linearSequence(indicesVector.begin(), indicesVector.end());
-    //for(int i = 0; i< numberPoints;i++){std::cout<<indicesVector[i]<<std::endl;}
-    int nbrPointsChosen;
-
-    std::vector<T> collectionSlopes;
-    std::vector<T> collectionIntercept;
-    std::vector<T> collectionGof;
-    //std::cout<<"middle ransac"<<std::endl;
-    for(int niter = 0; niter<numberIterations; niter++){
-        //std::cout<<niter<<" ";
-        nbrPointsChosen = rand()%(maxNumberPoints - minNumberPoints + 1) + minNumberPoints;
-        random_shuffle(indicesVector.begin(), indicesVector.begin() + nbrPointsChosen);
-
-        fitLine(MeanValues, SkellamValues, indicesVector, nbrPointsChosen, slope, intercept, gof);
-
-        collectionSlopes.push_back(slope);
-        collectionIntercept.push_back(intercept);
-        collectionGof.push_back(gof);
-    }
-    //std::cout<<"middle2 ransac"<<std::endl;
-    T minGof = collectionGof[0];
-    int indexMinGof = 0;
-    for(int i = 0; i < numberIterations; i++){
-        if(collectionGof[i] < minGof){minGof = collectionGof[i]; indexMinGof = i;}
-    }
-    //std::cout<<"end Ransac"<<std::endl;
-    bestSlope = collectionSlopes[indexMinGof];
-    bestIntercept = collectionIntercept[indexMinGof];
-    lowestGof = collectionGof[indexMinGof];
-}
-
-
-template <class T>
-void findBestFit(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
-    int mode = 0; //0: take only lowest point from each interval and fit line through this points
-    switch(mode){
-        case 0:{
-            //std::cout<<"begin bestfit"<<std::endl;
-            int numberIntervals = std::min(10, numberPoints);
-            //std::cout<<numberIntervals;
-            T meanMin = 9999999, meanMax = 0;
-            for(int i = 0; i< numberPoints; i++){
-                if(meanValues[i]<meanMin){meanMin = meanValues[i];}
-                if(meanValues[i]>meanMax){meanMax = meanValues[i];}
-            }
-            T intervalSize = (meanMax - meanMin)/ numberIntervals;
-            std::vector<T> temp_vec(meanValues, meanValues + numberPoints);
-            //std::cout<<"middle best fit"<<std::endl;
-            std::vector<int> iter(numberPoints); //contains information about permutation from sort
-            linearSequence(iter.begin(), iter.end());
-            indexSort(temp_vec.begin(), temp_vec.end(), iter.begin());
-
-            std::vector<T> minMeanValuesIntervals;
-            std::vector<T> minSkellamValuesIntervals;
-            T highValueForMinDetection = 99999999;
-            T localMinMean;
-            T currentMeanValue;
-            //std::cout<<"middle2 best fit"<<std::endl;
-            //from each interval only the point with the lowest skellam parameter is selected
-            for(int j = 0; j < numberIntervals; j++){
-                localMinMean = highValueForMinDetection;
-                for(int i = 0; i < numberPoints; i++){
-                    if(meanValues[i] >= meanMin + j * intervalSize and meanValues[i] < meanMin + (j+1) * intervalSize){
-                        if(skellamParameters[i] < localMinMean){localMinMean = skellamParameters[i]; currentMeanValue = meanValues[i];}
-                    }
-                }
-                if(localMinMean != highValueForMinDetection){
-                    minMeanValuesIntervals.push_back(currentMeanValue);
-                    minSkellamValuesIntervals.push_back(localMinMean);
-                }
-            }
-//             std::cout<<"from find best fit"<< std::endl;
-//             std::cout<<std::endl<<"[";
-//             for(int i = 0; i< minMeanValuesIntervals.size(); i++){std::cout<<minMeanValuesIntervals[i]<<",";}
-//             std::cout<<"]"<<std::endl;
-//             std::cout<<"[";
-//             for(int i = 0; i< minSkellamValuesIntervals.size(); i++){std::cout<<minSkellamValuesIntervals[i]<<",";}
-//             std::cout<<"]"<<std::endl;
-            //std::cin.get();
-            T slope, gof, intercept;
-            //std::cout<<"before ransac"<<std::endl;
-            doRansac(minMeanValuesIntervals, minSkellamValuesIntervals, 400, slope, intercept, gof, params);
-            //std::cout<<"after ransac"<<std::endl;
-//             std::cout<<"slope: "<< slope<<" x0: "<<-intercept/slope<<" intercept: "<<intercept<<" lowest gof:"<<gof<<std::endl;
-
-            params.setSlope(slope);
-            params.setIntercept(-intercept/slope);
-        }
-    }
-
-}
 /**
  * Class to keep an image coordinate with corresponding pixel value
  *
@@ -786,93 +646,6 @@ private:
 };
 
 /*!
-Fit a straight line to the selected points using R
-*/
-template <class T>
-void fitSkellamPoints(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
-    int nbins = 10;
-//     std::cout<<std::endl;
-//     for (int i =0; i< numberPoints; ++i){
-//         std::cout<<meanValues[i]<<", ";
-//     }
-//     std::cout<<std::endl;
-//     for (int i =0; i< numberPoints; ++i){
-//         std::cout<<skellamParameters[i]<<", ";
-//     }
-//     std::cout<<std::endl;
-    wienerStorm_R_mutex.lock();
-    SEXP fun, t, tmp;
-    PROTECT(tmp = Rf_allocMatrix(REALSXP, numberPoints, 2));
-    double *mat = REAL(tmp);
-    for (int row = 0; row < numberPoints; ++row) {
-        mat[row] = meanValues[row];
-    }
-    for (int row = 0; row < numberPoints; ++row) {
-        mat[numberPoints + row] = skellamParameters[row];
-    }
-
-    SEXP bins;
-    PROTECT(bins = Rf_ScalarInteger(nbins));
-    PROTECT(fun = t = Rf_allocList(3));
-    SET_TYPEOF(fun, LANGSXP);
-    SETCAR(t, Rf_install("fit.skellam.points"));
-    t = CDR(t);
-    SETCAR(t, tmp);
-    t = CDR(t);
-    SETCAR(t, bins);
-    PROTECT(tmp = Rf_eval(fun, R_GlobalEnv));
-
-    if (tmp == R_NilValue) {
-        std::cerr << "Fit could not be performed, seting slope to one and intercept to zero..." << std::endl;
-        params.setSlope(1);
-        params.setIntercept(0);
-    } else {
-        double *coefs = REAL(tmp);
-        params.setSlope(coefs[1]);
-        params.setIntercept(-coefs[0] / coefs[1]);
-    }
-    UNPROTECT(4);
-    R_gc();
-    wienerStorm_R_mutex.unlock();
-}
-
-
-
-template <class T>
-void fitMinimalWithWeights(DataParams &params,T meanValues[],T skellamParameters[],int numberPoints){
-    int minNumberPointsRequired = 8;
-    int passes = 100;
-    T bestm=0, bestc=0, besterr = 999999999999;
-    int numberPointsSubset = numberPoints/2;
-//     std::cout<<"numberPoints: "<<numberPoints<<" numberPointssubset: "<<numberPointsSubset<<std::endl;
-    std::vector<int> iter(numberPoints);
-    linearSequence(iter.begin(), iter.end());
-    for (int i = 0;i <passes;++i){
-
-        std::random_shuffle(iter.begin(), iter.end());
-
-        T m,c,err=0;
-        fitMinimalWeighted(meanValues, skellamParameters,iter,
-                   numberPointsSubset,
-                   m, c, err);
-//         std::cout<<"fiterror: "<<err<<" m: "<< m <<" c: "<<c<<std::endl;
-        if (err<besterr){
-            besterr = err;
-            bestm = m;
-            bestc = c;
-        }
-    }
-
-    if (bestm!=0 or bestc!=0){
-        params.setSlope(bestm);
-        params.setIntercept(-bestc/bestm);
-    }
-    else{
-        std::cout<<"no fit found"<<std::endl;
-    }
-}
-
-/*!
 Calculates a mask that contains the information whether or not a pixel belongs to background or is signal for eachh pixel of the current frame,
  based on cumulative distribution. The asumption is that the background has a mean value of zeros and a variance of one.
  To get rid of noise just consider larger spots
@@ -1008,26 +781,10 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
     for (int i =0; i< intervalCounter; ++i){
         std::cout<<skellamParameters[i]<<", ";
     }
-//     std::cout<<std::endl<<std::endl<<std::endl;
-//
-//     fitSkellamPoints(params, meanValues, skellamParameters, intervalCounter);
-//     std::cout<<"y1 = "<< params.getSlope()<<" * x1 + "<<-params.getIntercept()* params.getSlope()<<"#(Covariance minimization)"<< std::endl;
-//     fitMinimalWithWeights(params, meanValues, skellamParameters, intervalCounter);
-//     std::cout<<"y2 = "<< params.getSlope()<<" * x1 + "<<-params.getIntercept()* params.getSlope()<<"#(Weighted fit of lowes 10 points, half of the set used for each run)"<< std::endl;
-//     findBestFit(params,meanValues,skellamParameters,intervalCounter);
-//     std::cout<<"y3 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(lowest points from each interval, linear fit over random number of points between 5 and 10)"<< std::endl;
-//     doRansacReal(params, meanValues, skellamParameters, intervalCounter);
-//     std::cout<<"y4 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC)"<< std::endl;
-    doRansacRealWeighted(params, meanValues, skellamParameters, intervalCounter);
-    std::cout<<"y5 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC with weighted fit instead of linear fit)"<< std::endl;
-//     doFit2(params,meanValues,skellamParameters, intervalCounter);
-//     std::cout<<"y6 = "<< params.getSlope()<<" * x1+ "<<-params.getSlope()*params.getIntercept() <<"#(linear fit of 8 randomly selected points)"<< std::endl;
-//     std::cout<<std::endl<<std::endl;
 
-//     if(params.getIntercept() > 0)
-//         params.setIntercept(std::min(minVal, params.getIntercept()));
-//     else
-//         params.setIntercept(minVal);
+    doRansac(params, meanValues, skellamParameters, intervalCounter);
+    std::cout<<"y4 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC)"<< std::endl;
+
     params.setIntercept(minVal);
     if(params.getSlope() <= 0)
         params.setSlope(1);
@@ -1301,43 +1058,26 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
 //     vigra::exportImage(srcImageRange(img), namePic);
     double stdBG = 0;
     int numberBins = 100;
+    T sigma = 1;
     if (int(imgMinMax.max - imgMinMax.min)>0) {
-        wienerStorm_R_mutex.lock();
         vigra::HistogramOptions histogram_opt;
         histogram_opt = histogram_opt.setBinCount(numberBins);
         accChain.setHistogramOptions(histogram_opt);
         vigra::acc::extractFeatures(iter, iterEnd, accChain);
         vigra::MultiArray<1, double> hist2 = get<vigra::acc::AutoRangeHistogram<0>>(accChain);
-//         std::cout<<std::endl;
-//         for (auto it =hist2.begin(); it != hist2.end(); it++){
-//             std::cout<<*it<<", ";
-//         }
-//         std::cout<<std::endl;
-        SEXP vec, minimum, maximum, nbrbins, fun, t;
-        PROTECT(vec = Rf_allocVector(REALSXP, hist2.size()));
-        std::memcpy(REAL(vec), hist2.data(), hist2.size() * sizeof(double));
-        PROTECT(minimum = Rf_ScalarReal(imgMinMax.min));
-        PROTECT(maximum = Rf_ScalarReal(imgMinMax.max));
-        PROTECT(nbrbins = Rf_allocVector(INTSXP, 1));
-        std::memcpy(INTEGER(nbrbins), &numberBins, 1 * sizeof(int));
-        PROTECT(fun = t = Rf_allocList(5));
-        SET_TYPEOF(fun, LANGSXP);
-        SETCAR(t, Rf_install("fit.BG2"));
-        t = CDR(t);
-        SETCAR(t, vec);
-        t = CDR(t);
-        SETCAR(t, minimum);
-        t = CDR(t);
-        SETCAR(t, maximum);
-        t = CDR(t);
-        SETCAR(t, nbrbins);
 
-        PROTECT(t = Rf_eval(fun, R_GlobalEnv));
-        stdBG = *REAL(t);
-        UNPROTECT(6);
-        wienerStorm_R_mutex.unlock();
+        double data[2*numberBins];
+        T minimum = imgMinMax.min, maximum = imgMinMax.max;
+        T sigma = 5, scale = maximum - minimum, offset = minimum, center = 0;
+        T delta = (maximum - minimum)/ (1.*numberBins);
+        for (auto counter = 0; counter < numberBins; ++counter){
+            data[counter] = imgMinMax.min + counter * delta;
+            data[counter+1] = hist2(counter);
+        }
+
+        fitGaussian1D(data, numberBins, sigma, scale, offset, center);
     }
-    BGStd[currframe] = stdBG;
+    BGStd[currframe] = sigma;
 //     std::cout<<"cur stdBG: "<<stdBG<<" BGStd[currframe]: "<<BGStd[currframe]<<" currframe: "<<currframe<<std::endl;
 //     std::cout<<BGStd[currframe]<<" currframe: "<<currframe<<" ";
 }
@@ -1387,7 +1127,6 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
         }
     }
 }
-
 
 /*! A multivariate gaussian is fitted to the mean power spectrum, after that corresponding sigma in spatial domain is calculated*/
 template <class T>

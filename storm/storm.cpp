@@ -80,11 +80,6 @@ int main(int argc, char* argv[]) {
     try
     {
         DataParams params(argc, argv);
-        if (!initR(argc, argv)) {
-            std::cerr << "Could not initialize R" << std::endl
-            << "You probably do not have R installed or do not have it in your PATH." << std::endl;
-            return 1;
-        }
 
         params.doSanityChecks();
         int stacksize = params.shape(2);
@@ -151,8 +146,6 @@ int main(int argc, char* argv[]) {
         std::cout << e.what() << std::endl;
         return 1;
     }
-
-    endR();
 
     return 0;
 }
