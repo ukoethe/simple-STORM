@@ -78,7 +78,7 @@ public:
 void checkHDF5Import(char *argv[], Counter &counter){
     std::string p = argv[0];
     size_t pos = p.find_last_of("/\\");
-    const char * c = p.substr(0,pos).append("/test.hdf5").c_str();
+    const char * c = p.substr(0,pos).append("\test.hdf5").c_str();
     vigra::HDF5File* info = new vigra::HDF5File(c, HDF5File::Open);
     ArrayVector<hsize_t> shape2 = info->getDatasetShape("/data");
     typename vigra::MultiArrayShape<3>::type shape = typename vigra::MultiArrayShape<3>::type(shape2[0],shape2[1],shape2[2]);
@@ -194,7 +194,11 @@ void checkWholeProgram(char* argv[], Counter &counter){
   DataParams params;
   std::string p = argv[0];
   size_t pos = p.find_last_of("/\\");
-  const char * c = p.substr(0,pos).append("/test.tif").c_str();
+  #if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
+	const char * c = "test.tif";
+  #else
+	const char * c = p.substr(0,pos).append("/test.tif").c_str();
+  #endif
   params.setInFile(c, false);
   params.doSanityChecks();
   int stacksize = params.shape(2);
