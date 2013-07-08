@@ -4,7 +4,6 @@
 #include "wienerStorm.hxx"
 
 #include "dataparams.cpp"
-#include <boost/test/minimal.hpp>
 #include <string>
 #include <random>
 
