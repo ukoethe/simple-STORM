@@ -226,10 +226,9 @@ void checkWholeProgram(char* argv[], Counter &counter){
 
 
 
-int test_main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
   Counter counter;
   int successCounter = 0, failCounter = 0, testCounter = 0;
-  std::setlocale(LC_NUMERIC,"C");
 
   #ifdef HDF5_FOUND
     checkHDF5Import(argv, counter);

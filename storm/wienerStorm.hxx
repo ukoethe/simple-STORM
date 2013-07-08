@@ -185,7 +185,7 @@ void fitGaussian1D(double data[], int size, T &sigma = 2, T &scale = 0.5, T &off
 
         double t = 1.4, l = 0.1;
 
-        for(int k=0; k< 30; ++k)
+        for(int k=0; k< 10; ++k)
         {
             vigra::linalg::Matrix<double> jr(4,1), jj(4,4), j(4,1);
             double tr = 0.0;
@@ -259,7 +259,7 @@ void fitGaussian1D(double data[], int size, T &sigma = 2, T &scale = 0.5, T &off
             if(std::abs((tr - std::min(tr1, tr2)) / tr) < 1e-15)
                 break;
         }
-        std::cerr << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
+        //std::cerr << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
     }
     catch (std::exception & e)
     {
@@ -1070,18 +1070,18 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
         T minimum = imgMinMax.min, maximum = imgMinMax.max;
 
         T delta = (maximum - minimum)/ (1.*numberBins);
-        std::cout<<std::endl;
+//         std::cout<<std::endl;
         T mindata = 9999999, maxdata = 0;
         for (auto counter = 0; counter < numberBins; ++counter){
             data[2*counter] = minimum + counter * delta;
             data[2*counter+1] = hist2(counter);
-            std::cout<<hist2(counter)<<",";
+//             std::cout<<hist2(counter)<<",";
             if (hist2(counter)>maxdata){maxdata = hist2(counter);}
             if (hist2(counter)<mindata){mindata = hist2(counter);}
         }
-        T sigma = 5, scale = maxdata - mindata, offset = mindata, center = 0;
-        std::cout<<std::endl;
-        std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
+        T scale = maxdata - mindata, offset = mindata, center = 0;
+//         std::cout<<std::endl;
+//         std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
         fitGaussian1D(data, numberBins, sigma, scale, offset, center);
     }
     BGStd[currframe] = sigma;

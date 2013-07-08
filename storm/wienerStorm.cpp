@@ -21,7 +21,7 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
     }
     double sigma = 2.0, scale = maxval - minval, offset = minval;
     std::cout<<sigma<<" "<<scale<<" "<<offset<<std::endl;
-    fitGaussian(data2, size, sigma, scale, offset);
+    fitGaussian(data2, size/2, sigma, scale, offset);
     params.setSigma(sigma);
 
 }
