@@ -50,7 +50,10 @@
     #include <vigra/hdf5impex.hxx>
 #endif
 #include <rude/config.h>
-#include <Rmath.h>
+#ifndef Q_MOC_RUN
+#include <boost/math/distributions/normal.hpp>
+#endif // Q_MOC_RUN
+
 
 using namespace vigra;
 
@@ -349,7 +352,8 @@ float StormParams::getAlpha() const {
 void StormParams::setAlpha(float alpha) {
     if (alpha != m_alpha) {
         m_alpha = alpha;
-        m_thresholdMask = qnorm(m_alpha, 0, 1, 0, 0);
+		boost::math::normal dist(0.0, 1.0);
+        m_thresholdMask = quantile(dist, 0.95);//qnorm(m_alpha, 0, 1, 0, 0);
     }
 }
 

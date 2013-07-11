@@ -67,8 +67,9 @@
 #include "util.h"
 #include "dataparams.h"
 
-
-#include <Rmath.h>
+#ifndef Q_MOC_RUN
+#include <boost/math/distributions/normal.hpp>
+#endif // Q_MOC_RUN
 
 
 using namespace vigra;
@@ -653,7 +654,8 @@ Calculates a mask that contains the information whether or not a pixel belongs t
 template <class T>
 void getMask(const DataParams &params, const BasicImage<T>& array, int framenumber, MultiArray<2,T>& mask){
 	//double cdf = params.getMaskThreshold();
-    double cdf = qnorm(params.getAlpha(), 0, 1, 0, 0);
+	boost::math::normal dist(0.0, 1.0);
+    double cdf = quantile(dist, 1-params.getAlpha());//qnorm(params.getAlpha(), 0, 1, 0, 0);
 //     vigra::exportImage(srcImageRange(array),"/home/herrmannsdoerfer/tmpOutput/array.tif");
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
 //     char name[1000];

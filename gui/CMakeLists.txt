@@ -101,7 +101,7 @@ if (WIN32 OR APPLE)
         endif(NOT ${QT_PLUGIN_DEBUG_FOUND} STREQUAL -1)
     endforeach(QT_PLUGIN ${QT_PLUGINS_EXIST})
     install(CODE "
-if (\${CMAKE_INSTALL_PREFIX} MATCHES \".*_CPack_Packages.*\")
+#if (\${CMAKE_INSTALL_PREFIX} MATCHES \".*_CPack_Packages.*\")
 file(INSTALL ${QT_PLUGINS} DESTINATION \${CMAKE_INSTALL_PREFIX}/${plugin_dest_dir}/imageformats)
 file(GLOB_RECURSE QTPLUGINS
 \"\${CMAKE_INSTALL_PREFIX}/${plugin_dest_dir}/imageformats/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
@@ -112,13 +112,6 @@ if (APPLE)
 \"[Paths]
 Plugins = .
 \")
-else (APPLE)
-# on MacOS, the library is linked with a path relative to the executable
-file(GLOB R_LIBS \"\${CMAKE_INSTALL_PREFIX}/\${BIN_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}R*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
-foreach(R_LIB_PATH \${R_LIBS})
-    file(REMOVE \"\${R_LIB_PATH}\")
-endforeach()
-endif (APPLE)
 endif (\${CMAKE_INSTALL_PREFIX} MATCHES \".*_CPack_Packages.*\")
 ")
 endif(WIN32 OR APPLE)

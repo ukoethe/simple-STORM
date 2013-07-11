@@ -39,10 +39,8 @@ if(WIN32)
     add_definitions(-D__WIN__)
 endif(WIN32)
 
-add_resource(${STORM_R_SCRIPT} storm_fit.h storm_fit WIENERSTORM_SRCS)
-
 add_library(wienerstorm STATIC ${WIENERSTORM_SRCS})
-target_link_libraries(wienerstorm vigraimpex ${FFTW_LIBRARIES} ${R_LIBRARIES} ${RUDECONFIG_LIBRARIES})
+target_link_libraries(wienerstorm vigraimpex ${FFTW_LIBRARIES} ${RUDECONFIG_LIBRARIES})
 
 add_executable(storm storm.cpp)
 target_link_libraries(storm wienerstorm vigraimpex)
