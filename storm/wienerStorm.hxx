@@ -682,7 +682,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
 //         std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
 //         return;
 //     }
-    if (params.getSigmaSaved() and params.getInterceptSaved()) {
+    if (params.getSlopeSaved() and params.getInterceptSaved()) {
         std::cout<<"Values from settings-file:"<<std::endl;
         std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
         return;
