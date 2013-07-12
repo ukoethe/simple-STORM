@@ -1,5 +1,4 @@
 #include "wienerStorm.hxx"
-#include "storm_fit.h"
 #define CSTACK_DEFNS
 #define HAVE_UINTPTR_T
 #include <cstdint>
