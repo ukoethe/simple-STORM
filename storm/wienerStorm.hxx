@@ -682,7 +682,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
 //         std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
 //         return;
 //     }
-    if (!needSkellam) {
+    if (params.getSigmaSaved() and params.getInterceptSaved()) {
         std::cout<<"Values from settings-file:"<<std::endl;
         std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
         return;
@@ -1141,8 +1141,7 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
 template <class T>
 void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
     std::cout<<params.getSkellamFramesSaved()<<" "<<params.getSigmaSaved()<<" "<<params.getIgnoreSkellamFramesSaved()<<std::endl;
-    bool needFilter = !((params.getSkellamFramesSaved() && params.getSigmaSaved()) or (params.getIgnoreSkellamFramesSaved() && params.getSigmaSaved()));
-    if (!needFilter) {
+    if ( params.getSigmaSaved()) {
         std::cout<<"Values from settings-file:"<<std::endl;
         std::cout<<"Sigma: "<<params.getSigma();
         return;}
