@@ -5,7 +5,7 @@
 #include <QWheelEvent>
 #include <iostream>
 PreviewScrollArea::PreviewScrollArea(QWidget *parent)
-: QScrollArea(parent), m_dragging(false), m_scale(1), m_minScale(0.1), m_maxScale(5.), m_scaleStep(0.1)
+: QScrollArea(parent), m_dragging(false), m_scale(1), m_minScale(0.1f), m_maxScale(5.), m_scaleStep(0.1f)
 {
     connect(horizontalScrollBar(), SIGNAL(rangeChanged(int, int)), this, SLOT(horizontalScrollBarRangeChanged(int, int)));
     connect(verticalScrollBar(), SIGNAL(rangeChanged(int, int)), this, SLOT(verticalScrollBarRangeChanged(int, int)));

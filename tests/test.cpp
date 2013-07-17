@@ -61,7 +61,10 @@ private:
 
 class Counter {
 public:
-  int suc = 0, fail = 0, tot = 0;
+  int suc, fail, tot;
+  Counter()
+  : suc(0), fail(0), tot(0)
+  {}
   void update(bool status, std::string message){
     tot += 1;
     if (status) {
@@ -81,7 +84,7 @@ void checkHDF5Import(char *argv[], Counter &counter){
     const char * c = p.substr(0,pos).append("/test.hdf5").c_str();
     vigra::HDF5File* info = new vigra::HDF5File(c, HDF5File::Open);
     ArrayVector<hsize_t> shape2 = info->getDatasetShape("/data");
-    typename vigra::MultiArrayShape<3>::type shape = typename vigra::MultiArrayShape<3>::type(shape2[0],shape2[1],shape2[2]);
+    Shape3 shape(shape2[0],shape2[1],shape2[2]);
     vigra::MultiArray<3, float> array(shape);
     HDF5File* info2 = reinterpret_cast<HDF5File*>(info);
     info2->read("/data", array);
@@ -103,7 +106,7 @@ void checkSlopeFitting(Counter &counter){
     doRansac(params,x,y, 199);
 
     std::string str = "Skellam fit test";
-    counter.update(std::abs(params.getSlope()-4.92)<0.01 and std::abs(params.getIntercept()-373)<1, str);
+    counter.update(std::abs(params.getSlope()-4.92)<0.01 && std::abs(params.getIntercept()-373)<1, str);
 }
 
 void checkPSFFitting(Counter &counter) {
@@ -145,7 +148,7 @@ void checkParameterCheck(Counter &counter) {
 void checkGetMask(Counter &counter){
   MultiArray<2,float> mask(Shape2(40,40));
   DataParams params;
-  params.setAlpha(0.001);
+  params.setAlpha(0.001f);
   params.setSigma(1.0);
   BasicImage<float> array(40,40);
   for (int i =0; i< 40; ++i){
@@ -220,7 +223,7 @@ void checkWholeProgram(char* argv[], Counter &counter){
       }
   }
   std::string str = "Whole Test";
-  counter.update(std::abs(sumx -5219)<0.1 and std::abs(sumy -5482)<0.1 and std::abs(sumval -284.82)<0.1, str);
+  counter.update(std::abs(sumx -5219)<0.1 && std::abs(sumy -5482)<0.1 && std::abs(sumval -284.82)<0.1, str);
 
 }
 

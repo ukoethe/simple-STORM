@@ -177,7 +177,7 @@ void fitLine(std::vector<T>& MeanValues, std::vector<T>& SkellamValues,
 }
 
 template <class T>
-void fitGaussian1D(double data[], int size, T &sigma = 2, T &scale = 0.5, T &offset = 0, T &x0 = 0){
+void fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0){
     try
     {
         vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
@@ -270,7 +270,7 @@ void fitGaussian1D(double data[], int size, T &sigma = 2, T &scale = 0.5, T &off
 }
 
 template <class T>
-void fitGaussian(double data[], int size, T &sigma = 2, T &scale = 0.5, T &offset = 0){
+void fitGaussian(double * data, int size, T &sigma, T &scale, T &offset){
     try
     {
         vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
@@ -366,7 +366,7 @@ void doRansac(DataParams &params,T meanValues[],T skellamParameters[],int number
     int numberClose = numberPoints/10;
     int threshold = (skellamParameters[numberPoints-2]-skellamParameters[0])/20;
     T bestm =0, bestc=0;
-    T lasterror = 9999999999;
+    T lasterror = T(9999999999);
     for(int i=0;i<numberIterations;++i){
         std::vector<int> iter(numberPoints);
         linearSequence(iter.begin(), iter.end());
@@ -390,14 +390,14 @@ void doRansac(DataParams &params,T meanValues[],T skellamParameters[],int number
 
 //         std::cout<<"error: "<<currentError<<" m:"<<m<<"c: "<<c<<" numberPoints: "<<numberPointsInRange<<std::endl;
 
-        if (numberPointsInRange>numberClose and currentError < lasterror){
+        if (numberPointsInRange>numberClose && currentError < lasterror){
             lasterror = currentError;
             bestm = m;
             bestc = c;
         }
 
     }
-    if (bestm!=0 or bestc!=0){
+    if (bestm!=0 || bestc!=0){
         params.setSlope(bestm);
         params.setIntercept(-bestc/bestm);
     }
@@ -455,7 +455,7 @@ class SetPushAccessor{
         void    set (V const & /*value*/, ITERATOR const &i) {
             int x = i.x+m_offset.x;
             int y = i.y-m_it_start.y+m_offset.y;
-            if (m_mask(std::round(x / m_factor), std::round(y / m_factor)) > 0) {
+            if (m_mask(vigra::round(x / m_factor), vigra::round(y / m_factor)) > 0) {
                 m_arr.insert(T(x, y, *i));
             }
         }
@@ -590,7 +590,7 @@ void determineAsymmetry(SrcIterator srcUpperLeft,
         T ev1 = (sxx+syy)/2. - sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
         T ev2 = (sxx+syy)/2. + sqrt((sxx+syy)*(sxx+syy)/4. + sxy*sxy - sxx*syy);
         if (params.getDoAsymmetryCheck()) {
-            if(ev1/ev2<params.getAsymmetryThreshold() and ev2/ev1 < params.getAsymmetryThreshold()) {
+            if(ev1/ev2<params.getAsymmetryThreshold() && ev2/ev1 < params.getAsymmetryThreshold()) {
                 Coord<float> cc (c.x, c.y, c.val, ev1/ev2);
                 newcoords.insert(cc); // copy for now. Hack hack hack...
             }
@@ -676,13 +676,13 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
 template <class T>
 void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    bool needSkellam = !((params.getIgnoreSkellamFramesSaved() or params.getSkellamFramesSaved()) && params.getSlopeSaved() && params.getInterceptSaved());
+    bool needSkellam = !((params.getIgnoreSkellamFramesSaved() || params.getSkellamFramesSaved()) && params.getSlopeSaved() && params.getInterceptSaved());
 //     if (params.getIgnoreSkellamFramesSaved()) {
 //         std::cout<<"Values from GUI dialog:"<<std::endl;
 //         std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
 //         return;
 //     }
-    if (params.getSlopeSaved() and params.getInterceptSaved()) {
+    if (params.getSlopeSaved() && params.getInterceptSaved()) {
         std::cout<<"Values from settings-file:"<<std::endl;
         std::cout<<"Gain: "<<params.getSlope()<<" Offset: "<<params.getIntercept()<<std::endl;
         return;
@@ -706,7 +706,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
 
     bool useSkellam = false;
 
-    for(int f = 0; f< stacksize; ++f) {
+    for(unsigned int f = 0; f< stacksize; ++f) {
         if (progressFunc.getAbort())
             return;
         params.readBlock(Shape3(0,0,f),Shape3(w,h,1), *img);
@@ -723,7 +723,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
                 auto imgIter = lastVal->begin(), imgEnd = lastVal->end();
                 auto skellamIter = skellamArr.begin(), skellamEnd = skellamArr.end();
                 for (; imgIter != imgEnd && skellamIter != skellamEnd; ++imgIter, ++skellamIter) {
-                    for (int n = 1; n <= passes; ++n) {
+                    for (unsigned int n = 1; n <= passes; ++n) {
                         skellamIter->updatePassN(*imgIter, n);
                     }
                 }
@@ -735,11 +735,11 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
             img = tmp;
         }
 
-        if (not useSkellam) {
+        if (! useSkellam) {
             auto imgIter = img->begin(), imgEnd = img->end();
             auto varIter = varianceArr.begin(), varEnd = varianceArr.end();
             for (; imgIter != imgEnd && varIter != varEnd; ++imgIter, ++varIter) {
-                for (int n = 1; n <= passes; ++n) {
+                for (unsigned int n = 1; n <= passes; ++n) {
                     varIter->updatePassN(*imgIter, n);
                 }
             }
@@ -761,7 +761,7 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
     int intervalCounter = 0;
     T intervalDistance = (minmax.max - minmax.min)/ maxNumberPoints;
 
-    for(int i = 0; i< w * h && intervalCounter < maxNumberPoints; i++) {
+    for(unsigned int i = 0; i< w * h && intervalCounter < maxNumberPoints; i++) {
         if(meanArr[iter[i]] > minmax.min + intervalDistance * intervalCounter) {
             listPixelCoordinates[intervalCounter] = iter[i];
             meanValues[intervalCounter] = meanArr[iter[i]];
@@ -810,8 +810,8 @@ void getPoissonMeansForChunk(const DataParams &params, int tChunkSize,const Mult
     unsigned int xyChunkSize = params.getXYChunkSize();
     unsigned int xChunks = std::ceil(w / (float)xyChunkSize);
     unsigned int yChunks = std::ceil(h / (float)xyChunkSize);
-    for (int x = 0, n = 0; x < xChunks; ++x) {
-        for (int y = 0; y < yChunks; ++y, ++n) {
+    for (unsigned int x = 0, n = 0; x < xChunks; ++x) {
+        for (unsigned int y = 0; y < yChunks; ++y, ++n) {
             vigra::Shape3 index(std::min((x + 1) * xyChunkSize, w), std::min((y + 1) * xyChunkSize, h), tChunkSize);
             auto nthroi = img.subarray(vigra::Shape3(x * xyChunkSize, y * xyChunkSize, 0), index);
             std::vector<T> vec(nthroi.begin(), nthroi.end());
@@ -819,6 +819,16 @@ void getPoissonMeansForChunk(const DataParams &params, int tChunkSize,const Mult
             regionMeans(x, y) = vec[vec.size()/2];
         }
     }
+}
+
+template <class T>
+inline bool myIsNan(T t)
+{
+#ifdef _MSC_VER
+    return _isnan(t) != 0;
+#else
+    return std::isnan(t);
+#endif
 }
 
 template <class T, class Func>
@@ -831,7 +841,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
-                                     [](T srcPixel, T poissonPixel) -> T {T val = srcPixel - poissonPixel; return (std::isnan(val)) ? 0 : val;});
+                                     [](T srcPixel, T poissonPixel) -> T {T val = srcPixel - poissonPixel; return (myIsNan(val)) ? 0 : val;});
 //         char name[1000];
 //         sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/frame%d.tif", middleChunkFrame+f);
 //         vigra::exportImage(srcImageRange(currSrc), name);
@@ -851,7 +861,7 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     unsigned int middleChunk = std::floor(0.5 * chunksInMemory);
     auto *tmp = srcImage[0];
     auto *tmp2 = srcImage[0];
-    for (int i = 0; i < middleChunk; ++i) {
+    for (unsigned int i = 0; i < middleChunk; ++i) {
         srcImage[i] = srcImage[i + 1];
     }
     srcImage[middleChunk] = tmp;
@@ -860,7 +870,7 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
 //     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/NotAtAllCorrectedFrame%d.tif", chunk*lastChunkSize);
 //     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
-    char name2[1000];
+//     char name2[1000];
 //     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/PoissonCorrectedFrame%d.tif", chunk*lastChunkSize);
 //     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&tF](T p){return tF(p);});
@@ -868,9 +878,9 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
 //     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/AnscombeCorrectedFrame%d.tif", chunk*lastChunkSize);
 //     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     //vigra::exportImage(srcImageRange(tmp->bindOuter(0)),"/home/herrmannsdoerfer/tmpOutput/skellamCorrectedFrame.tif");
-    for (int z = 0; z < chunksInMemory - 1; ++z) {
-        for (int x = 0; x < xChunks; ++x) {
-            for (int y = 0; y < yChunks; ++y) {
+    for (unsigned int z = 0; z < chunksInMemory - 1; ++z) {
+        for (unsigned int x = 0; x < xChunks; ++x) {
+            for (unsigned int y = 0; y < yChunks; ++y) {
                 poissonMeansRaw(x, y, z) = poissonMeansRaw(x, y, z + 1);
             }
         }
@@ -911,14 +921,14 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
     // filter must have the size of input
     progressFunc.setStackSize(stacksize);
 
-    #ifdef OPENMP_FOUND
+    #if defined(OPENMP_FOUND) && !defined(_MSC_VER)
     omp_set_schedule(omp_sched_dynamic, omp_get_num_threads() / params.getTChunkSize());
     #endif
 
     transformationFunctor tF(1, 3./8,0);
 
     MultiArray<3, T>** srcImage = (MultiArray<3, T>**)std::malloc(chunksInMemory * sizeof(MultiArray<3, T>*));
-    for (int i = 0; i < chunksInMemory; ++i) {
+    for (unsigned int i = 0; i < chunksInMemory; ++i) {
         srcImage[i] = new MultiArray<3, T>(Shape3(w, h, params.getTChunkSize()));
     }
     MultiArray<3, T> poissonMeansRaw(Shape3(xChunks, yChunks, chunksInMemory));
@@ -926,7 +936,7 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
 
     int currframe = 0, chunk;
 
-    for (chunk = 0; chunk < chunksInMemory; ++chunk) {
+    for (chunk = 0; chunk < (int)chunksInMemory; ++chunk) {
         params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), srcImage[chunk]->shape(), *srcImage[chunk]);
         auto currRawMean = poissonMeansRaw.bindOuter(chunk);
         vigra::transformMultiArray(srcMultiArrayRange(*srcImage[chunk]), destMultiArrayRange(*srcImage[chunk]), [&params, &tF](T p){return tF((p - params.getIntercept()) / params.getSlope());});
@@ -934,27 +944,27 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
 
     }
     vigra::resizeMultiArraySplineInterpolation(srcMultiArrayRange(poissonMeansRaw), destMultiArrayRange(poissonMeans), vigra::BSpline<3>());
-    for (int c = 0; c <= middleChunk; ++c) {
+    for (unsigned int c = 0; c <= middleChunk; ++c) {
         if (progressFunc.getAbort())
             return;
         processChunk(params, *srcImage[c], poissonMeans, currframe, c, functor, progressFunc);
     }
     if (chunksInMemory % 2) {
-        for (int c = 0; c < middleChunk; ++c) {
+        for (unsigned int c = 0; c < middleChunk; ++c) {
             delete srcImage[c];
             srcImage[c] = srcImage[c + middleChunk];
         }
         srcImage[middleChunk] = srcImage[chunksInMemory - 1];
     } else {
-        for (int c = 0; c < middleChunk - 1; ++c) {
+        for (unsigned int c = 0; c < middleChunk - 1; ++c) {
             srcImage[c] = srcImage[c + middleChunk - 1];
         }
         srcImage[middleChunk - 1] = srcImage[chunksInMemory - 2];
         srcImage[middleChunk] = srcImage[chunksInMemory - 1];
     }
 
-    int lastChunkSize = stacksize % params.getTChunkSize();
-    for (; chunk < (lastChunkSize ? tChunks - 1 : tChunks); ++chunk) {
+    unsigned int lastChunkSize = stacksize % params.getTChunkSize(), chunkEnd = (lastChunkSize ? tChunks - 1 : tChunks);
+    for (; chunk < (int)chunkEnd; ++chunk) {
         if (progressFunc.getAbort())
             return;
         readChunk(params, srcImage, poissonMeansRaw, poissonMeans, params.getTChunkSize(), chunk, tF);
@@ -968,7 +978,7 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
         processChunk(params, *srcImage[0], poissonMeans, currframe, middleChunk, functor, progressFunc);
     }
     delete srcImage[0];
-    for (int c = middleChunk + 1; c < chunksInMemory; ++c) {
+    for (unsigned int c = middleChunk + 1; c < chunksInMemory; ++c) {
         if (progressFunc.getAbort())
             return;
         int cIndex = c - middleChunk;
@@ -1068,7 +1078,7 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
         vigra::acc::extractFeatures(iter, iterEnd, accChain);
         vigra::MultiArray<1, double> hist2 = get<vigra::acc::AutoRangeHistogram<0>>(accChain);
 
-        double data[2*numberBins];
+        std::vector<double> data(2*numberBins);
         T minimum = imgMinMax.min, maximum = imgMinMax.max;
 
         T delta = (maximum - minimum)/ (1.*numberBins);
@@ -1081,10 +1091,10 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
             if (hist2(counter)>maxdata){maxdata = hist2(counter);}
             if (hist2(counter)<mindata){mindata = hist2(counter);}
         }
-        T scale = maxdata - mindata, offset = mindata, center = 0;
+        T sigma = 2.0, scale = maxdata - mindata, offset = mindata, center = 0;
 //         std::cout<<std::endl;
 //         std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
-        fitGaussian1D(data, numberBins, sigma, scale, offset, center);
+        fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
     }
     BGStd[currframe] = sigma;
 //     std::cout<<"cur stdBG: "<<stdBG<<" BGStd[currframe]: "<<BGStd[currframe]<<" currframe: "<<currframe<<std::endl;
@@ -1096,7 +1106,7 @@ The gain factor is adjusted iteratively until the backgrounds variance is equal 
 */
 template <class T>
 void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    bool needSkellam = !((params.getIgnoreSkellamFramesSaved() or params.getSkellamFramesSaved()) && params.getSlopeSaved() && params.getInterceptSaved());
+    bool needSkellam = !((params.getIgnoreSkellamFramesSaved() || params.getSkellamFramesSaved()) && params.getSlopeSaved() && params.getInterceptSaved());
     if (!needSkellam)
         return;
     unsigned int stacksize = params.getSkellamFrames();
@@ -1246,7 +1256,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     for(it2=maxima_candidates_vect.begin(); it2 != maxima_candidates_vect.end(); it2++) {
             Coord<float> c = *it2;
-            if(unfiltered(c.x,c.y)<1 or mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
+            if(unfiltered(c.x,c.y)<1 || mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
                 continue;
             }
             Diff2D roi_ul (c.x-mylen2, c.y-mylen2);

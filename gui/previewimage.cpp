@@ -11,7 +11,7 @@
 #include <QFutureWatcher>
 
 PreviewImage::PreviewImage(QWidget *parent)
-: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1), m_scalex(1), m_scaley(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_watcher(0), m_initialized(false), m_needCompleteRepaint(false)
+: QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1f), m_scalex(1), m_scaley(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_watcher(0), m_initialized(false), m_needCompleteRepaint(false)
 {
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
@@ -126,7 +126,7 @@ void PreviewImage::updatePixmap(const QRect &rect)
         m_painter.fillRect(QRect(ul, lr), QColor(0, 0, 0));
         for (int y = ul.y(); y < lr.y(); ++y) {
             for (int x = ul.x(); x < lr.x(); ++x) {
-                if (x < m_result.shape()[0] and y < m_result.shape()[1] and m_result(x, y) > 0) {
+                if (x < m_result.shape()[0] && y < m_result.shape()[1] && m_result(x, y) > 0) {
                     //std::cout<<"x3: "<<x<<" y3: "<<y<<std::endl;
                     m_painter.fillRect(x, y, 1, 1, QColor(255, 255, 255));
                 }
@@ -205,7 +205,8 @@ void PreviewImage::paintEvent(QPaintEvent *event)
 void PreviewImage::init(const QRect &rect)
 {
     if (rect != m_geometry) {
-        m_painter.end();
+        if(m_painter.isActive())
+            m_painter.end();
         m_geometry = m_pixmapGeometry = rect;
         m_pixmapGeometry.moveTo(0, 0);
         int width = std::max(rect.width(), m_pixmap.width());

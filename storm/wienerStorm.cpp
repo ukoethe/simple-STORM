@@ -8,7 +8,7 @@
 void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
     double minval=9999999, maxval = 0;
     int size = 2*ps.shape(0)*ps.shape(1);
-    double data2[2*ps.shape(0)*ps.shape(1)];
+    std::vector<double> data2(2*ps.shape(0)*ps.shape(1));
     for(int i=0, counter = 0;i<ps.shape(0);++i) {
         for(int j=0;j<ps.shape(1);++j,++counter) {
             //std::cout<<i<<" "<<j<" "<<counter <<std::endl;
@@ -20,7 +20,7 @@ void fitPSF(DataParams &params, MultiArray<2, double> &ps) {
     }
     double sigma = 2.0, scale = maxval - minval, offset = minval;
     std::cout<<sigma<<" "<<scale<<" "<<offset<<std::endl;
-    fitGaussian(data2, size/2, sigma, scale, offset);
+    fitGaussian(&data2[0], size/2, sigma, scale, offset);
     params.setSigma(sigma);
 
 }

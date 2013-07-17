@@ -43,7 +43,7 @@ ResultWidget::ResultWidget(QWidget *parent)
     m_ui->scrl_preview->setMinScale(m_minZoom / 100.);
     m_ui->scrl_preview->setMaxScale(m_maxZoom / 100.);
     m_ui->scrl_preview->setScaleStep(m_zoomStep / 100.);
-    m_ui->preview->setIntensityScaleFactor(0.1);
+    m_ui->preview->setIntensityScaleFactor(0.1f);
     connect(m_ui->btn_zoomIn, SIGNAL(clicked()), m_ui->scrl_preview, SLOT(zoomIn()));
     connect(m_ui->btn_zoomOut, SIGNAL(clicked()), m_ui->scrl_preview, SLOT(zoomOut()));
     connect(m_ui->btn_scaleToFit, SIGNAL(clicked()), m_ui->scrl_preview, SLOT(autoZoom()));
