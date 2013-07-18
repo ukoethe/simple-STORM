@@ -337,7 +337,7 @@ void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
     #ifdef HDF5_FOUND
     else if (extension==".h5" || extension==".hdf" || extension==".hdf5") {
         m_type = HDF5;
-        vigra::HDF5File* h5file = new vigra::HDF5File(m_infile.c_str(), HDF5File::Open);
+        vigra::HDF5File* h5file = new vigra::HDF5File(m_infile.c_str(), HDF5File::OpenReadOnly);
         ArrayVector<hsize_t> shape = h5file->getDatasetShape("/data");
         m_shape = Shape(shape[0],shape[1],shape[2]);
         ptr = (void*) h5file;
