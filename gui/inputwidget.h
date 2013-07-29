@@ -2,7 +2,7 @@
 #define INPUTWIDGET_H
 
 #include "guiparams.h"
-
+#include <iostream>
 #include <QWidget>
 
 namespace Ui

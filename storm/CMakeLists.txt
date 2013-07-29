@@ -5,7 +5,7 @@ set(STORM_VERSION_MAJOR 0)
 set(STORM_VERSION_MINOR 7)
 set(STORM_VERSION_PATCH 0)
 
-set(STORM_AUTHORS "Â© 2011-2013 Ullrich Koethe, Joachim Schleicher, Frank HerrmannsdÃ¶rfer, and Ilia Kats")
+set(STORM_AUTHORS "© 2011-2013 Ullrich Koethe, Joachim Schleicher, Frank Herrmannsdörfer, and Ilia Kats")
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
 
@@ -20,6 +20,7 @@ set(WIENERSTORM_SRCS
     dataparams.cpp
     wienerStorm.cpp
     util.cpp
+    getoptMSVC.c
 )
 set(WIENERSTORM_HDRS
     stormparams.h

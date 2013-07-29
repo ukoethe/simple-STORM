@@ -38,11 +38,11 @@
 #include <cstdint>
 #include <string>
 #include <iostream>
-#ifndef _MSC_VER
-#include <getopt.h>
-#else
+//#ifndef _MSC_VER
+//#include <getopt.h>
+//#else
 #include "getoptMSVC.h"
-#endif // EMULATE_GETOPT
+//#endif // EMULATE_GETOPT
 
 #include <vigra/impex.hxx>
 #include <vigra/sifImport.hxx>
