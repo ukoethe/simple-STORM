@@ -41,7 +41,6 @@
 #include <vigra/inspectimage.hxx>
 #include <vigra/localminmax.hxx>
 #include <vigra/splineimageview.hxx>
-#include <vigra/multi_fft.hxx>
 #include <vigra/accumulator.hxx>
 #include <vigra/multi_resize.hxx>
 #include <vigra/multi_impex.hxx>
@@ -89,7 +88,7 @@ using namespace vigra::functor;
  * http://hci.iwr.uni-heidelberg.de/Staff/jschleic/
  *
  * Some helper functions can be found in util.h, and the filter in Fourier
- * domain is applied using fftw-wrappers in fftfilter.h.
+ * domain is applied using f-wrappers in fftfilter.h.
  *
  * @date 2010-2011 Diploma thesis J. Schleicher
  */
@@ -746,13 +745,14 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
         }
         progressFunc.frameFinished(f);
     }
-    std::cout<<std::endl;
+    //std::cout<<std::endl;
     vigra::transformMultiArray(srcMultiArrayRange(meanArr), destMultiArrayRange(meanArr), [&stacksize](T p){return p / stacksize;});
 
     FindMinMax<T> minmax;
     inspectMultiArray(srcMultiArrayRange(meanArr), minmax);
     if(params.getVerbose()){
-    std::cout<<"min: "<<minmax.min<<" max: "<<minmax.max<<std::endl;}
+		std::cout<<"min: "<<minmax.min<<" max: "<<minmax.max<<std::endl;
+	}
 
     std::vector<int> iter(w * h); //contains information permutation from sort
     linearSequence(iter.begin(), iter.end());
@@ -775,14 +775,14 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
         }
     }
 
-    std::cout<<std::endl;
+    /*std::cout<<std::endl;
     for (int i =0; i< intervalCounter; ++i){
         std::cout<<meanValues[i]<<", ";
     }
     std::cout<<std::endl;
     for (int i =0; i< intervalCounter; ++i){
         std::cout<<skellamParameters[i]<<", ";
-    }
+    }*/
 
     doRansac(params, meanValues, skellamParameters, intervalCounter);
     std::cout<<"y4 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC)"<< std::endl;
@@ -866,18 +866,9 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     }
     srcImage[middleChunk] = tmp;
     params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), tmp->shape(), *tmp);
-//     char name[1000];
-//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/NotAtAllCorrectedFrame%d.tif", chunk*lastChunkSize);
-//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
-//     char name2[1000];
-//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/PoissonCorrectedFrame%d.tif", chunk*lastChunkSize);
-//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&tF](T p){return tF(p);});
-//     char name3[1000];
-//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/AnscombeCorrectedFrame%d.tif", chunk*lastChunkSize);
-//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
-    //vigra::exportImage(srcImageRange(tmp->bindOuter(0)),"/home/herrmannsdoerfer/tmpOutput/skellamCorrectedFrame.tif");
+
     for (unsigned int z = 0; z < chunksInMemory - 1; ++z) {
         for (unsigned int x = 0; x < xChunks; ++x) {
             for (unsigned int y = 0; y < yChunks; ++y) {
@@ -987,13 +978,11 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
     }
     std::free(srcImage);
 }
+double fitPSF(MultiArray<2, double>&);
 
-/*!
-adds new powerspecra for each frame to the previous ones
-*/
-template <class T, class S>
-void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
-    vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
+template <class T>
+void getPSFwidth(const DataParams &params, MultiArrayView<2, T>& in, std::vector<T> &PSFwidths, int roiwidth, int nbrRoisPerFrame, int &rois) {
+vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
                                [](double p){return std::pow((p+3./8.)/2.,2)-3./8.;}); //inverse Anscombe transform to avoid spread of PSF
     int w = params.shape(0), h = params.shape(1);
     int roiwidth2 = roiwidth / 2;
@@ -1027,31 +1016,27 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
 
     for (auto i = maxima_indices.begin(); roi < nbrRoisPerFrame && i != maxima_indices.end(); ++i) {
         /*const*/ Coord<T> &maximum = maxima[*i];
-        if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh)
-            continue;
+        if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh) {
+            //std::cout<<"threshold: "<<thresh<<" maximum.val: "<<maximum.val<<std::endl;
+			continue;
+		}
         Shape2 roi_ul(maximum.x - roiwidth2, maximum.y - roiwidth2);
         Shape2 roi_lr(maximum.x - roiwidth2 + roiwidth, maximum.y - roiwidth2 + roiwidth);
-        MultiArray<2, FFTWComplex<S>> fourier(ps.shape());
 
-        MultiArray<2, FFTWComplex<S>> workImage(ps.shape()); //libfftw needs continuous memory
-        vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul,  roi_lr)), destMultiArray(workImage, FFTWWriteRealAccessor<S>()));
-
-        MultiArray<2, T> expImage(ps.shape());
-        vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul,  roi_lr)), destMultiArray(expImage));
-
-        fplan.execute(workImage, fourier);
-
-
-        vigra::combineTwoMultiArrays(srcMultiArrayRange(ps),
-                                     srcMultiArray(fourier, FFTWSquaredMagnitudeAccessor<double>()),
-                                     destMultiArray(ps), std::plus<double>());
+		MultiArray<2, double> testimg(Shape2(roiwidth, roiwidth));
+		vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul, roi_lr)), destMultiArray(testimg));
+		double sigma = fitPSF(testimg);
+		std::cout<<"final sigma "<<sigma<<std::endl;
+		std::cout<<"roi "<<roi<<" rois "<<rois<<" nbrRoisPerFrame "<< nbrRoisPerFrame<< "nbrMaxima "<<nbrMaxima<<std::endl;
+        PSFwidths.push_back(sigma);
         ++roi;
         ++rois;
     }
 
 }
 
-void fitPSF(DataParams&, MultiArray<2, double>&);
+
+
 
 /*!
 Estimates background variance from a fit of the histogram of intensities for each frame. The assumption is that the backgroun pixels intensity values
@@ -1087,16 +1072,19 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
         for (auto counter = 0; counter < numberBins; ++counter){
             data[2*counter] = minimum + counter * delta;
             data[2*counter+1] = hist2(counter);
+			//std::cout<<data[2*counter]<<" "<<data[2*counter+1]<<std::endl;
 //             std::cout<<hist2(counter)<<",";
             if (hist2(counter)>maxdata){maxdata = hist2(counter);}
             if (hist2(counter)<mindata){mindata = hist2(counter);}
         }
-        T sigma = 2.0, scale = maxdata - mindata, offset = mindata, center = 0;
+        T scale = maxdata - mindata, offset = mindata, center = 0;
+		sigma = 2.0;
 //         std::cout<<std::endl;
 //         std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
         fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
+		//std::cout<<"Sigma: "<<sigma<<std::endl;
     }
-    BGStd[currframe] = sigma;
+    BGStd.push_back(sigma);
 //     std::cout<<"cur stdBG: "<<stdBG<<" BGStd[currframe]: "<<BGStd[currframe]<<" currframe: "<<currframe<<std::endl;
 //     std::cout<<BGStd[currframe]<<" currframe: "<<currframe<<" ";
 }
@@ -1123,9 +1111,9 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     while (true) {
         counter += 1;
         processStack<T>(params, func, progressFunc, stacksize);
-//         for(auto it= BGStds.begin(); it!=BGStds.end(); ++it){
-//             std::cout<<*it<<" ";
-//         }
+        //for(auto it= BGStds.begin(); it!=BGStds.end(); ++it){
+       //    std::cout<<"Values BGStds"<<*it<<" ";
+        //}
 //         std::cout<<std::endl;
         std::nth_element(BGStds.begin(), BGStds.begin() + BGStds.size()/2, BGStds.end());
         medBGStd = BGStds[BGStds.size()/2];
@@ -1150,7 +1138,7 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
 /*! A multivariate gaussian is fitted to the mean power spectrum, after that corresponding sigma in spatial domain is calculated*/
 template <class T>
 void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    std::cout<<params.getSkellamFramesSaved()<<" "<<params.getSigmaSaved()<<" "<<params.getIgnoreSkellamFramesSaved()<<std::endl;
+    //std::cout<<params.getSkellamFramesSaved()<<" "<<params.getSigmaSaved()<<" "<<params.getIgnoreSkellamFramesSaved()<<std::endl;
     if ( params.getSigmaSaved()) {
         std::cout<<"Values from settings-file:"<<std::endl;
         std::cout<<"Sigma: "<<params.getSigma();
@@ -1163,17 +1151,17 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
 
     MultiArray<2, double> ps(Shape2(roiwidth, roiwidth));
     ps.init(0.0);
-    MultiArray<2, FFTWComplex<double>> filterInit(Shape2(roiwidth, roiwidth));
-    FFTWPlan<2, double> fplan(filterInit, filterInit, FFTW_FORWARD, FFTW_MEASURE);
-    auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
-    processStack<T>(params, func, progressFunc, stacksize);
+
+    //auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
+    std::vector<T> PSFwidths;
+	auto func = [&PSFwidths, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){getPSFwidth(params, currSrc, PSFwidths, roiwidth, nbrRoisPerFrame, rois);};
+	processStack<T>(params, func, progressFunc, stacksize);
     if (progressFunc.getAbort())
         return;
-    moveDCToCenter(ps);
-    vigra::transformMultiArray(srcMultiArrayRange(ps), destMultiArray(ps),
-                          [&stacksize, &roiwidth, &rois](double p){return p / (rois * roiwidth * roiwidth);});
-    fitPSF(params, ps);
-    std::cout<<"Estimated value:"<<std::endl;
+
+    std::nth_element(PSFwidths.begin(), PSFwidths.begin() + PSFwidths.size()/2, PSFwidths.end());
+    params.setSigma(PSFwidths[PSFwidths.size()/2]);
+	std::cout<<"Estimated value:"<<std::endl;
     std::cout<<"Sigma: "<<params.getSigma()<<std::endl;
 }
 
