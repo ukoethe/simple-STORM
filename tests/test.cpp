@@ -105,9 +105,9 @@ void checkSlopeFitting(Counter &counter){
 
 
     doRansac(params,x,y, 199);
-
+	std::cout<<params.getSlope()<<" slope"<<params.getIntercept()<<std::endl;
     std::string str = "Skellam fit test";
-    counter.update(std::abs(params.getSlope()-4.92)<0.01 && std::abs(params.getIntercept()-373)<1, str);
+    counter.update(std::abs(params.getSlope()-3.686)<0.01 && std::abs(params.getIntercept()-368.2)<1, str);
 }
 
 void checkPSFFitting(Counter &counter) {
@@ -117,14 +117,15 @@ void checkPSFFitting(Counter &counter) {
   vigra::MultiArray<2,double> img(vigra::Shape2(30,30));
   for (int i =0; i< 30; ++i){
     for (int j = 0; j < 30; ++j){
-      img(i,j) = 10*std::exp(-0.5*(std::pow((i-15.)/4.0,2)+std::pow((j-15.)/4.0,2)));
+      img(i,j) = 100*std::exp(-0.5*(std::pow((i-15.)/2.0,2)+std::pow((j-15.)/2.0,2)));
     }
   }
 
   std::vector<double> BGVar(1);
-  fitPSF(img);
+  params.setSigma(fitPSF(img));
+  std::cout<<params.getSigma()<<" fitted sigma"<<std::endl;
   std::string str = "PSF fitting test";
-  counter.update(std::abs(params.getSigma() - 0.818004)< 0.2, str);
+  counter.update(std::abs(params.getSigma() - 2)< 0.2, str);
 
 }
 
@@ -199,11 +200,12 @@ void checkWholeProgram(char* argv[], Counter &counter){
   std::string p = argv[0];
   size_t pos = p.find_last_of("/\\");
   #if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
-	const char * c = "test.tif";
+	const char * c = "test2.tif";
   #else
 	const char * c = p.substr(0,pos).append("/test.tif").c_str();
   #endif
   params.setInFile(c, false);
+  std::cout<<"c:"<<c<<std::endl;
   params.doSanityChecks();
   int stacksize = params.shape(2);
   std::vector<std::set<Coord<float> > > res_coords(stacksize);
@@ -228,7 +230,8 @@ void checkWholeProgram(char* argv[], Counter &counter){
       }
   }
   std::string str = "Whole Test";
-  counter.update(std::abs(sumx -5219)<0.1 && std::abs(sumy -5482)<0.1 && std::abs(sumval -284.82)<0.1, str);
+  std::cout<<sumx<<" sumx "<< sumy<<std::endl;
+  counter.update(std::abs(sumx -1332370)<100 && std::abs(sumy -1127500)<100 , str);
 
 }
 

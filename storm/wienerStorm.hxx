@@ -1026,8 +1026,8 @@ vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
 		MultiArray<2, double> testimg(Shape2(roiwidth, roiwidth));
 		vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul, roi_lr)), destMultiArray(testimg));
 		double sigma = fitPSF(testimg);
-		std::cout<<"final sigma "<<sigma<<std::endl;
-		std::cout<<"roi "<<roi<<" rois "<<rois<<" nbrRoisPerFrame "<< nbrRoisPerFrame<< "nbrMaxima "<<nbrMaxima<<std::endl;
+		//std::cout<<"final sigma "<<sigma<<std::endl;
+		//std::cout<<"roi "<<roi<<" rois "<<rois<<" nbrRoisPerFrame "<< nbrRoisPerFrame<< "nbrMaxima "<<nbrMaxima<<std::endl;
         PSFwidths.push_back(sigma);
         ++roi;
         ++rois;

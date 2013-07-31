@@ -19,7 +19,7 @@ double fitPSF(MultiArray<2, double> &ps) {
         }
     }
     double sigma = 2.0, scale = maxval - minval, offset = minval;
-    std::cout<<"sigma: "<<sigma<<" scale: "<<scale<<" offset:"<<offset<<std::endl;
+    //std::cout<<"sigma: "<<sigma<<" scale: "<<scale<<" offset:"<<offset<<std::endl;
     fitGaussian(&data2[0], size/2, sigma, scale, offset);
     return sigma;
 
