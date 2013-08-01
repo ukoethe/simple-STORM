@@ -5,7 +5,7 @@
 
 
 
-double fitPSF(MultiArray<2, double> &ps) {
+double fitPSF(MultiArray<2, double> &ps, double &sigma) {
     double minval=9999999, maxval = 0;
     int size = 2*ps.shape(0)*ps.shape(1);
     std::vector<double> data2(2*ps.shape(0)*ps.shape(1));
@@ -18,11 +18,12 @@ double fitPSF(MultiArray<2, double> &ps) {
             if (ps(i,j)> maxval){maxval = ps(i,j);}
         }
     }
-    double sigma = 2.0, scale = maxval - minval, offset = minval;
+    double scale = maxval - minval, offset = minval;
+	sigma = 2.0;
     //std::cout<<"sigma: "<<sigma<<" scale: "<<scale<<" offset:"<<offset<<std::endl;
-    fitGaussian(&data2[0], size/2, sigma, scale, offset);
-    return sigma;
-
+    double error = fitGaussian(&data2[0], size/2, sigma, scale, offset);
+    sigma = std::abs(sigma);
+	return error;
 }
 
 

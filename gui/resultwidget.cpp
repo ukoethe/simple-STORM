@@ -160,7 +160,7 @@ void ResultWidget::saveClicked()
     QFileInfo info(file);
     fileSaveDialogDirectory = info.absolutePath();
     if (selectedFilter == filters[0]) {
-        m_ui->preview->saveImage(info.absolutePath() + '/' + info.baseName() + ".tif");
+        m_ui->preview->saveImage(info.absolutePath() + '/' + info.baseName() + "_result.tif");
         saveCoordinates(info.absolutePath() + '/' + info.baseName() + ".txt");
         m_coordinatesSaved = m_reconstructionSaved = true;
     } else if (selectedFilter == filters[1]){

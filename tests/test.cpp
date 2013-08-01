@@ -122,7 +122,9 @@ void checkPSFFitting(Counter &counter) {
   }
 
   std::vector<double> BGVar(1);
-  params.setSigma(fitPSF(img));
+  double error, sigma;
+  error = fitPSF(img, sigma);
+  params.setSigma(sigma);
   std::cout<<params.getSigma()<<" fitted sigma"<<std::endl;
   std::string str = "PSF fitting test";
   counter.update(std::abs(params.getSigma() - 2)< 0.2, str);

@@ -20,7 +20,6 @@ set(WIENERSTORM_SRCS
     dataparams.cpp
     wienerStorm.cpp
     util.cpp
-    getoptMSVC.c
 )
 set(WIENERSTORM_HDRS
     stormparams.h
@@ -29,12 +28,12 @@ set(WIENERSTORM_HDRS
     util.h
 )
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL MSVC)
+if (MSVC)
     set(WIENERSTORM_SRCS
         ${WIENERSTORM_SRCS}
-        getoptMSVC.
+        getoptMSVC.c
     )
-endif (CMAKE_CXX_COMPILER_ID STREQUAL MSVC)
+endif (MSVC)
 
 if(WIN32)
     add_definitions(-D__WIN__)
@@ -46,11 +45,11 @@ target_link_libraries(wienerstorm vigraimpex ${FFTW_LIBRARIES} ${RUDECONFIG_LIBR
 add_executable(storm storm.cpp)
 target_link_libraries(storm wienerstorm vigraimpex)
 
-if(WIN32)
+if(WIN32 AND NOT MSVC)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
-endif(WIN32)
+endif()
 
-IF(OPENMP_FOUND)
+IF(OPENMP_FOUND) #Linker flag
 	SET_TARGET_PROPERTIES(wienerstorm PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
 	SET_TARGET_PROPERTIES(wienerstorm PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
 	SET_TARGET_PROPERTIES(storm PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})

@@ -176,8 +176,9 @@ void fitLine(std::vector<T>& MeanValues, std::vector<T>& SkellamValues,
 }
 
 template <class T>
-void fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0){
-    try
+double fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0){
+    double tr = 0.0;
+	try
     {
         vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
 
@@ -188,7 +189,6 @@ void fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0
         for(int k=0; k< 10; ++k)
         {
             vigra::linalg::Matrix<double> jr(4,1), jj(4,4), j(4,1);
-            double tr = 0.0;
 
             for(int i=0; i<size; ++i)
             {
@@ -266,22 +266,24 @@ void fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0
         // catch any errors that might have occurred and print their reason
         std::cout << e.what() << std::endl;
     }
+	return tr/size;
 }
 
 template <class T>
-void fitGaussian(double * data, int size, T &sigma, T &scale, T &offset){
-    try
+double fitGaussian(double * data, int size, T &sigma, T &scale, T &offset){
+	double error = 0;
+	try
     {
         vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
 
         //double sigma = 2.0, scale = 0.5, offset = 0.0;
-
+		double tr = 0.0;
         double t = 1.4, l = 0.1;
 
         for(int k=0; k< 30; ++k)
         {
             vigra::linalg::Matrix<double> jr(3,1), jj(3,3), j(3,1);
-            double tr = 0.0;
+            
 
             for(int i=0; i<size; ++i)
             {
@@ -349,12 +351,25 @@ void fitGaussian(double * data, int size, T &sigma, T &scale, T &offset){
                 break;
         }
         std::cerr << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
+		/*double sum = 0;
+		for(int i=0; i<size; ++i)
+		{
+			if (points(i,0) < 5) {
+				double xs = sq(points(i,0) / sigma);
+				double e = std::exp(-0.5 * xs);
+				double r = points(i, 1) - (scale * e + offset);
+				error += sq(r);
+				sum   += sq(points(i,1));
+			}
+	    }
+		error /=sum;*/  
     }
     catch (std::exception & e)
     {
         // catch any errors that might have occurred and print their reason
         std::cout << e.what() << std::endl;
     }
+	return error;
 }
 
 
@@ -836,8 +851,16 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
                   MultiArrayView<3, T> &poissonMeans, int &currframe, int middleChunk,
                   Func& functor, ProgressFunctor &progressFunc) {
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
+	int sumParallel = 0;
     #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
+		for(int x=0; x < 10000000; x++)
+		{
+			for(int y=0; y < 10000000; y++)
+			{
+			sumParallel = sumParallel + x + y;
+			}
+		}  
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
@@ -978,15 +1001,22 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
     }
     std::free(srcImage);
 }
-double fitPSF(MultiArray<2, double>&);
+double fitPSF(MultiArray<2, double>&, double&);
 
 template <class T>
-void getPSFwidth(const DataParams &params, MultiArrayView<2, T>& in, std::vector<T> &PSFwidths, int roiwidth, int nbrRoisPerFrame, int &rois) {
+void getPSFwidth(const DataParams &params, MultiArrayView<2, T>& in, std::vector<T> &PSFwidths, int roiwidth, int nbrRoisPerFrame, int &rois, int currframe) {
 vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
                                [](double p){return std::pow((p+3./8.)/2.,2)-3./8.;}); //inverse Anscombe transform to avoid spread of PSF
-    int w = params.shape(0), h = params.shape(1);
+	int w = params.shape(0), h = params.shape(1);
+	
+	BasicImage<T> img(w,h);
+    BasicImageView<T> input = makeBasicImageView(in);  // access data as BasicImage
+    vigra::copyImage(srcImageRange(input), destImage(img));
+	
+    MultiArray<2, T> mask(Shape2(w, h));
+    getMask(params, img, currframe, mask);
+
     int roiwidth2 = roiwidth / 2;
-    BasicImageView<T> input = makeBasicImageView(in);
     std::vector<Coord<T> > maxima;
     typename BasicImageView<T>::traverser it = input.upperLeft();
     VectorPushAccessor<Coord<T>, typename BasicImageView<T>::traverser> maxima_acc(maxima, it);
@@ -994,8 +1024,12 @@ vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
     if (maxima.empty()) {
         return;
     }
-
-    T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::min();
+	
+	//char name[1000];
+	//sprintf(name, "c:\\tmp\\gesamt%d.tif", currframe);
+	//vigra::exportImage(srcImageRange(in), name);
+    
+	T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::min();
     int nbrMaxima = 0;
     for (auto i = maxima.begin(); i != maxima.end(); ++i) {
         if (i->x < roiwidth2 || i->x > w - roiwidth2  || i->y < roiwidth2 || i->y > h - roiwidth2 )
@@ -1011,24 +1045,30 @@ vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
     std::vector<size_t> maxima_indices(maxima.size());
     std::iota(maxima_indices.begin(), maxima_indices.end(), 0);
     std::random_shuffle(maxima_indices.begin(), maxima_indices.end());
-
+	//std::cout<<"maxima.size: "<<maxima.size()<<std::endl;
     nbrRoisPerFrame = std::min(nbrRoisPerFrame, nbrMaxima);
-
-    for (auto i = maxima_indices.begin(); roi < nbrRoisPerFrame && i != maxima_indices.end(); ++i) {
+	int counter = 0;
+    for (auto i = maxima_indices.begin(); roi < nbrRoisPerFrame && i != maxima_indices.end(); ++i, ++counter) {
         /*const*/ Coord<T> &maximum = maxima[*i];
-        if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh) {
-            //std::cout<<"threshold: "<<thresh<<" maximum.val: "<<maximum.val<<std::endl;
+        //if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh) {
+		if (mask(maximum.x, maximum.y) == 0 || maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1) {
+    //std::cout<<"threshold: "<<thresh<<" maximum.val: "<<maximum.val<<" *i: "<<*i<<std::endl;
 			continue;
 		}
         Shape2 roi_ul(maximum.x - roiwidth2, maximum.y - roiwidth2);
         Shape2 roi_lr(maximum.x - roiwidth2 + roiwidth, maximum.y - roiwidth2 + roiwidth);
 
 		MultiArray<2, double> testimg(Shape2(roiwidth, roiwidth));
+		
 		vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul, roi_lr)), destMultiArray(testimg));
-		double sigma = fitPSF(testimg);
-		//std::cout<<"final sigma "<<sigma<<std::endl;
-		//std::cout<<"roi "<<roi<<" rois "<<rois<<" nbrRoisPerFrame "<< nbrRoisPerFrame<< "nbrMaxima "<<nbrMaxima<<std::endl;
-        PSFwidths.push_back(sigma);
+		//char name[1000];
+		//sprintf(name, "c:\\tmp\\tif%d.tif", rois);
+		//vigra::exportImage(srcImageRange(testimg), name);
+		double sigma;
+		double error = fitPSF(testimg, sigma);
+		//std::cout<<"currframe: "<<currframe<<" roi "<<roi<<" rois "<<rois<<" nbrRoisPerFrame "<< nbrRoisPerFrame<< "nbrMaxima "<<nbrMaxima<<" counter: "<<counter<<std::endl;
+        //std::cout<<"final sigma "<<sigma<<" error: "<<error<<" maximum.x: "<<maximum.x<<"maximum.y"<<maximum.y<<std::endl;
+		PSFwidths.push_back(sigma);
         ++roi;
         ++rois;
     }
@@ -1081,8 +1121,8 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
 		sigma = 2.0;
 //         std::cout<<std::endl;
 //         std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
-        fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
-		//std::cout<<"Sigma: "<<sigma<<std::endl;
+        double error = fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
+		//std::cout<<"Sigma: "<<sigma<<" error: "<<error<<std::endl;
     }
     BGStd.push_back(sigma);
 //     std::cout<<"cur stdBG: "<<stdBG<<" BGStd[currframe]: "<<BGStd[currframe]<<" currframe: "<<currframe<<std::endl;
@@ -1154,7 +1194,7 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
 
     //auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
     std::vector<T> PSFwidths;
-	auto func = [&PSFwidths, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){getPSFwidth(params, currSrc, PSFwidths, roiwidth, nbrRoisPerFrame, rois);};
+	auto func = [&PSFwidths, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){getPSFwidth(params, currSrc, PSFwidths, roiwidth, nbrRoisPerFrame, rois, currframe);};
 	processStack<T>(params, func, progressFunc, stacksize);
     if (progressFunc.getAbort())
         return;
@@ -1244,7 +1284,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 
     for(it2=maxima_candidates_vect.begin(); it2 != maxima_candidates_vect.end(); it2++) {
             Coord<float> c = *it2;
-            if(unfiltered(c.x,c.y)<1 || mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
+            if(mask(c.x,c.y) == 0.0 || unfiltered(c.x,c.y)<1 ) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
                 continue;
             }
             Diff2D roi_ul (c.x-mylen2, c.y-mylen2);
