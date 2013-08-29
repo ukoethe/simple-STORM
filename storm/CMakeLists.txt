@@ -28,12 +28,12 @@ set(WIENERSTORM_HDRS
     util.h
 )
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL MSVC)
+if (MSVC)
     set(WIENERSTORM_SRCS
         ${WIENERSTORM_SRCS}
-        getoptMSVC.
+        getoptMSVC.c
     )
-endif (CMAKE_CXX_COMPILER_ID STREQUAL MSVC)
+endif ()
 
 if(WIN32)
     add_definitions(-D__WIN__)
