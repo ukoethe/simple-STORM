@@ -18,8 +18,9 @@ Content of this archive:
 		  chromatic aberrations. Tetraspeck-Beads are detected
 		  automatically so that the images can be registrated easily.
 
-See INSTALL for instructions on how to build and install
-storm or storm-gui
+A manual is in doc/doc.pdf.
+
+See INSTALL for instructions on how to build and install storm or storm-gui from scratch.
 
 Download binaries for Windows 64-bit from http://hci.iwr.uni-heidelberg.de/Software/simpleSTORM-win64.zip
 
