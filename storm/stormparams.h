@@ -58,7 +58,7 @@ public:
     { }
 };
 
-/*! 
+/*!
 Class that contains all needed parameters, settings and also provides the information about the input file
 */
 class StormParams {
@@ -114,13 +114,19 @@ public:
     void setAsymmetryThreshold(float);
     bool getDoAsymmetryCheckSaved() const;
     int getMaxXyChunksize() const;
+    void setMaxXyChunksize(int);
+    void setMaxTChunksize(int);
     int getMinXyChunksize() const;
     int getMaxTChunkSize() const;
     int getMinTChunkSize() const;
     float getMaxAsymmetryThreshold() const;
     float getMinAsymmetryThreshold() const;
+    bool getIgnoreSkellamFramesSaved() const;
+    void setIgnoreSkellamFramesSaved(bool);
     bool getVerbose() const;
     void setVerbose(bool);
+    void setPrefactorSigma(double);
+    double getPrefactorSigma() const;
 
     const Shape & shape() const;
     vigra::MultiArrayIndex shape(const int dim) const;
@@ -154,13 +160,13 @@ private:
     bool m_roilenSaved;
     float m_pixelsize;
     bool m_pixelsizeSaved;
-    unsigned int m_skellamFrames;
+    int m_skellamFrames;
     bool m_skellamFramesSaved;
-    unsigned int m_xyChunkSize;
+    int m_xyChunkSize;
     bool m_xyChunkSizeSaved;
-    unsigned int m_tChunkSize;
+    int m_tChunkSize;
     bool m_tChunkSizeSaved;
-    unsigned int m_chunksInMemory;
+    int m_chunksInMemory;
     bool m_chunksInMemorySaved;
     bool m_framesSaved;
     float m_alpha;
@@ -168,13 +174,16 @@ private:
     float m_asymmetryThreshold;
     bool m_doAsymmetryCheck;
     bool m_doAsymmetryCheckSaved;
-    const int m_minXyChunksize = 3;
-    const int m_maxXyChunksize = 100;
-    const int m_minTChunksize = 3;
-    const int m_maxTChunksize = 100;
-    const float m_minAsymmetryThreshold = 0;
-    const float m_maxAsymmetryThreshold = 5;
+    const int m_minXyChunksize;
+    const int m_minTChunksize;
+    int m_maxXyChunksize;
+    int m_maxTChunksize;
+    const float m_minAsymmetryThreshold;
+    const float m_maxAsymmetryThreshold;
+    bool m_ignoreSkellamFramesSaved;
     bool m_verbose;
+    double m_prefactorSigma;
+
     std::string m_infile;
     std::string m_outfile;
     std::string m_coordsfile;

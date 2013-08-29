@@ -4,10 +4,8 @@ import coords as coord2im
 import sys
 import time
 
-cutoff=95
-
 def getCandidates(dims,cc,frames):
-	#finds good candidates without to much redundancy
+	#finds good candidates without to much redundancy by skipping too near points
 	for i in range(cc.shape[0]):
 		if cc[i,2]>frames:
 			numberPoints=i
@@ -22,7 +20,7 @@ def getCandidates(dims,cc,frames):
 	addNewPoint=True
 	for x,y in cc[1:,:2]:
 		counter +=1
-		for i in range(len(candidates)):	
+		for i in range(len(candidates)):
 			if ((candidates[i][0]-x)**2+ (candidates[i][1]-y)**2)<limit:
 				addNewPoint = False
 		if addNewPoint:
@@ -41,7 +39,7 @@ def nearestNeighbor(p, beads, maxDist):
 	x,y,intensity = p
 	nearestIdx = 0 #initial guess
 	nearestDist = 32768 #large number
-	
+
 	for i in range(len(beads)):
 		if not x-maxDist <= beads[i][0] <= x+maxDist:
 			continue
@@ -50,8 +48,8 @@ def nearestNeighbor(p, beads, maxDist):
 		#check nearest neighbor
 		if dist(beads[i], p)<nearestDist:
 			nearestIdx = i
-			nearestDist = dist(beads[i], p)		
-		
+			nearestDist = dist(beads[i], p)
+
 	return nearestDist, nearestIdx
 
 def beadVariance(positions, mean=None):
@@ -75,33 +73,18 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 	# sort beads in 'bins'
 	intensities = cc[:,3]
 	#~ allCandidates = cc[intensities > 2*np.mean(intensities)] # only high intensities
-	allCandidates = cc # all spots
-	if dims[2]>=50:
-		initialCandidates = getCandidates(dims, cc, 50)
-	else:
-		initialCandidates = getCandidates(dims, cc, dims[2])
-		
+	print dims[2]
+	initialCandidates = cc[cc[:,2]<50]#getCandidates(dims,cc, np.min([50, dims[2]]))
 	#initialCandidates = allCandidates[allCandidates[:,2]<100] # from frame 0 to 49
 	counter=0
-	'''for x, y, frame, intensity in initialCandidates[:,0:4]:
-		counter=counter+1
-		print counter
-		nearestDist, nearestIdx = nearestNeighbor((x,y,intensity), beads, maxDist)
-		if nearestDist > 2*maxDist:
-			beads.append([x,y,intensity])
-		else:
-			print "removing beads too close together: ", (x,y,intensity), beads[nearestIdx]
-			beads.remove(beads[nearestIdx])'''
-	
+
 	for x, y, frame, intensity in initialCandidates[:,0:4]:
 		counter=counter+1
 		#print counter
-		start2=time.time()
 		nearestDist, nearestIdx = nearestNeighbor((x,y,intensity), beads, maxDist)
-		print 'nearestDist: %1.2f, Bead: (%3.2f, %3.2f)' %(nearestDist, x,y)
+# 		print 'nearestDist: %1.2f, Bead: (%3.2f, %3.2f)' %(nearestDist, x,y)
 		if nearestDist > 2*maxDist:
 			beads.append([x,y,intensity])
-			#print 'greater', time.time()-start2
 		else:
 			#print "merging beads too close together: ", (x,y,intensity), beads[nearestIdx]
 			beads.append([(x+beads[nearestIdx][0])/2., (y+beads[nearestIdx][1])/2.,(intensity+beads[nearestIdx][2])/2.])
@@ -120,17 +103,17 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 			continue
 		mm,stddev,intensitiy = beadVariance(candidate)
 		if stddev < maxStdDev:
-			print "mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate)
+ 			print "mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate)
 			scatterplotData.append( (intensity, stddev))
 			meanData.append(mm)
 		else:
 			print "IGNORED (variance too large): mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate)
 	print singleConsidered, "single detections considered."
 	print skipped, "initial candidates skipped."
-	
+
 	meanData = deleteSimilarBeads(meanData, maxDist, cc)
 
-	
+
 	return meanData, scatterplotData
 
 def deleteSimilarBeads(mm, maxDist, cc):
@@ -146,7 +129,7 @@ def deleteSimilarBeads(mm, maxDist, cc):
 				if currdist < dist:
 					dist = currdist
 					index = j
-			if dist < 10:
+			if dist < 1:
 				x = (cleanmm[index][0] + mm[i][0])/2
 				y = (cleanmm[index][1] + mm[i][1])/2
 				roi = [x-2*maxDist, x+2*maxDist, y-2*maxDist, y+2*maxDist]
@@ -154,9 +137,9 @@ def deleteSimilarBeads(mm, maxDist, cc):
 				mm2,stddev,intensitiy = beadVariance(candidate)
 				cleanmm[index][0] = mm2[0]
 				cleanmm[index][1] = mm2[1]
-			else: 
+			else:
 				cleanmm.append(mm[i])
-				
+
 	return np.array(cleanmm)
 
 def detectBeadsFromFile(filename, cutoff,  maxDist=2,maxStdDev=1.1):

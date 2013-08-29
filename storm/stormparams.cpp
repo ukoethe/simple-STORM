@@ -38,7 +38,7 @@
 #include <cstdint>
 #include <string>
 #include <iostream>
-#ifndef EMULATE_GETOPT
+#ifndef _MSC_VER
 #include <getopt.h>
 #else
 #include "getoptMSVC.h"
@@ -50,22 +50,29 @@
     #include <vigra/hdf5impex.hxx>
 #endif
 #include <rude/config.h>
-#include <Rmath.h>
+#ifndef Q_MOC_RUN
+#include <boost/math/distributions/normal.hpp>
+#endif // Q_MOC_RUN
+
 
 using namespace vigra;
 
 inline double convertToDouble(const char* const s) {
-    char *endptr;
-    double x = std::strtod(s, &endptr);
-    if (endptr == s)
+    std::stringstream st;
+    st << s;
+    double x;
+    st >> x;
+    if (st.fail())
         throw BadConversion("convertToDouble(\"\")");
     return x;
 }
 
 inline float convertToFloat(const char* const s) {
-    char *endptr;
-    double x = std::strtof(s, &endptr);
-    if (endptr == s)
+    std::stringstream st;
+    st << s;
+    float x;
+    st >> x;
+    if (st.fail())
         throw BadConversion("convertToFloat(\"\")");
     return x;
 }
@@ -89,12 +96,50 @@ inline unsigned long convertToULong(const char* const s) {
 const std::string StormParams::s_section = "stormparams";
 
 StormParams::StormParams()
-: m_config(new rude::Config()) {
+: m_minAsymmetryThreshold(0.0f),
+  m_maxAsymmetryThreshold(5.0f),
+  m_minXyChunksize(3),
+  m_minTChunksize(3),
+  m_config(new rude::Config()) 
+{
     setDefaults();
 }
 
 StormParams::StormParams(const StormParams &other)
-: m_config(new rude::Config()), m_shape(other.m_shape), m_type(other.m_type), m_factor(other.m_factor), m_factorSaved(other.m_factorSaved), m_roilen(other.m_roilen), m_roilenSaved(other.m_roilenSaved), m_pixelsize(other.m_pixelsize), m_pixelsizeSaved(other.m_pixelsize), m_skellamFrames(other.m_skellamFrames), m_skellamFramesSaved(other.m_skellamFramesSaved), m_xyChunkSize(other.m_xyChunkSize), m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), m_tChunkSize(other.m_tChunkSize), m_tChunkSizeSaved(other.m_tChunkSizeSaved), m_chunksInMemory(other.m_chunksInMemory), m_chunksInMemorySaved(other.m_chunksInMemorySaved), m_framesSaved(other.m_framesSaved), m_alpha(other.m_alpha), m_thresholdMask(other.m_thresholdMask), m_doAsymmetryCheck(other.m_doAsymmetryCheck), m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), m_verbose(other.m_verbose), m_outfile(other.m_outfile), m_coordsfile(other.m_coordsfile), m_settingsfile(other.m_settingsfile), m_frames(other.m_frames), m_acceptedFileTypes(other.m_acceptedFileTypes) {
+: m_minAsymmetryThreshold(0.0f),
+  m_maxAsymmetryThreshold(5.0f),
+  m_minXyChunksize(3),
+  m_minTChunksize(3),
+  m_config(new rude::Config()), 
+  m_shape(other.m_shape), 
+  m_type(other.m_type),
+  m_factor(other.m_factor),
+  m_factorSaved(other.m_factorSaved), 
+  m_roilen(other.m_roilen), 
+  m_roilenSaved(other.m_roilenSaved), 
+  m_pixelsize(other.m_pixelsize), 
+  m_pixelsizeSaved(other.m_pixelsizeSaved), 
+  m_skellamFrames(other.m_skellamFrames), 
+  m_skellamFramesSaved(other.m_skellamFramesSaved), 
+  m_xyChunkSize(other.m_xyChunkSize), 
+  m_xyChunkSizeSaved(other.m_xyChunkSizeSaved), 
+  m_tChunkSize(other.m_tChunkSize), 
+  m_tChunkSizeSaved(other.m_tChunkSizeSaved), 
+  m_chunksInMemory(other.m_chunksInMemory), 
+  m_chunksInMemorySaved(other.m_chunksInMemorySaved), 
+  m_framesSaved(other.m_framesSaved),
+  m_alpha(other.m_alpha), 
+  m_thresholdMask(other.m_thresholdMask), 
+  m_doAsymmetryCheck(other.m_doAsymmetryCheck), 
+  m_doAsymmetryCheckSaved(other.m_doAsymmetryCheckSaved), 
+  m_verbose(other.m_verbose),
+  m_outfile(other.m_outfile), 
+  m_coordsfile(other.m_coordsfile), 
+  m_settingsfile(other.m_settingsfile),
+  m_frames(other.m_frames), 
+  m_ignoreSkellamFramesSaved(other.m_ignoreSkellamFramesSaved), 
+  m_acceptedFileTypes(other.m_acceptedFileTypes) 
+{
     setInFile(other.m_infile, false);
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
@@ -129,6 +174,8 @@ StormParams& StormParams::operator=(const StormParams &other)
     m_acceptedFileTypes = other.m_acceptedFileTypes;
     m_doAsymmetryCheck = other.m_doAsymmetryCheck;
     m_asymmetryThreshold = other.m_asymmetryThreshold;
+    m_ignoreSkellamFramesSaved = other.m_ignoreSkellamFramesSaved;
+
 
     setInFile(other.m_infile, false);
     m_config->clear();
@@ -138,7 +185,12 @@ StormParams& StormParams::operator=(const StormParams &other)
 }
 
 StormParams::StormParams(int argc, char **argv)
-: m_config(new rude::Config()) {
+: m_minAsymmetryThreshold(0.0f),
+  m_maxAsymmetryThreshold(5.0f),
+  m_minXyChunksize(3),
+  m_minTChunksize(3),
+  m_config(new rude::Config()) 
+{
     setDefaults();
     parseProgramOptions(argc, argv);
 }
@@ -214,6 +266,15 @@ bool StormParams::getSkellamFramesSaved() const {
     return m_skellamFramesSaved;
 }
 
+void StormParams::setPrefactorSigma(double prefac) {
+    m_prefactorSigma = prefac;
+}
+
+double StormParams::getPrefactorSigma() const {
+    return m_prefactorSigma;
+}
+
+
 unsigned int StormParams::getXYChunkSize() const {
     return m_xyChunkSize;
 }
@@ -221,6 +282,7 @@ void StormParams::setXYChunkSize(unsigned int chunksize) {
     if (chunksize != m_xyChunkSize) {
         m_xyChunkSize = chunksize;
         m_xyChunkSizeSaved = false;
+        std::cout<<"chunksize changed"<<std::endl;
     }
 }
 bool StormParams::getXYChunkSizeSaved() const {
@@ -275,7 +337,7 @@ void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
     #ifdef HDF5_FOUND
     else if (extension==".h5" || extension==".hdf" || extension==".hdf5") {
         m_type = HDF5;
-        vigra::HDF5File* h5file = new vigra::HDF5File(m_infile.c_str(), HDF5File::Open);
+        vigra::HDF5File* h5file = new vigra::HDF5File(m_infile.c_str(), HDF5File::OpenReadOnly);
         ArrayVector<hsize_t> shape = h5file->getDatasetShape("/data");
         m_shape = Shape(shape[0],shape[1],shape[2]);
         ptr = (void*) h5file;
@@ -284,7 +346,7 @@ void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
     else {
         vigra_precondition(false, "Wrong infile-extension given. Currently supported: .sif .h5 .hdf .hdf5 .tif .tiff");
     }
-
+    setMaxXyChunksize(std::min(m_shape[0], m_shape[1])/2-1);
     if (forceDefaults)
         setDefaults();
     setDefaultFileNames(forceDefaults);
@@ -337,7 +399,8 @@ float StormParams::getAlpha() const {
 void StormParams::setAlpha(float alpha) {
     if (alpha != m_alpha) {
         m_alpha = alpha;
-        m_thresholdMask = qnorm(m_alpha, 0, 1, 0, 0);
+		boost::math::normal dist(0.0, 1.0);
+        m_thresholdMask = quantile(dist, 0.95);//qnorm(m_alpha, 0, 1, 0, 0);
     }
 }
 
@@ -381,6 +444,14 @@ int StormParams::getMaxXyChunksize() const
     return m_maxXyChunksize;
 }
 
+void StormParams::setMaxXyChunksize(int chunksizexy){
+    m_maxXyChunksize = chunksizexy;
+}
+
+void StormParams::setMaxTChunksize(int chunksizet){
+    m_maxTChunksize = chunksizet;
+}
+
 int StormParams::getMinXyChunksize() const
 {
     return m_minXyChunksize;
@@ -396,9 +467,21 @@ float StormParams::getMinAsymmetryThreshold() const
     return m_minAsymmetryThreshold;
 }
 
+bool StormParams::getIgnoreSkellamFramesSaved() const
+{
+    return m_ignoreSkellamFramesSaved;
+}
+
+void StormParams::setIgnoreSkellamFramesSaved(bool ignore)
+{
+    std::cout<<"ignore"<<ignore<<std::endl;
+    m_ignoreSkellamFramesSaved = ignore;
+}
+
 bool StormParams::getVerbose() const {
     return m_verbose;
 }
+
 void StormParams::setVerbose(bool verbose) {
     m_verbose = verbose;
 }
@@ -434,12 +517,14 @@ void StormParams::printUsage() const {
 	<< "  --factor=Arg           Resize factor equivalent to the subpixel-precision" << std::endl
 	<< "  --cam-param-frames=Arg Number of frames to use for estimation of gain and offset." << std::endl
     << "                         Set to 0 to use the whole stack." << std::endl
+    << "  --t=Arg                 Set the p value." << std::endl
 	<< "  --coordsfile=Arg       filename for output of the found Coordinates" << std::endl
 	<< "  --pixelsize=Arg        Pixel size in nanometers. If set, the coordinates" << std::endl
 	<< "                         will be in nanometers, otherwise in pixels" << std::endl
 	<< "  --filter=Arg           Text file with filter width (in pixels) for filtering in the" << std::endl
     << "                         FFT domain. If the file does not exist, generate a new filter" << std::endl
 	<< "                         from the data" << std::endl
+	<< "  --p=Arg                Set pixelsize of inputimage."
 	<< "  --roi-len=Arg          size of the roi around maxima candidates" << std::endl
 	<< "  --frames=Arg           run only on a subset of the stack (frames=start:end)" << std::endl
 	<< "  --a                    enables check for asymmetry of points to skip asymmetric ones" <<std::endl
@@ -458,7 +543,9 @@ void StormParams::printVersion() const {
 /**
  * Defaults for unset variables are important
  */
-void StormParams::setDefaults() {
+void StormParams::setDefaults() 
+{
+    m_type = UNDEFINED;
     m_factor = 8;
     m_factorSaved = true;
     m_roilen = 9;
@@ -467,6 +554,10 @@ void StormParams::setDefaults() {
     m_pixelsizeSaved = true;
     m_skellamFrames = 200;
     m_skellamFramesSaved = true;
+    m_ignoreSkellamFramesSaved = false;
+    m_prefactorSigma = 1.0;
+    m_maxXyChunksize = 100;
+    m_maxTChunksize = 100;
     m_xyChunkSize = 10;
     m_xyChunkSizeSaved = true;
     m_tChunkSize = 10;
@@ -474,7 +565,7 @@ void StormParams::setDefaults() {
     m_chunksInMemory = 5;
     m_chunksInMemorySaved = true;
     m_thresholdMask = 0;
-    setAlpha(0.1);
+    setAlpha(0.001f);
     setDoAsymmetryCheck(false);
     m_verbose = false;
 }
@@ -508,10 +599,12 @@ void StormParams::doSanityChecks() {
         std::cout<<"selected value for chunksInMemory ("<<m_chunksInMemory<<") is smaller than 3, it is therefore set to 3"<<std::endl;
         m_chunksInMemory = 3;}
     if (m_xyChunkSize > m_maxXyChunksize) {
-        std::cout<<"selected value for xyChunkSize ("<<m_xyChunkSize<<") is smaller than 3, it is therefore set to 3"<<std::endl;
+        std::cout<<"selected value for xyChunkSize ("<<m_xyChunkSize<<") is greater than "<<m_maxXyChunksize<<", it is therefore set to "<<m_maxXyChunksize<<std::endl;
         m_xyChunkSize = m_maxXyChunksize;}
-    if (m_xyChunkSize < m_minXyChunksize)
+    if (m_xyChunkSize < m_minXyChunksize){
+        std::cout<<"selected value for xyChunkSize ("<<m_xyChunkSize<<") is smaller than "<<m_minXyChunksize<<", it is therefore set to "<<m_minXyChunksize<<std::endl;
         m_xyChunkSize = m_minXyChunksize;
+    }
     if (m_tChunkSize < m_minTChunksize)
         m_tChunkSize = m_minTChunksize;
     if (m_tChunkSize >m_skellamFrames/m_chunksInMemory)
@@ -536,6 +629,7 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 			{"version",             no_argument,       0,  'V'},
 			{"factor",              required_argument, 0,  'g'},
             {"cam-param-frames",    required_argument, 0,  'P'},
+            {"t",                   required_argument, 0,  't'},
 			{"coordsfile",          required_argument, 0,  'c'},
             {"pixelsize",           required_argument, 0,  'p'},
 			{"settings",            required_argument, 0,  's'},
@@ -547,7 +641,7 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 		};
 
 		// valid options: "vc:" => -v option without parameter, c flag requires parameter
-		c = getopt_long(argc, argv, "?vVg:P:t:c:s:p:m:F:a",
+		c = getopt_long(argc, argv, "?vVg:P:t:c:s:p:m:F:a:pV",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -558,6 +652,9 @@ int StormParams::parseProgramOptions(int argc, char **argv)
 			break;
         case 'P': // cam-param-frames
             setSkellamFrames(convertToULong(optarg));
+            break;
+        case 't':
+            setAlpha(convertToULong(optarg));
             break;
 		case 'm': // roi-len
 			setRoilen(convertToLong(optarg));
@@ -691,18 +788,22 @@ void StormParams::readBlock(const StormParams::Shape& blockOffset,
 
 
 
-template
+#if 0
+template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int8_t>&) const;
-template
+template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int16_t>&) const;
-template
+template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int32_t>&) const;
-template
+template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint8_t>&) const;
-template
+template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint16_t>&) const;
-template
+template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
+template<>
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, double>&) const;
+#endif
 template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, float>& array) const {
     if (!readTVolume(array, m_type, ptr)) {
@@ -713,33 +814,37 @@ void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, float>& array) const 
             vigra_fail("decoder for type not implemented.");
     }
 }
-template
-void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, double>&) const;
 
-template
+#if 0
+template<>
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
                MultiArrayView<STORMPARAMS_N, int8_t>&) const;
-template
+template<>
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
                MultiArrayView<STORMPARAMS_N, int16_t>&) const;
-template
+template<>
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
                MultiArrayView<STORMPARAMS_N, int32_t>&) const;
-template
+template<>
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
                MultiArrayView<STORMPARAMS_N, uint8_t>&) const;
-template
+template<>
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
                MultiArrayView<STORMPARAMS_N, uint16_t>&) const;
-template
+template<>
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
                MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
+template<>
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, double>&) const;
+#endif
 template<>
 void StormParams::readBlock(const StormParams::Shape& blockOffset,
                const StormParams::Shape& blockShape,
@@ -752,10 +857,6 @@ void StormParams::readBlock(const StormParams::Shape& blockOffset,
             vigra_fail("decoder for type not implemented.");
     }
 }
-template
-void StormParams::readBlock(const StormParams::Shape&,
-               const StormParams::Shape&,
-               MultiArrayView<STORMPARAMS_N, double>&) const;
 
 void StormParams::save() const
 {
@@ -769,6 +870,7 @@ void StormParams::save() const
     m_config->setIntValue("chunksInMemory", m_chunksInMemory);
     m_config->setDoubleValue("alpha", m_alpha);
     m_config->setBoolValue("doAsymmetryCheck", m_doAsymmetryCheck);
+    m_config->setDoubleValue("prefactorSigma", m_prefactorSigma);
     if (m_doAsymmetryCheck)
         m_config->setDoubleValue("asymmetryThreshold", m_asymmetryThreshold);
     else
@@ -790,7 +892,7 @@ void StormParams::loadSettings(bool)
     else
         m_factorSaved = false;
     if (m_roilenSaved && m_config->exists("roilen"))
-        m_roilenSaved = m_config->getIntValue("roilen");
+        m_roilen = m_config->getIntValue("roilen");
     else
         m_roilenSaved = false;
     if (m_pixelsizeSaved && m_config->exists("pixelsize"))
@@ -823,6 +925,9 @@ void StormParams::loadSettings(bool)
     }
     else{
         m_doAsymmetryCheckSaved = false;
+    }
+    if (m_config->exists("prefactorSigma")){
+        m_prefactorSigma = m_config->getDoubleValue("prefactorSigma");
     }
 
 }

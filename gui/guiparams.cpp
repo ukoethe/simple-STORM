@@ -5,7 +5,7 @@
 const std::string GuiParams::s_section = "guiparams";
 
 GuiParams::GuiParams()
-: DataParams(), m_advancedSettingsEnabled(false), m_reconstructionResolution(10)
+: DataParams(), m_advancedSettingsEnabled(false), m_reconstructionResolution(1)
 {}
 
 GuiParams::~GuiParams() {}
@@ -33,7 +33,7 @@ void GuiParams::setReconstructionResolution(float res)
 void GuiParams::save() const {
     m_config->setSection(s_section.c_str());
     m_config->setBoolValue("advancedsettings", m_advancedSettingsEnabled);
-    m_config->setIntValue("reconstructionresolution", m_reconstructionResolution);
+    m_config->setDoubleValue("reconstructionresolution", m_reconstructionResolution);
     DataParams::save();
 }
 
@@ -43,7 +43,7 @@ void GuiParams::loadSettings(bool propagate) {
         m_advancedSettingsEnabled = m_config->getBoolValue("advancedsettings");
     }
     if (m_config->exists("reconstructionresolution")) {
-        m_reconstructionResolution = m_config->getIntValue("reconstructionresolution");
+        m_reconstructionResolution = m_config->getDoubleValue("reconstructionresolution");
     }
     if (propagate)
         DataParams::loadSettings(propagate);

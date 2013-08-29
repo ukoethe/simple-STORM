@@ -376,7 +376,7 @@
      <x>0</x>
      <y>0</y>
      <width>776</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -397,12 +397,14 @@
     <property name="title">
      <string>Extras</string>
     </property>
-    <addaction name="actionAuto_detect_beads"/>
     <addaction name="actionClear_all"/>
     <addaction name="actionDiscard_selected_beads"/>
-    <addaction name="actionColocalization"/>
+    <addaction name="separator"/>
+    <addaction name="actionAuto_detect_beads"/>
     <addaction name="actionAuto_align_images"/>
     <addaction name="actionToggle_colocalization_heatmap"/>
+    <addaction name="actionColocalization"/>
+    <addaction name="actionToggle_uncertainty_image"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -474,6 +476,11 @@
   <action name="actionToggle_colocalization_heatmap">
    <property name="text">
     <string>toggle colocalization heatmap</string>
+   </property>
+  </action>
+  <action name="actionToggle_uncertainty_image">
+   <property name="text">
+    <string>Toggle uncertainty image</string>
    </property>
   </action>
  </widget>

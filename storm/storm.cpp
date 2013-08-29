@@ -76,17 +76,12 @@ private:
 
 // MAIN
 int main(int argc, char* argv[]) {
+
     try
     {
         DataParams params(argc, argv);
-        if (!initR(argc, argv)) {
-            std::cerr << "Could not initialize R" << std::endl
-            << "You probably do not have R installed or do not have it in your PATH." << std::endl;
-            return 1;
-        }
 
-        //~ in.reshape(info.shape());
-        //~ readVolume(info, in);
+        params.doSanityChecks();
         int stacksize = params.shape(2);
         Size2D size2 (params.shape(0), params.shape(1)); // isnt' there a slicing operator?
 
@@ -151,8 +146,6 @@ int main(int argc, char* argv[]) {
         std::cout << e.what() << std::endl;
         return 1;
     }
-
-    endR();
 
     return 0;
 }

@@ -33,8 +33,14 @@
 
 #include "util.h"
 #include "version.h"
-#include <sys/stat.h>
 #include <iostream>
+
+#if defined(_MSC_VER)
+#  include <io.h>
+#else
+#  include <unistd.h>
+#endif
+
 
 std::string wienerStormVersion()
 {
@@ -94,18 +100,18 @@ bool rangeSplit(const std::string &r, int &beg, int &end, unsigned int &stride) 
     }
     try { // beg
         beg = helper::convertToInt(r.substr(0,c1));
-    } catch (helper::BadConversion & e) { // dont change value, if its not a number
+    } catch (helper::BadConversion &) { // dont change value, if its not a number
         ;
     }
     try { // end
         end = helper::convertToInt(r.substr(c1+1,c2-c1-1));
-    } catch (helper::BadConversion & e) { // dont change value, if its not a number
+    } catch (helper::BadConversion &) { // dont change value, if its not a number
         ;
     }
     if(c2!=std::string::npos) {
         try { // stride
             stride = helper::convertToInt(r.substr(c2+1));
-        } catch (helper::BadConversion & e) { // dont change value, if its not a number
+        } catch (helper::BadConversion &) { // dont change value, if its not a number
             ;
         }
     }
@@ -117,8 +123,11 @@ bool rangeSplit(const std::string &r, int &beg, int &end, unsigned int &stride) 
  */
 bool fileExists(const std::string &filename)
 {
-    struct stat fStat;
-    return !stat(filename.c_str(), &fStat) && S_ISREG(fStat.st_mode);
+#ifdef _MSC_VER
+    return _access(filename.c_str(), 0);
+#else
+    return access(filename.c_str(), F_OK);
+#endif
 }
 
 /**

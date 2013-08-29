@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>487</width>
-    <height>422</height>
+    <height>438</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -265,6 +265,9 @@
       <string>Data Parameters</string>
      </property>
      <layout class="QFormLayout" name="formLayout_4">
+      <property name="fieldGrowthPolicy">
+       <enum>QFormLayout::ExpandingFieldsGrow</enum>
+      </property>
       <item row="0" column="0">
        <widget class="QLabel" name="label_13">
         <property name="text">
@@ -272,26 +275,6 @@
         </property>
         <property name="buddy">
          <cstring>spn_gain</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_14">
-        <property name="text">
-         <string>C&amp;amera Offset:</string>
-        </property>
-        <property name="buddy">
-         <cstring>spn_offset</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_15">
-        <property name="text">
-         <string>PSF std. &amp;dev.:</string>
-        </property>
-        <property name="buddy">
-         <cstring>spn_sigma</cstring>
         </property>
        </widget>
       </item>
@@ -311,6 +294,16 @@
         </property>
        </widget>
       </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_14">
+        <property name="text">
+         <string>C&amp;amera Offset:</string>
+        </property>
+        <property name="buddy">
+         <cstring>spn_offset</cstring>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="1">
        <widget class="QDoubleSpinBox" name="spn_offset">
         <property name="sizePolicy">
@@ -324,6 +317,16 @@
         </property>
         <property name="maximum">
          <double>999999999.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_15">
+        <property name="text">
+         <string>PSF std. &amp;dev.:</string>
+        </property>
+        <property name="buddy">
+         <cstring>spn_sigma</cstring>
         </property>
        </widget>
       </item>
