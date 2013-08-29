@@ -1,13 +1,5 @@
-/************************************************************************/
-/*                                                                      */
-/*                  ANALYSIS OF STORM DATA                              */
-/*                                                                      */
-/*    Copyright 2010-2013 by Joachim Schleicher, Ullrich Koethe         */
-/*		Frank Herrmannsdoerfer and Ilia Kats			*/
-/*                                                                      */
-/*    Please direct questions, bug reports, and contributions to        */
-/*    joachim.schleicher@iwr.uni-heidelberg.de                          */
-/************************************************************************/
+SELF-CALIBRATING ANALYSIS OF STORM DATA
+=======================================
 
 dSTORM microscopy can improve the resolution of conventional fluorescent
 microscopy by one order of magnitude. The data analysis software has to
@@ -29,6 +21,12 @@ Content of this archive:
 See INSTALL for instructions on how to build and install
 storm or storm-gui
 
+Download binaries for Windows 64-bit from http://hci.iwr.uni-heidelberg.de/Software/simpleSTORM-win64.zip
+
 More algorithmic details are available in the diploma thesis at
 http://hci.iwr.uni-heidelberg.de/Staff/jschleic/
+
+Copyright 2010-2013 by Ullrich Koethe, Joachim Schleicher, Frank Herrmannsdoerfer and Ilia Kats
+
+Please direct questions, bug reports, and contributions to ullrich.koethe (AT) iwr.uni-heidelberg.de
 
