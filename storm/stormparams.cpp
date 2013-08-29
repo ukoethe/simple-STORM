@@ -788,6 +788,7 @@ void StormParams::readBlock(const StormParams::Shape& blockOffset,
 
 
 
+#if 0
 template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, int8_t>&) const;
 template<>
@@ -801,6 +802,9 @@ void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint16_t>&) const;
 template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
 template<>
+void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, double>&) const;
+#endif
+template<>
 void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, float>& array) const {
     if (!readTVolume(array, m_type, ptr)) {
         if (m_type == SIF) {
@@ -810,9 +814,8 @@ void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, float>& array) const 
             vigra_fail("decoder for type not implemented.");
     }
 }
-template<>
-void StormParams::readVolume(MultiArrayView<STORMPARAMS_N, double>&) const;
 
+#if 0
 template<>
 void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
@@ -838,6 +841,11 @@ void StormParams::readBlock(const StormParams::Shape&,
                const StormParams::Shape&,
                MultiArrayView<STORMPARAMS_N, uint32_t>&) const;
 template<>
+void StormParams::readBlock(const StormParams::Shape&,
+               const StormParams::Shape&,
+               MultiArrayView<STORMPARAMS_N, double>&) const;
+#endif
+template<>
 void StormParams::readBlock(const StormParams::Shape& blockOffset,
                const StormParams::Shape& blockShape,
                MultiArrayView<STORMPARAMS_N, float>& array) const {
@@ -849,10 +857,6 @@ void StormParams::readBlock(const StormParams::Shape& blockOffset,
             vigra_fail("decoder for type not implemented.");
     }
 }
-template<>
-void StormParams::readBlock(const StormParams::Shape&,
-               const StormParams::Shape&,
-               MultiArrayView<STORMPARAMS_N, double>&) const;
 
 void StormParams::save() const
 {
