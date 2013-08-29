@@ -51,7 +51,7 @@ include_directories(
 )
 
 qt4_wrap_ui(UI_HEADERS ${UIS})
-add_executable(${GUI_EXECUTABLE} WIN32 ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
+add_executable(${GUI_EXECUTABLE} ${SRCS} ${UI_HEADERS} ${ICONS_RCC})
 set_target_properties(${GUI_EXECUTABLE} PROPERTIES AUTOMOC TRUE)
 
 target_link_libraries(${GUI_EXECUTABLE} ${QT_LIBRARIES} wienerstorm vigraimpex)
