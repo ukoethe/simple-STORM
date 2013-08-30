@@ -123,11 +123,9 @@ Although numerous software applications for single-molecule localization have be
 
 
 \chapter{Installation}
-\section{Prerequisites}
-The R software package\footnote{\url{http://www.r-project.org}} has to be installed and the directory of the R executable included in the PATH environment variable.
 
 \section{Binary packages}
-Binary packages for Windows and MacOSX >= 10.7 are provided in form of simple installers.
+Look in README.md for up-to-date infromation of binary packages.
 
 \section{Compiling from source}
 \subsection{Dependencies}
@@ -136,7 +134,6 @@ Binary packages for Windows and MacOSX >= 10.7 are provided in form of simple in
     \item VIGRA and its dependencies
     \item libfftw in both single and double precision
     \item librudeconfig
-    \item R
     \item libhdf5 (optional)
     \item Qt 4 >= 4.6
     \item CMake >= 2.8
@@ -172,9 +169,9 @@ Additional parameters that can be specified are:
     \item[Chunks in Memory (advanced mode only)] Number of chunks to keep in memory simultaneously. A higher value will improve background interpolation at the cost of increased memory consumption.
     \item[Do Asymmetry Check (advanced mode only)] Whether to filter false positives by asymmetry.
     \item[Asym. Threshold (advanced mode only)] Threshold of the Hessian eigenvalues ratio for asymmetry detection. A higher value will allow for asymmetrical spots to be detected.
-    \item[Camera Gain] Camera gain if known. Will be estimated automatically if not supplied.
-    \item[Camera Offset] Camera offset if known. Will be estimated automatically if not supplied.
-    \item[PSF std. dev.] Standard deviation of the point spread function. Will be estimated automatically if not supplied.
+    \item[Camera Gain] Camera gain if known. Input the value "0" to trigger automatic estimation ("self-calibration"). Other vallues are interpreted as user supplied settings. If a "settings file" exists for the given dataset, a suitable value is read from that file.
+    \item[Camera Offset] Camera offset if known. Input the value "0" to trigger automatic estimation ("self-calibration"). Other vallues are interpreted as user supplied settings. If a "settings file" exists for the given dataset, a suitable value is read from that file.
+    \item[PSF std. dev.] Standard deviation of the point spread function. Input the value "0" to trigger automatic estimation ("self-calibration"). Other vallues are interpreted as user supplied settings. If a "settings file" exists for the given dataset, a suitable value is read from that file.
 \end{description}
 
 \section{Results}
