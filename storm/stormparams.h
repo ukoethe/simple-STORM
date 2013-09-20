@@ -70,7 +70,7 @@ public:
     StormParams(int argc, char **argv);
     virtual ~StormParams();
     StormParams& operator=(const StormParams&);
-
+	
     void printUsage() const;
     void printVersion() const;
     int getFactor() const;

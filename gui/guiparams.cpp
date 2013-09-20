@@ -5,7 +5,7 @@
 const std::string GuiParams::s_section = "guiparams";
 
 GuiParams::GuiParams()
-: DataParams(), m_advancedSettingsEnabled(false), m_reconstructionResolution(1)
+: DataParams(), m_advancedSettingsEnabled(false), m_reconstructionResolution(12.5)
 {}
 
 GuiParams::~GuiParams() {}

@@ -10,6 +10,8 @@
 #include <QtConcurrentRun>
 #include <QFutureWatcher>
 
+#include <iostream>
+
 PreviewImage::PreviewImage(QWidget *parent)
 : QWidget(parent), m_lastProcessed(std::chrono::steady_clock::now()), m_updateInterval(std::chrono::milliseconds(1000)), m_detections(0), m_intensityScaleFactor(0.1f), m_scalex(1), m_scaley(1), m_geometry(0,0,0,0), m_pixmap(), m_pixmapGeometry(m_geometry), m_needRepaint(false), m_painter(), m_results(0), m_params(0), m_watcher(0), m_initialized(false), m_needCompleteRepaint(false)
 {
@@ -153,9 +155,19 @@ void PreviewImage::updatePixmap(const QRect &rect)
     m_painter.resetTransform();
 }
 
-void PreviewImage::saveImage(const QString &file)
+void PreviewImage::saveImage(const QString &file, const QString &fileHC)
 {
-    vigra::exportImage(srcImageRange(m_result), QDir::toNativeSeparators(file).toStdString().c_str());
+	double maxlim = 0., minlim = 0;
+	findMinMaxPercentileMA(m_result, 0., minlim, 0.99, maxlim);
+	std::cout << "cropping output values to range [" << minlim << ", " << maxlim << "]" << std::endl;
+	vigra::MultiArray<2, float> resultCropped(Shape2(m_result.width(), m_result.height()));
+	if(maxlim > minlim) {
+		vigra::transformImage(srcImageRange(m_result), destImage(resultCropped), ifThenElse(Arg1()>Param(maxlim), Param(maxlim), Arg1()));
+		vigra::exportImage(srcImageRange(resultCropped), QDir::toNativeSeparators(fileHC).toStdString().c_str());
+	}
+	vigra::exportImage(srcImageRange(m_result), QDir::toNativeSeparators(file).toStdString().c_str());
+	
+    
 }
 
 void PreviewImage::resizeEvent(QResizeEvent *event)

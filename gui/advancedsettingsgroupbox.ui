@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>303</width>
-    <height>223</height>
+    <height>241</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,10 +21,10 @@
     <enum>QFormLayout::ExpandingFieldsGrow</enum>
    </property>
    <property name="horizontalSpacing">
-    <number>-1</number>
+    <number>7</number>
    </property>
    <property name="verticalSpacing">
-    <number>-1</number>
+    <number>7</number>
    </property>
    <item row="0" column="0">
     <widget class="QLabel" name="label_9">
@@ -46,6 +46,9 @@
      </property>
      <property name="suffix">
       <string> px</string>
+     </property>
+     <property name="minimum">
+      <number>7</number>
      </property>
     </widget>
    </item>
@@ -112,6 +115,12 @@
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
+     </property>
+     <property name="minimum">
+      <number>5</number>
+     </property>
+     <property name="value">
+      <number>5</number>
      </property>
     </widget>
    </item>

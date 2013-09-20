@@ -41,7 +41,6 @@
 #include <vigra/inspectimage.hxx>
 #include <vigra/localminmax.hxx>
 #include <vigra/splineimageview.hxx>
-#include <vigra/multi_fft.hxx>
 #include <vigra/accumulator.hxx>
 #include <vigra/multi_resize.hxx>
 #include <vigra/multi_impex.hxx>
@@ -177,8 +176,9 @@ void fitLine(std::vector<T>& MeanValues, std::vector<T>& SkellamValues,
 }
 
 template <class T>
-void fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0){
-    try
+double fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0){
+    double tr = 0.0;
+	try
     {
         vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
 
@@ -189,7 +189,6 @@ void fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0
         for(int k=0; k< 10; ++k)
         {
             vigra::linalg::Matrix<double> jr(4,1), jj(4,4), j(4,1);
-            double tr = 0.0;
 
             for(int i=0; i<size; ++i)
             {
@@ -256,22 +255,123 @@ void fitGaussian1D(double * data, int size, T &sigma, T &scale, T &offset, T &x0
                     l *= t;
                 }
             }
-            //std::cerr << "tr: " << (0.5*tr) << " sigma: " << sigma << " scale: " << scale << " offset: " << offset << " center: "<< x0 << "\n";
+            //std::cout << "tr: " << (0.5*tr) << " sigma: " << sigma << " scale: " << scale << " offset: " << offset << " center: "<< x0 << "\n";
             if(std::abs((tr - std::min(tr1, tr2)) / tr) < 1e-15)
                 break;
         }
-        //std::cerr << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
+        //std::cout << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
     }
     catch (std::exception & e)
     {
         // catch any errors that might have occurred and print their reason
         std::cout << e.what() << std::endl;
     }
+	return tr/size;
 }
 
 template <class T>
-void fitGaussian(double * data, int size, T &sigma, T &scale, T &offset){
-    try
+double fitGaussian2D(double * data, int size, T &sigma, T &scale, T &offset, T &x0, T &y0){
+    double tr = 0.0;
+	try
+    {
+        vigra::linalg::Matrix<double> points(Shape2(size, 3), data);
+
+        //double sigma = 2.0, scale = 0.5, offset = 0.0;
+
+        double t = 1.4, l = 0.1;
+
+        for(int k=0; k< 50; ++k)
+        {
+            vigra::linalg::Matrix<double> jr(5,1), jj(5,5), j(5,1);
+
+            for(int i=0; i<size; ++i)
+            {
+                double xs = sq((points(i,0) - x0) / sigma)+ sq((points(i,1) - y0) / sigma);
+                double e = std::exp(-0.5 * xs);
+                double r = points(i, 2) - (scale * e + offset);
+
+                j(0,0) = scale * e * xs / sigma;
+                j(1,0) = e;
+                j(2,0) = 1.0;
+                j(3,0) = scale * e * (points(i,0) - x0)/sq(sigma);
+				j(4,0) = scale * e * (points(i,1) - y0)/sq(sigma);
+
+                jr += r * j;
+                jj += j * transpose(j);
+                tr += sq(r);
+            }
+
+            vigra::linalg::Matrix<double> jj1(jj), jj2(jj), d1(5,1), d2(5,1);
+
+            jj1.diagonal() *= 1.0 + l;
+            jj2.diagonal() *= 1.0 + l / t;
+
+            vigra::linearSolve(jj1, jr, d1);
+            vigra::linearSolve(jj2, jr, d2);
+
+            double si1 = sigma + d1(0,0), s1 = scale + d1(1,0), o1 = offset + d1(2,0), c1 = x0 + d1(3,0), g1 = y0 + d1(4,0);
+            double si2 = sigma + d2(0,0), s2 = scale + d2(1,0), o2 = offset + d2(2,0), c2 = x0 + d2(3,0), g2 = y0 + d2(4,0);
+            double tr1 = 0.0, tr2 = 0.0;
+
+            for(int i=0; i<size; ++i)
+            {
+                double r1 = points(i, 2) - (s1 * std::exp(-0.5 * (sq((points(i,0) - c1) / si1) + sq(points(i,1) - g1 )))+ o1);
+                double r2 = points(i, 2) - (s2 * std::exp(-0.5 * (sq((points(i,0) - c2) / si2) + sq(points(i,1) - g2 )))+ o2);
+                tr1 += sq(r1);
+                tr2 += sq(r2);
+            }
+
+            if(tr1 < tr2)
+            {
+                if(tr1 < tr)
+                {
+                    sigma = si1;
+                    scale = s1;
+                    offset = o1;
+                    x0 = c1;
+					y0 = g1;
+                }
+                else
+                {
+                    l *= t;
+                }
+            }
+            else
+            {
+                if(tr2 < tr)
+                {
+                    sigma = si2;
+                    scale = s2;
+                    offset = o2;
+                    x0 = c2;
+					y0 = g2;
+                    l /= t;
+                }
+                else
+                {
+                    l *= t;
+                }
+            }
+            //std::cerr << "tr: " << (0.5*tr) << " sigma: " << sigma << " scale: " << scale << " offset: " << offset << " center: "<< x0 << "\n";
+            //std::cout<< "sigma: " << sigma << " scale: " << scale << " offset: " << offset << " x0 " << x0 << " y0 " << y0 << "\n";
+			if(std::abs((tr - std::min(tr1, tr2)) / tr) < 1e-15)
+                break;
+        }
+        //std::cerr << "sigma: " << sigma << " scale: " << scale << " offset: " << offset << "\n";
+		//std::cout<< "sigma: " << sigma << " scale: " << scale << " offset: " << offset << " x0 " << x0 << " y0 " << y0 << "\n";
+    }
+    catch (std::exception & e)
+    {
+        // catch any errors that might have occurred and print their reason
+        std::cout << e.what() << std::endl;
+    }
+	return tr/size;
+}
+
+template <class T>
+double fitGaussian(double * data, int size, T &sigma, T &scale, T &offset){
+	double error = 0;
+	try
     {
         vigra::linalg::Matrix<double> points(Shape2(size, 2), data);
 
@@ -356,6 +456,7 @@ void fitGaussian(double * data, int size, T &sigma, T &scale, T &offset){
         // catch any errors that might have occurred and print their reason
         std::cout << e.what() << std::endl;
     }
+	return error;
 }
 
 
@@ -378,7 +479,7 @@ void doRansac(DataParams &params,T meanValues[],T skellamParameters[],int number
         std::vector<T> consSetX, consSetY;
         for (int j=0; j< numberPoints; ++j){
 //             currentError += std::pow(skellamParameters[j]-meanValues[j]*m+c,2);
-            if((std::abs(skellamParameters[j]-meanValues[j]*m+c))<threshold){
+            if((std::abs(skellamParameters[j]-(meanValues[j]*m+c)))<threshold){
                 consSetX.push_back(meanValues[j]);
                 consSetY.push_back(skellamParameters[j]);
                 numberPointsInRange+=1;
@@ -561,6 +662,23 @@ void findMinMaxPercentile(Image& im, double minPerc, double& minVal, double maxP
     maxVal=v[(int)(v.size()*maxPerc)];
 }
 
+template<class T>
+void findMinMaxPercentileMA(MultiArray<2, T>& im, double minPerc, double& minVal, double maxPerc, double& maxVal) {
+    std::vector<T> v;
+    for(int y=0; y<im.height(); y++) {
+        for(int x=0; x<im.width(); x++) {
+            if(im(y,x)>0)
+			{
+				//std::cout<<"x: "<<x<<" y: "<<y<<" val: "<<im(y,x)<<std::endl;
+				v.push_back(im(y,x));
+			}
+        }
+    }
+    std::sort(v.begin(),v.end());
+    minVal=v[(int)(v.size()*minPerc)];
+    maxVal=v[(int)(v.size()*maxPerc)];
+}
+
 /**
  * Add asymmetry to the coordinates list
  */
@@ -656,11 +774,9 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
 	//double cdf = params.getMaskThreshold();
 	boost::math::normal dist(0.0, 1.0);
     double cdf = quantile(dist, 1-params.getAlpha());//qnorm(params.getAlpha(), 0, 1, 0, 0);
-//     vigra::exportImage(srcImageRange(array),"/home/herrmannsdoerfer/tmpOutput/array.tif");
+
     vigra::transformImage(srcImageRange(array), destImage(mask), [&cdf](T p) {return p >= cdf ? 1 : 0;});
-//     char name[1000];
-//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/maskBeforeCC%d.tif", framenumber);
-//     vigra::exportImage(srcImageRange(mask), name);
+
     vigra::IImage labels(array.width(), array.height());
     unsigned int nbrCC = vigra::labelImageWithBackground(srcImageRange(mask), destImage(labels), false, 0);
     std::valarray<int> bins(0, nbrCC + 1);
@@ -668,9 +784,7 @@ void getMask(const DataParams &params, const BasicImage<T>& array, int framenumb
     vigra::inspectImage(srcImageRange(labels), fun);
 //     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < std::max(3.,0.25*3.14 * std::pow(params.getSigma(), 2))) return 0; else return 1;});
     vigra::transformImage(srcImageRange(labels), destImage(mask), [&params, &bins] (T p) -> T {if(!p || bins[p] < 3) return 0; else return 1;});
-//     char name2[1000];
-//     sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/maskAfterCC%d.tif", framenumber);
-//     vigra::exportImage(srcImageRange(mask), name2);
+
 }
 
 //*! Estimates values for camera gain and offset using a mean-variance plot*/
@@ -775,14 +889,14 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
         }
     }
 
-    std::cout<<std::endl;
+    /*std::cout<<std::endl;
     for (int i =0; i< intervalCounter; ++i){
         std::cout<<meanValues[i]<<", ";
     }
-    std::cout<<std::endl;
+	std::cout<<std::endl;
     for (int i =0; i< intervalCounter; ++i){
         std::cout<<skellamParameters[i]<<", ";
-    }
+    }*/
 
     doRansac(params, meanValues, skellamParameters, intervalCounter);
     std::cout<<"y4 = "<< params.getSlope()<<" * x1 + "<<-params.getSlope()*params.getIntercept() <<"#(real RANSAC)"<< std::endl;
@@ -790,10 +904,10 @@ void estimateCameraParameters(DataParams &params, ProgressFunctor &progressFunc)
     params.setIntercept(minVal);
     if(params.getSlope() <= 0)
         params.setSlope(1);
+		
     std::cout<<"slope: "<< params.getSlope()<<" x0: "<<params.getIntercept() << std::endl;
     std::cout<<"min: "<<minVal<<" max: "<<maxVal<<std::endl;
-//     if(params.getSlope()>(maxVal-minVal)/10.) //if the data has no beads the slope might get very high values, if so it is set to a quarter of the range.
-//         params.setSlope((maxVal-minVal)/20.);
+
     delete lastVal;
     delete img;
     std::cout<<"Estimated values:"<<std::endl;
@@ -838,6 +952,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
     unsigned int middleChunkFrame = middleChunk * params.getTChunkSize();
     #pragma omp parallel for schedule(runtime) shared(srcImage, poissonMeans, functor, progressFunc)
     for (int f = 0; f < srcImage.shape()[2]; ++f) {
+
         auto currSrc = srcImage.bindOuter(f);
         auto currPoisson = poissonMeans.bindOuter(middleChunkFrame + f);
         vigra::combineTwoMultiArrays(srcMultiArrayRange(currSrc), srcMultiArray(currPoisson), destMultiArray(currSrc),
@@ -864,20 +979,13 @@ void readChunk(const DataParams &params, MultiArray<3, T>** srcImage,
     for (unsigned int i = 0; i < middleChunk; ++i) {
         srcImage[i] = srcImage[i + 1];
     }
+	
     srcImage[middleChunk] = tmp;
-    params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), tmp->shape(), *tmp);
-//     char name[1000];
-//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/NotAtAllCorrectedFrame%d.tif", chunk*lastChunkSize);
-//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
-    vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
-//     char name2[1000];
-//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/PoissonCorrectedFrame%d.tif", chunk*lastChunkSize);
-//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
+
+    params.readBlock(Shape3(0, 0, chunk * params.getTChunkSize()), tmp->shape(), *tmp);	
+	vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&params](T p){return (p - params.getIntercept()) / params.getSlope();});
+
     vigra::transformMultiArray(srcMultiArrayRange(*tmp), destMultiArrayRange(*tmp), [&tF](T p){return tF(p);});
-//     char name3[1000];
-//     sprintf(name, "/home/herrmannsdoerfer/tmpOutput/AnscombeCorrectedFrame%d.tif", chunk*lastChunkSize);
-//     vigra::exportImage(srcImageRange(tmp->bindOuter(0)),name);
-    //vigra::exportImage(srcImageRange(tmp->bindOuter(0)),"/home/herrmannsdoerfer/tmpOutput/skellamCorrectedFrame.tif");
     for (unsigned int z = 0; z < chunksInMemory - 1; ++z) {
         for (unsigned int x = 0; x < xChunks; ++x) {
             for (unsigned int y = 0; y < yChunks; ++y) {
@@ -988,16 +1096,23 @@ void processStack(const DataParams &params, Func& functor, ProgressFunctor &prog
     std::free(srcImage);
 }
 
-/*!
-adds new powerspecra for each frame to the previous ones
-*/
-template <class T, class S>
-void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fplan, MultiArrayView<2, T>& in, MultiArrayView<2, double> &ps, int roiwidth, int nbrRoisPerFrame, int &rois) {
-    vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
+double fitPSF(MultiArray<2, double>&, double&);
+double fitPSF2D(MultiArray<2, double>&, double&);
+
+template <class T>
+void getPSFwidth(const DataParams &params, MultiArrayView<2, T>& in, std::vector<T> &PSFwidths, int roiwidth, int nbrRoisPerFrame, int &rois, int currframe) {
+vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
                                [](double p){return std::pow((p+3./8.)/2.,2)-3./8.;}); //inverse Anscombe transform to avoid spread of PSF
-    int w = params.shape(0), h = params.shape(1);
+	int w = params.shape(0), h = params.shape(1);
+	
+	BasicImage<T> img(w,h);
+    BasicImageView<T> input = makeBasicImageView(in);  // access data as BasicImage
+    vigra::copyImage(srcImageRange(input), destImage(img));
+	
+    MultiArray<2, T> mask(Shape2(w, h));
+    getMask(params, img, currframe, mask);
+
     int roiwidth2 = roiwidth / 2;
-    BasicImageView<T> input = makeBasicImageView(in);
     std::vector<Coord<T> > maxima;
     typename BasicImageView<T>::traverser it = input.upperLeft();
     VectorPushAccessor<Coord<T>, typename BasicImageView<T>::traverser> maxima_acc(maxima, it);
@@ -1006,7 +1121,8 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
         return;
     }
 
-    T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::min();
+	
+	T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::min();
     int nbrMaxima = 0;
     for (auto i = maxima.begin(); i != maxima.end(); ++i) {
         if (i->x < roiwidth2 || i->x > w - roiwidth2  || i->y < roiwidth2 || i->y > h - roiwidth2 )
@@ -1022,31 +1138,32 @@ void accumulatePowerSpectrum(const DataParams &params, const FFTWPlan<2, S> &fpl
     std::vector<size_t> maxima_indices(maxima.size());
     std::iota(maxima_indices.begin(), maxima_indices.end(), 0);
     std::random_shuffle(maxima_indices.begin(), maxima_indices.end());
-
+	//std::cout<<"maxima.size: "<<maxima.size()<<std::endl;
     nbrRoisPerFrame = std::min(nbrRoisPerFrame, nbrMaxima);
-
-    for (auto i = maxima_indices.begin(); roi < nbrRoisPerFrame && i != maxima_indices.end(); ++i) {
+	int counter = 0;
+    for (auto i = maxima_indices.begin(); roi < nbrRoisPerFrame && i != maxima_indices.end(); ++i, ++counter) {
         /*const*/ Coord<T> &maximum = maxima[*i];
-        if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh)
-            continue;
+        //if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh) {
+		if (mask(maximum.x, maximum.y) == 0 || maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1) {
+    //std::cout<<"threshold: "<<thresh<<" maximum.val: "<<maximum.val<<" *i: "<<*i<<std::endl;
+			continue;
+		}
         Shape2 roi_ul(maximum.x - roiwidth2, maximum.y - roiwidth2);
         Shape2 roi_lr(maximum.x - roiwidth2 + roiwidth, maximum.y - roiwidth2 + roiwidth);
-        MultiArray<2, FFTWComplex<S>> fourier(ps.shape());
 
-        MultiArray<2, FFTWComplex<S>> workImage(ps.shape()); //libfftw needs continuous memory
-        vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul,  roi_lr)), destMultiArray(workImage, FFTWWriteRealAccessor<S>()));
+		MultiArray<2, double> testimg(Shape2(roiwidth, roiwidth));
+		
+		vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul, roi_lr)), destMultiArray(testimg));
 
-        MultiArray<2, T> expImage(ps.shape());
-        vigra::copyMultiArray(srcMultiArrayRange(in.subarray(roi_ul,  roi_lr)), destMultiArray(expImage));
-
-        fplan.execute(workImage, fourier);
-
-
-        vigra::combineTwoMultiArrays(srcMultiArrayRange(ps),
-                                     srcMultiArray(fourier, FFTWSquaredMagnitudeAccessor<double>()),
-                                     destMultiArray(ps), std::plus<double>());
-        ++roi;
-        ++rois;
+		double sigma;
+		double error = fitPSF2D(testimg, sigma);
+		//std::cout<<"currframe: "<<currframe<<" roi "<<roi<<" rois "<<rois<<" nbrRoisPerFrame "<< nbrRoisPerFrame<< "nbrMaxima "<<nbrMaxima<<" counter: "<<counter<<std::endl;
+        //std::cout<<"frame: "<<currframe<<" x: "<<maximum.x<<" y"<<maximum.y<<" final sigma "<<sigma<<" error: "<<error<<std::endl<<std::endl;
+		if (error>0.8) {
+			PSFwidths.push_back(sigma);
+			++roi;
+			++rois;
+		}
     }
 
 }
@@ -1064,13 +1181,11 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
     auto iterEnd = iter.getEndIterator();
     vigra::FindMinMax<T> imgMinMax;
     inspectImage(srcImageRange(img), imgMinMax);
-//     std::cout<<"minimage: "<<imgMinMax.min<<"max image: "<<imgMinMax.max<<std::endl;
-//     char namePic[1000];
-//     sprintf(namePic, "/home/herrmannsdoerfer/tmpOutput/bildforGetBgVar%d.tif",currframe);
-//     vigra::exportImage(srcImageRange(img), namePic);
-    double stdBG = 0;
+
     int numberBins = 100;
     T sigma = 1;
+	
+
     if (int(imgMinMax.max - imgMinMax.min)>0) {
         vigra::HistogramOptions histogram_opt;
         histogram_opt = histogram_opt.setBinCount(numberBins);
@@ -1081,24 +1196,26 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
         std::vector<double> data(2*numberBins);
         T minimum = imgMinMax.min, maximum = imgMinMax.max;
 
-        T delta = (maximum - minimum)/ (1.*numberBins);
+        T delta = (maximum - minimum)/ (1.*numberBins); //get the bin width
 //         std::cout<<std::endl;
         T mindata = 9999999, maxdata = 0;
         for (auto counter = 0; counter < numberBins; ++counter){
             data[2*counter] = minimum + counter * delta;
             data[2*counter+1] = hist2(counter);
-//             std::cout<<hist2(counter)<<",";
             if (hist2(counter)>maxdata){maxdata = hist2(counter);}
             if (hist2(counter)<mindata){mindata = hist2(counter);}
         }
-        T sigma = 2.0, scale = maxdata - mindata, offset = mindata, center = 0;
-//         std::cout<<std::endl;
-//         std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
-        fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
+        T scale = maxdata - mindata, offset = mindata, center = 0;
+		sigma = 2.0;
+         //std::cout<<std::endl;
+         //std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
+
+        double error = fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
+		//std::cout<<"Sigma: "<<std::abs(sigma)<<" error: "<<error<<std::endl;
     }
-    BGStd[currframe] = sigma;
-//     std::cout<<"cur stdBG: "<<stdBG<<" BGStd[currframe]: "<<BGStd[currframe]<<" currframe: "<<currframe<<std::endl;
-//     std::cout<<BGStd[currframe]<<" currframe: "<<currframe<<" ";
+    BGStd.push_back(std::abs(sigma));
+
+	//std::cout<<"sigma: "<<sigma<<" std::abs(sigma): "<<std::abs(sigma)<<" BGStd[0]: "<<BGStd[0]<<std::endl;
 }
 
 /*!
@@ -1138,7 +1255,7 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
         std::cout<<std::endl<<"changing slope from: "<< params.getSlope()<<" to "<<params.getSlope()*medBGStd2<<" based on estimated background standard deviation of: "<<medBGStd<<std::endl;
         params.setSlope(params.getSlope()*medBGStd2);
         slopeResults[counter] = params.getSlope();
-//         BGStds.clear();
+        BGStds.clear();
         if (counter == maxIterLimit){
             std::cout<<"maximal number of iterations for parameter check is reached without converging variance. The slope is set to the average of the last 2 guesses."<<std::endl;
             params.setSlope((slopeResults[counter-1]+slopeResults[counter-2])/2.);
@@ -1150,7 +1267,7 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
 /*! A multivariate gaussian is fitted to the mean power spectrum, after that corresponding sigma in spatial domain is calculated*/
 template <class T>
 void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
-    std::cout<<params.getSkellamFramesSaved()<<" "<<params.getSigmaSaved()<<" "<<params.getIgnoreSkellamFramesSaved()<<std::endl;
+    //std::cout<<params.getSkellamFramesSaved()<<" "<<params.getSigmaSaved()<<" "<<params.getIgnoreSkellamFramesSaved()<<std::endl;
     if ( params.getSigmaSaved()) {
         std::cout<<"Values from settings-file:"<<std::endl;
         std::cout<<"Sigma: "<<params.getSigma();
@@ -1163,17 +1280,17 @@ void estimatePSFParameters(DataParams &params, ProgressFunctor &progressFunc) {
 
     MultiArray<2, double> ps(Shape2(roiwidth, roiwidth));
     ps.init(0.0);
-    MultiArray<2, FFTWComplex<double>> filterInit(Shape2(roiwidth, roiwidth));
-    FFTWPlan<2, double> fplan(filterInit, filterInit, FFTW_FORWARD, FFTW_MEASURE);
-    auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
-    processStack<T>(params, func, progressFunc, stacksize);
+
+    //auto func = [&fplan, &ps, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){accumulatePowerSpectrum(params, fplan, currSrc, ps, roiwidth, nbrRoisPerFrame, rois);};
+    std::vector<T> PSFwidths;
+	auto func = [&PSFwidths, &roiwidth, &nbrRoisPerFrame, &rois](const DataParams &params, MultiArrayView<2, T> &currSrc, int currframe){getPSFwidth(params, currSrc, PSFwidths, roiwidth, nbrRoisPerFrame, rois, currframe);};
+	processStack<T>(params, func, progressFunc, stacksize);
     if (progressFunc.getAbort())
         return;
-    moveDCToCenter(ps);
-    vigra::transformMultiArray(srcMultiArrayRange(ps), destMultiArray(ps),
-                          [&stacksize, &roiwidth, &rois](double p){return p / (rois * roiwidth * roiwidth);});
-    fitPSF(params, ps);
-    std::cout<<"Estimated value:"<<std::endl;
+
+    std::nth_element(PSFwidths.begin(), PSFwidths.begin() + PSFwidths.size()/2, PSFwidths.end());
+    params.setSigma(PSFwidths[PSFwidths.size()/2]);
+	std::cout<<"Estimated value:"<<std::endl;
     std::cout<<"Sigma: "<<params.getSigma()<<std::endl;
 }
 
@@ -1202,7 +1319,7 @@ void wienerStorm(DataParams &params, std::vector<std::set<Coord<T> > >& maxima_c
         return;
     }
     auto func = [&maxima_coords](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {wienerStormSingleFrame(params, currSrc, maxima_coords[currframe], currframe);};
-    progressFunc.setStage(Localization);
+	progressFunc.setStage(Localization);
     maxima_coords.resize(params.shape(2));
     processStack<T>(params, func, progressFunc);
     progressFunc.setFinished();
@@ -1218,7 +1335,7 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
 {
     int w = params.shape(0); // width
     int h = params.shape(1); // height
-
+	//int framenumber = 0 ;
     BasicImage<T> filtered(w,h);
 
     int factor = params.getFactor();
@@ -1235,12 +1352,6 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     vigra::copyImage(srcImageRange(input), destImage(unfiltered));
     float kernelWidth = params.getSigma()*params.getPrefactorSigma();
     gaussianSmoothing(srcImageRange(input), destImage(filteredView), kernelWidth);
-    //gaussianSharpening(srcImageRange(input), destImage(filteredView), 0.85, kernelWidth);
-//     BasicImage<T> output(w,h);
-//     vigra::copyImage(srcImageRange(input), destImage(output));
-//     char name2[1000];
-//     sprintf(name2, "/home/herrmannsdoerfer/tmpOutput/frameData/imgBeforeMaximaDetection%d.tif", framenumber);
-//     vigra::exportImage(srcImageRange(filtered), name2);
 
     MultiArray<2, T> mask(Shape2(w, h));
     getMask(params, unfiltered, framenumber, mask);

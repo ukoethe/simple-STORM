@@ -124,7 +124,7 @@ bool rangeSplit(const std::string &r, int &beg, int &end, unsigned int &stride) 
 bool fileExists(const std::string &filename)
 {
 #ifdef _MSC_VER
-    return _access(filename.c_str(), 0);
+    return _access(filename.c_str(), bool(0));
 #else
     return access(filename.c_str(), F_OK);
 #endif

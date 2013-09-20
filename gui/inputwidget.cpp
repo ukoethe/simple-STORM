@@ -6,6 +6,7 @@
 
 #include <QGroupBox>
 #include <QFileDialog>
+#include <iostream>
 
 InputWidget::InputWidget(QWidget *parent)
 : QWidget(parent), m_ui(new Ui::InputWidget()), m_uiAdvancedSettings(new Ui::AdvancedSettingsGroupBox()), m_uiBackgroundLevel(new Ui::BackgroundLevelGroupBox())

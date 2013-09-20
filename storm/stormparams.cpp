@@ -318,15 +318,24 @@ const std::string& StormParams::getInFile() const {
     return m_infile;
 }
 void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
-    m_infile = infile;
 
-    std::string extension = m_infile.substr( m_infile.find_last_of('.'));
-    if(extension==".tif" || extension==".tiff") {
+	m_infile = infile;
+	std::string extension;
+	try
+	{
+		extension = m_infile.substr( m_infile.find_last_of('.'));
+	}
+	catch (int e)
+	{
+		std::cout<<m_infile<<"is no valid filename."<<std::endl;
+	}
+
+	if(extension==".tif" || extension==".tiff") {
         m_type = TIFF;
         vigra::ImageImportInfo* info = new vigra::ImageImportInfo(m_infile.c_str());
-        ptr = (void*) info;
+		ptr = (void*) info;
         m_shape = Shape(info->width(), info->height(), info->numImages());
-    }
+	}
     else if(extension==".sif") {
         m_type = SIF;
         vigra::SIFImportInfo* info = new vigra::SIFImportInfo (m_infile.c_str());
@@ -550,7 +559,7 @@ void StormParams::setDefaults()
     m_factorSaved = true;
     m_roilen = 9;
     m_roilenSaved = true;
-    m_pixelsize = 1;
+    m_pixelsize = 100;
     m_pixelsizeSaved = true;
     m_skellamFrames = 200;
     m_skellamFramesSaved = true;

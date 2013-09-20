@@ -28,7 +28,7 @@ public:
     void setUpdateInterval(const std::chrono::milliseconds&);
     void setParams(const GuiParams *params);
     void setIntensityScaleFactor(float);
-    void saveImage(const QString &file);
+    void saveImage(const QString &file, const QString &fileHC);
     virtual QSize sizeHint() const;
     float scale() const;
 
