@@ -1121,31 +1121,17 @@ vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
         return;
     }
 
-	
-	T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::min();
-    int nbrMaxima = 0;
-    for (auto i = maxima.begin(); i != maxima.end(); ++i) {
-        if (i->x < roiwidth2 || i->x > w - roiwidth2  || i->y < roiwidth2 || i->y > h - roiwidth2 )
-            continue;
-        if (i->val < min)
-            min = i->val;
-        if (i->val > max)
-            max = i->val;
-        nbrMaxima += 1;
-    }
     int roi = 0;
-    T thresh = 0.7 * (max - min) + min;
     std::vector<size_t> maxima_indices(maxima.size());
     std::iota(maxima_indices.begin(), maxima_indices.end(), 0);
     std::random_shuffle(maxima_indices.begin(), maxima_indices.end());
 	//std::cout<<"maxima.size: "<<maxima.size()<<std::endl;
-    nbrRoisPerFrame = std::min(nbrRoisPerFrame, nbrMaxima);
+    nbrRoisPerFrame = std::min(nbrRoisPerFrame, (int)maxima.size());
 	int counter = 0;
     for (auto i = maxima_indices.begin(); roi < nbrRoisPerFrame && i != maxima_indices.end(); ++i, ++counter) {
         /*const*/ Coord<T> &maximum = maxima[*i];
-        //if (maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1 || maximum.val < thresh) {
 		if (mask(maximum.x, maximum.y) == 0 || maximum.x < roiwidth2+1 || maximum.x > w - roiwidth2-1 || maximum.y < roiwidth2+1 || maximum.y > h - roiwidth2-1) {
-    //std::cout<<"threshold: "<<thresh<<" maximum.val: "<<maximum.val<<" *i: "<<*i<<std::endl;
+ 
 			continue;
 		}
         Shape2 roi_ul(maximum.x - roiwidth2, maximum.y - roiwidth2);
@@ -1205,13 +1191,12 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
             if (hist2(counter)>maxdata){maxdata = hist2(counter);}
             if (hist2(counter)<mindata){mindata = hist2(counter);}
         }
+		
         T scale = maxdata - mindata, offset = mindata, center = 0;
 		sigma = 2.0;
-         //std::cout<<std::endl;
-         //std::cout<<maximum<<" "<<minimum<<" "<<scale<<" "<<offset<<" "<<delta<<std::endl;
-
+         
         double error = fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
-		//std::cout<<"Sigma: "<<std::abs(sigma)<<" error: "<<error<<std::endl;
+		std::cout<<"Sigma: "<<std::abs(sigma)<<" error: "<<error<<std::endl;
     }
     BGStd.push_back(std::abs(sigma));
 
@@ -1227,7 +1212,7 @@ void checkCameraParameters(DataParams &params, ProgressFunctor &progressFunc) {
     if (!needSkellam)
         return;
     unsigned int stacksize = params.getSkellamFrames();
-    std::vector<T> BGStds(stacksize);
+    std::vector<T> BGStds;
     auto func = [&params, &BGStds](const DataParams &params, const MultiArrayView<2, T> &currSrc, int currframe) {getBGVariance(params, currSrc, BGStds, currframe);};
     progressFunc.setStage(ParameterCheck);
     T medBGStd;
