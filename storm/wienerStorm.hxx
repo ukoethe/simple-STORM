@@ -1196,7 +1196,7 @@ void getBGVariance(const DataParams &params, const MultiArrayView<2, T> &img, st
 		sigma = 2.0;
          
         double error = fitGaussian1D(&data[0], numberBins, sigma, scale, offset, center);
-		std::cout<<"Sigma: "<<std::abs(sigma)<<" error: "<<error<<std::endl;
+		//std::cout<<"Sigma: "<<std::abs(sigma)<<" error: "<<error<<std::endl;
     }
     BGStd.push_back(std::abs(sigma));
 
