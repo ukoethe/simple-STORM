@@ -1,5 +1,5 @@
 #include "dataparams.h"
-
+#include <iostream>
 #include <rude/config.h>
 
 const std::string DataParams::s_section = "dataparams";
@@ -11,7 +11,9 @@ DataParams::DataParams()
 DataParams::DataParams(int argc, char **argv)
 : StormParams(argc, argv), m_slopeSaved(false), m_interceptSaved(false), m_sigmaSaved(false)
 {
+std::cout<<"load triggered"<<std::endl;
     load(false);
+	std::cout<<"load triggered"<<std::endl;
 }
 
 DataParams::~DataParams() {}

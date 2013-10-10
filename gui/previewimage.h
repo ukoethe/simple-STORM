@@ -79,6 +79,7 @@ private:
     float m_sizeFactor;
     float m_intensityFactor;
     std::pair<float, float> m_limits;
+	int m_frame;
 };
 
 #endif

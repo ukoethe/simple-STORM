@@ -45,21 +45,21 @@ class TransformController(QtCore.QObject):
         newlandmark = Landmark([x,y],layerindex)
         if active:
             self.m_landmarksList.append(newlandmark)
-            print "bead added"
+            print("bead added")
         else:
             self.m_landmarksList.remove(newlandmark)
-            print "bead removed"
+            print("bead removed")
         return
 
     def unselectAllBeads(self):
         self.m_landmarksList = []
-        print "all bead unselected"
+        print("all bead unselected")
 
     def calculateTransform(self,dims):
         '''Calculates the transformation matrix based on the active beads
         and updates the color image accordingly'''
-        print "doTransform executed."
-        print self.m_landmarksList
+        print("doTransform executed.")
+        print(self.m_landmarksList)
         bg = self.getCoordinates(layer=0)
         layer = 0
         heatMatrix = [np.zeros([dims[1],dims[0]])]
@@ -73,7 +73,7 @@ class TransformController(QtCore.QObject):
             #	print "Different number of foreground points in layer %i and background points in layer 0" % layer
             #	continue
 
-            print "transforming layer %i using %i beads as landmarks" % (layer, len(fg))
+            print("transforming layer %i using %i beads as landmarks" % (layer, len(fg)))
 
             fgc = copy.deepcopy(fg)
             bgc = copy.deepcopy(bg)
@@ -82,7 +82,7 @@ class TransformController(QtCore.QObject):
             tt = np.dot(self.m_transform[layer], np.vstack([fg.T,np.ones(len(fg))])).T[:,:2] # fg transformed in bg coords
             rss = np.sum((tt-bg)**2)
             rms = np.sqrt(rss/len(fg))
-            print "Residual sum of squares (RSS): %fpx^2,     RMS: %fpx" % (rss, rms)
+            print("Residual sum of squares (RSS): %fpx^2,     RMS: %fpx" % (rss, rms))
 
             self.m_errorMatrix.append(self.getHeatmatrix(dims, fg, bg,rms))
             bg = bgc

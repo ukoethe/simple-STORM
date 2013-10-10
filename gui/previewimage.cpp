@@ -54,9 +54,12 @@ void PreviewImage::setParams(const GuiParams *params)
 
 void PreviewImage::frameCompleted(int frame)
 {
+	m_frame = frame;
     m_unprocessed.push_back(frame);
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+	//std::cout<<"frame: "<<frame<<std::endl;
     if (m_initialized && now - m_lastProcessed >= m_updateInterval) {
+		//std::cout<<"#########frameUpdated######"<<std::endl;
         updateImage();
         update();
     }
@@ -68,6 +71,8 @@ float Gauss2D(int x, float meanx, int y, float meany, float sigma) {
 
 void PreviewImage::updateImage()
 {
+	
+			
     if (!m_params || !m_results || !m_initialized)
         return;
     m_lastProcessed = std::chrono::steady_clock::now();
@@ -75,7 +80,7 @@ void PreviewImage::updateImage()
         for (const Coord<float> &c : m_results->at(frame)) {
             //int x = std::floor(c.x * m_sizeFactor), y = std::floor(c.y * m_sizeFactor);
             int x = c.x * m_sizeFactor, y = c.y * m_sizeFactor;
-            //std::cout<<"x: "<<x<<" y: "<<y<<std::endl;
+			//std::cout<<"x: "<<x<<" y: "<<y<<std::endl;
             float val = m_result(x,y);
             if (val > 0) {
                 m_resultsForScaling.erase(m_resultsForScaling.find(val));
@@ -86,7 +91,8 @@ void PreviewImage::updateImage()
             ++m_detections;
         }
     }
-
+	
+	
     // some maxima are very strong so we scale the image as appropriate :
     m_limits.first = m_limits.second = 0;
     if (!m_resultsForScaling.empty()) {
@@ -95,24 +101,28 @@ void PreviewImage::updateImage()
             m_limits.second = *it;
         m_intensityFactor = 255 / (m_limits.second - m_limits.first);
     }
+	
     if (m_scalex < 1) {
         for (int frame : m_unprocessed) {
             for (const Coord<float> &c : m_results->at(frame)) {
                 int x = (c.x * m_sizeFactor), y = (c.y * m_sizeFactor);
-                //std::cout<<"x2: "<<x<<" y2: "<<y<<std::endl;
+                //std::cout<<"x2: "<<x<<" y2: "<<y<<" c.int:"<<c.val<<std::endl;
                 m_toPaint.insert(QPair<int, int>(x, y));
             }
         }
     } else
         m_toPaint.clear();
+	
 
-    m_needRepaint = true;
+	m_needRepaint = true;
     m_unprocessed.clear();
-    emit detections(QString("%1 detections").arg(m_detections));
+	
+	emit detections(QString("%1 detections").arg(m_detections));
 }
 
 void PreviewImage::updatePixmap(const QRect &rect)
 {
+		
     if (!m_params || !m_results || !m_initialized || !m_needRepaint)
         return;
     QPoint ul = rect.topLeft();
@@ -134,14 +144,16 @@ void PreviewImage::updatePixmap(const QRect &rect)
                 }
             }
         }
-    } else if (m_toPaint.empty() || m_needCompleteRepaint) {
-        for (int y = ul.y(); y < lr.y(); ++y) {
+    } else if ( m_needCompleteRepaint) {//else if (m_toPaint.empty() || m_needCompleteRepaint) {
+
+		for (int y = ul.y(); y < lr.y(); ++y) {
             for (int x = ul.x(); x < lr.x(); ++x) {
                 float v = m_result(x, y);
+				//std::cout<<"v: "<<v<<" m_limits.second: "<<m_limits.second<<std::endl;
                 uchar c = (v > m_limits.second) ? 255 : v * m_intensityFactor;
                 m_painter.fillRect(x, y, 1, 1, QColor(c, c, c));
             }
-        }
+		}
     }  else {
         for (const QPair<int, int> &p : m_toPaint) {
             if (p.first >= ul.x()  && p.first <= lr.x() && p.second >= ul.y() && p.second <= lr.y())
@@ -152,13 +164,16 @@ void PreviewImage::updatePixmap(const QRect &rect)
     m_needRepaint = false;
     m_toPaint.clear();
     m_painter.setRenderHints(hints, false);
-    m_painter.resetTransform();
+	m_painter.resetTransform();
 }
 
 void PreviewImage::saveImage(const QString &file, const QString &fileHC)
 {
+	std::cout<<"PreviewImage::saveImage line 160"<<std::endl;
 	double maxlim = 0., minlim = 0;
+	std::cout<<"PreviewImage::saveImage line 162"<<std::endl;
 	findMinMaxPercentileMA(m_result, 0., minlim, 0.99, maxlim);
+	std::cout<<"PreviewImage::saveImage line 164"<<std::endl;
 	std::cout << "cropping output values to range [" << minlim << ", " << maxlim << "]" << std::endl;
 	vigra::MultiArray<2, float> resultCropped(Shape2(m_result.width(), m_result.height()));
 	if(maxlim > minlim) {

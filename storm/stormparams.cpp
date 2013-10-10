@@ -54,6 +54,15 @@
 #include <boost/math/distributions/normal.hpp>
 #endif // Q_MOC_RUN
 
+#ifdef WIN32
+	#include <shlobj.h>
+	#include <shobjidl.h>
+    #include <direct.h>
+    #define GetCurrentDir _getcwd
+#else
+    #include <unistd.h>
+    #define GetCurrentDir getcwd
+ #endif
 
 using namespace vigra;
 
@@ -100,7 +109,9 @@ StormParams::StormParams()
   m_maxAsymmetryThreshold(5.0f),
   m_minXyChunksize(3),
   m_minTChunksize(3),
-  m_config(new rude::Config()) 
+  m_config(new rude::Config()),
+  m_configDefaults(new rude::Config()),
+  m_settingsfileDefaults(getDefaultsFileFilename())
 {
     setDefaults();
 }
@@ -110,7 +121,8 @@ StormParams::StormParams(const StormParams &other)
   m_maxAsymmetryThreshold(5.0f),
   m_minXyChunksize(3),
   m_minTChunksize(3),
-  m_config(new rude::Config()), 
+  m_config(new rude::Config()),
+  m_configDefaults(new rude::Config()), 
   m_shape(other.m_shape), 
   m_type(other.m_type),
   m_factor(other.m_factor),
@@ -138,11 +150,14 @@ StormParams::StormParams(const StormParams &other)
   m_settingsfile(other.m_settingsfile),
   m_frames(other.m_frames), 
   m_ignoreSkellamFramesSaved(other.m_ignoreSkellamFramesSaved), 
-  m_acceptedFileTypes(other.m_acceptedFileTypes) 
+  m_acceptedFileTypes(other.m_acceptedFileTypes),
+  m_settingsfileDefaults(other.m_settingsfileDefaults)
 {
     setInFile(other.m_infile, false);
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
+	m_configDefaults->setConfigFile(m_settingsfileDefaults.c_str());
+	m_configDefaults->load();
 }
 
 StormParams& StormParams::operator=(const StormParams &other)
@@ -175,12 +190,16 @@ StormParams& StormParams::operator=(const StormParams &other)
     m_doAsymmetryCheck = other.m_doAsymmetryCheck;
     m_asymmetryThreshold = other.m_asymmetryThreshold;
     m_ignoreSkellamFramesSaved = other.m_ignoreSkellamFramesSaved;
-
+	m_settingsfileDefaults = other.m_settingsfileDefaults;
 
     setInFile(other.m_infile, false);
     m_config->clear();
     m_config->setConfigFile(m_settingsfile.c_str());
     m_config->load();
+	m_configDefaults->clear();
+    m_configDefaults->setConfigFile(m_settingsfileDefaults.c_str());
+    m_configDefaults->load();
+	
     return *this;
 }
 
@@ -189,7 +208,8 @@ StormParams::StormParams(int argc, char **argv)
   m_maxAsymmetryThreshold(5.0f),
   m_minXyChunksize(3),
   m_minTChunksize(3),
-  m_config(new rude::Config()) 
+  m_config(new rude::Config()),
+  m_configDefaults(new rude::Config())
 {
     setDefaults();
     parseProgramOptions(argc, argv);
@@ -212,10 +232,14 @@ StormParams::~StormParams() {
             break;
     }
     delete m_config;
+	delete m_configDefaults;
 }
 
 int StormParams::getFactor() const {
     return m_factor;
+}
+int StormParams::getFactorDefaults() const {
+    return m_factorDefaults;
 }
 void StormParams::setFactor(int factor) {
     if (factor != m_factor) {
@@ -225,6 +249,10 @@ void StormParams::setFactor(int factor) {
 }
 bool StormParams::getFactorSaved() const {
     return m_factorSaved;
+}
+
+bool StormParams::getFactorFromSettingsFile() const{
+	return m_factorFromSettingsFile;
 }
 
 int StormParams::getRoilen() const {
@@ -243,6 +271,9 @@ bool StormParams::getRoilenSaved() const {
 float StormParams::getPixelSize() const {
     return m_pixelsize;
 }
+float StormParams::getPixelSizeDefaults() const {
+    return m_pixelsizeDefaults;
+}
 void StormParams::setPixelSize(float pixelsize) {
     if (pixelsize != m_pixelsize) {
         m_pixelsize = pixelsize;
@@ -253,8 +284,15 @@ bool StormParams::getPixelSizeSaved() const {
     return m_pixelsizeSaved;
 }
 
+bool StormParams::getPixelSizeFromSettingsFile() const {
+	return m_pixelSizeFromSettingsFile;
+}
+
 unsigned int StormParams::getSkellamFrames() const {
     return m_skellamFrames;
+}
+unsigned int StormParams::getSkellamFramesDefaults() const {
+    return m_skellamFramesDefaults;
 }
 void StormParams::setSkellamFrames(unsigned int frames) {
     if (frames != m_skellamFrames) {
@@ -266,6 +304,10 @@ bool StormParams::getSkellamFramesSaved() const {
     return m_skellamFramesSaved;
 }
 
+bool StormParams::getSkellamFramesFromSettingsFile() const {
+	return m_skellamFramesFromSettingsFile;
+}
+
 void StormParams::setPrefactorSigma(double prefac) {
     m_prefactorSigma = prefac;
 }
@@ -274,7 +316,9 @@ double StormParams::getPrefactorSigma() const {
     return m_prefactorSigma;
 }
 
-
+bool StormParams::getAlphaSaved() const {
+	return m_alphaSaved;
+}
 unsigned int StormParams::getXYChunkSize() const {
     return m_xyChunkSize;
 }
@@ -327,7 +371,7 @@ void StormParams::setInFile(const std::string& infile, bool forceDefaults) {
 	}
 	catch (int e)
 	{
-		std::cout<<m_infile<<"is no valid filename."<<std::endl;
+		std::cout<<m_infile<<"is no valid filename."<< e<<std::endl;
 	}
 
 	if(extension==".tif" || extension==".tiff") {
@@ -388,6 +432,12 @@ void StormParams::setSettingsFile(const std::string &file, bool reload) {
     }
 }
 
+void StormParams::setSettingsFileDefaults() {
+	m_settingsfileDefaults = getDefaultsFileFilename();
+	if (!m_settingsfileDefaults.empty())
+		load();
+}
+
 const std::string& StormParams::getFrameRange() const {
     return m_frames;
 }
@@ -405,11 +455,21 @@ bool StormParams::getFrameRangeSaved() const {
 float StormParams::getAlpha() const {
     return m_alpha;
 }
+
+float StormParams::getAlphaDefaults() const {
+    return m_alphaDefaults;
+}
+
+bool StormParams::getAlphaFromSettingsFile() const {
+	return m_alphaFromSettingsFile;
+}
+
 void StormParams::setAlpha(float alpha) {
     if (alpha != m_alpha) {
         m_alpha = alpha;
 		boost::math::normal dist(0.0, 1.0);
         m_thresholdMask = quantile(dist, 0.95);//qnorm(m_alpha, 0, 1, 0, 0);
+		m_alphaSaved = false;
     }
 }
 
@@ -495,6 +555,19 @@ void StormParams::setVerbose(bool verbose) {
     m_verbose = verbose;
 }
 
+bool StormParams::getFactorDefaultsSet() const {
+	return m_factorDefaultsSet;
+}
+bool StormParams::getPixelSizeDefaultsSet() const{
+	return m_pixelsizeDefaultsSet;
+}
+bool StormParams::getSkellamFramesDefaultsSet() const{
+	return m_skellamFramesDefaultsSet;
+}
+bool StormParams::getAlphaDefaultsSet() const{
+	return m_alphaDefaultsSet;
+}
+
 const StormParams::Shape & StormParams::shape() const {
     return m_shape;
 }
@@ -559,7 +632,7 @@ void StormParams::setDefaults()
     m_factorSaved = true;
     m_roilen = 9;
     m_roilenSaved = true;
-    m_pixelsize = 100;
+    m_pixelsize = 107;
     m_pixelsizeSaved = true;
     m_skellamFrames = 200;
     m_skellamFramesSaved = true;
@@ -577,6 +650,7 @@ void StormParams::setDefaults()
     setAlpha(0.001f);
     setDoAsymmetryCheck(false);
     m_verbose = false;
+	
 }
 
 void StormParams::setDefaultFileNames(bool force) {
@@ -890,6 +964,7 @@ void StormParams::save() const
 void StormParams::load(bool propagate)
 {
     m_config->load();
+	m_configDefaults->load();
     loadSettings(propagate);
 }
 
@@ -897,21 +972,41 @@ void StormParams::loadSettings(bool)
 {
     m_config->setSection(s_section.c_str());
     if (m_factorSaved && m_config->exists("factor"))
+	{
         m_factor = m_config->getIntValue("factor");
-    else
+		m_factorFromSettingsFile = true;
+    }
+	else
+	{
         m_factorSaved = false;
-    if (m_roilenSaved && m_config->exists("roilen"))
+		m_factorFromSettingsFile = false;
+    }
+	if (m_roilenSaved && m_config->exists("roilen"))
+	{
         m_roilen = m_config->getIntValue("roilen");
-    else
+	}
+	else
         m_roilenSaved = false;
     if (m_pixelsizeSaved && m_config->exists("pixelsize"))
+	{
+		m_pixelSizeFromSettingsFile = true;
         m_pixelsize = m_config->getDoubleValue("pixelsize");
+	}
     else
+	{
         m_pixelsizeSaved = false;
-    if (m_skellamFramesSaved && m_config->exists("skellamFrames"))
-        m_skellamFrames = m_config->getIntValue("skellamFrames");
-    else
-        m_skellamFramesSaved = false;
+		m_pixelSizeFromSettingsFile = false;
+	}
+	if (m_skellamFramesSaved && m_config->exists("skellamFrames"))
+	{    
+		m_skellamFrames = m_config->getIntValue("skellamFrames");
+		m_skellamFramesFromSettingsFile = true;
+	}
+	else
+	{
+		m_skellamFramesSaved = false;
+		m_skellamFramesFromSettingsFile = false;
+	}
     if (m_xyChunkSizeSaved && m_config->exists("xyChunkSize"))
         m_xyChunkSize = m_config->getIntValue("xyChunkSize");
     else
@@ -924,9 +1019,17 @@ void StormParams::loadSettings(bool)
         m_chunksInMemory = m_config->getIntValue("chunksInMemory");
     else
         m_chunksInMemorySaved = false;
-    if (m_config->exists("alpha"))
-        m_alpha = m_config->getDoubleValue("alpha");
-    if (m_config->exists("doAsymmetryCheck")){
+    if (m_alphaSaved && m_config->exists("alpha"))
+	{
+		m_alpha = m_config->getDoubleValue("alpha");
+		m_alphaFromSettingsFile = true;
+	}
+	else
+	{
+		m_alphaSaved = false;
+		m_alphaFromSettingsFile = false;
+	}
+	if (m_config->exists("doAsymmetryCheck")){
         m_doAsymmetryCheck = m_config->getBoolValue("doAsymmetryCheck");
         if (m_doAsymmetryCheck)
             m_asymmetryThreshold = m_config->getDoubleValue("asymmetryThreshold");
@@ -939,4 +1042,50 @@ void StormParams::loadSettings(bool)
         m_prefactorSigma = m_config->getDoubleValue("prefactorSigma");
     }
 
+	m_configDefaults->setConfigFile((m_settingsfileDefaults).c_str());
+	m_configDefaults->load();
+	if (m_configDefaults->exists("factor"))
+	{
+		m_factorDefaults = m_configDefaults->getIntValue("factor");
+		m_factorDefaultsSet = true;
+	}
+	else
+		m_factorDefaultsSet = false;
+	if (m_configDefaults->exists("pixelsize"))
+	{
+		m_pixelsizeDefaults = m_configDefaults->getDoubleValue("pixelsize");
+		m_pixelsizeDefaultsSet = true;
+	}
+	else
+		m_pixelsizeDefaultsSet = false;
+	if (m_configDefaults->exists("skellamFrames"))
+	{
+		m_skellamFramesDefaults = m_configDefaults->getIntValue("skellamFrames");
+		m_skellamFramesDefaultsSet = true;
+	}
+	else
+		m_skellamFramesDefaultsSet = false;
+	if (m_configDefaults->exists("alpha"))
+	{
+		m_alphaDefaults = m_configDefaults->getDoubleValue("alpha");
+		m_alphaDefaultsSet = true;
+	}
+	else
+		m_alphaDefaultsSet = false;
+}
+
+tstring StormParams::getDefaultsFileFilename()
+{
+	#ifdef WIN32
+	{
+		char szPath[MAX_PATH];
+		SHGetFolderPath(NULL,CSIDL_APPDATA,0,NULL,szPath);
+		tstring a(szPath);
+		return a+"\\SimpleSTORMsettings.txt";
+	}
+	#endif
+	char c[FILENAME_MAX];
+	GetCurrentDir(c, sizeof(c));
+	tstring a(c);
+	return a+"/SimpleSTORMsettings.txt";
 }

@@ -3,13 +3,13 @@ from numpy.linalg import solve
 from scipy.misc import imsave
 import scipy.odr as odr
 from matplotlib import pyplot
-from munkres import Munkres
+#from munkres import Munkres
 import copy
 
 def getRandomElements(list, numberElements):
 
     if len(list) < numberElements:
-        print 'list does not contain enough elements'
+        print('list does not contain enough elements')
         return 0
     randomElements = []
     indices = []
@@ -113,26 +113,24 @@ def doRansac2(s,d,dims):
     distanceTolerated = (dims[0]+dims[1])/500.  #This sets the distance for the check of how much more beads are overlapping
     toleranceForShearing = 0.1                #set this variable to a small value, to suppress shearing
     maxDist = (dims[0]+dims[1])/2./7                #Beads that have no nearer neighbor of the other color than maxDist are not considered
-    print len(s), len(d)
     s,d = preselectPoints(s,d,maxDist) #skipps all points that are far off any other point of the other color
-    print len(s), len(d)
     pointsNeeded = min([len(s),len(d)])
     sc=copy.deepcopy(s)        #affineMatrix2DFromCorrespondingPoints changes the values given
     dc=copy.deepcopy(d)
 
     if min([len(s),len(d)]) < pointsNeededAtLeast:
-        print 'To few points found, there might have been not enough pairs of matching points'
+        print('To few points found, there might have been not enough pairs of matching points')
         return
     
     indicesToCheck = []
     listTrafos = []
     listAdditionalCandS = []
     listAdditionalCandD = []
-    print 'begin Ransac'
+    print('begin Ransac')
     for i in range(numberRestarts):
         matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection, trafo = performRansac(sc,dc,dims,pointsNeeded, numberIterations, distanceTolerated)
         maximalMatchedPoints = np.max(matchedPoints)
-        print maximalMatchedPoints
+        print(maximalMatchedPoints)
         
         if maximalMatchedPoints<pointsNeeded:
             pointsNeeded -=1
@@ -152,7 +150,7 @@ def doRansac2(s,d,dims):
                     
             if pointsNeeded >pointsNeededAtLeast:
                 pointsNeeded -= 1
-                print 'Start Iteration again with decreased number of points for transformation'
+                print('Start Iteration again with decreased number of points for transformation')
             else:
                 break
         else:
@@ -163,7 +161,7 @@ def doRansac2(s,d,dims):
                     listAdditionalCandD.append(additionalCandidatesD[j])
 #             if exitRans:
 #                 break
-            print 'Start Iteration again (%i/%i), reason: too few points found' %(i, numberRestarts)
+            print('Start Iteration again (%i/%i), reason: too few points found' %(i, numberRestarts))
     
 
     rmsList = []
@@ -173,7 +171,7 @@ def doRansac2(s,d,dims):
             rss = np.sum((tt-d[currAdditionalD])**2)
             rms = np.sqrt(rss/len(currAdditionalD))
             rmsList.append(rms)
-            print rms, rss
+            print(rms, rss)
         else:
             rmsList.append(999999)
 #     for i in (bestIndices):
@@ -185,7 +183,7 @@ def doRansac2(s,d,dims):
 #         rmsList.append(rms)
 #         print rms, rss
     bestIdx = np.where(rmsList == np.min(rmsList))[0][0]
-    print bestIdx
+    print(bestIdx)
     return listTrafos[bestIdx],s[listAdditionalCandS[bestIdx]],d[listAdditionalCandD[bestIdx]]
 
 def doRansac(s,d,dims):
@@ -196,22 +194,20 @@ def doRansac(s,d,dims):
     distanceTolerated = (dims[0]+dims[1])/400.  #This sets the distance for the check of how much more beads are overlapping
     toleranceForShearing = 0.1				#set this variable to a small value, to suppress shearing
     maxDist = (dims[0]+dims[1])/2./7				#Beads that have no nearer neighbor of the other color than maxDist are not considered
-    print len(s), len(d)
     s,d = preselectPoints(s,d,maxDist) #skipps all points that are far off any other point of the other color
-    print len(s), len(d)
     pointsNeeded = min([len(s),len(d)])
     sc=copy.deepcopy(s)		#affineMatrix2DFromCorrespondingPoints changes the values given
     dc=copy.deepcopy(d)
 
     if min([len(s),len(d)]) < pointsNeededAtLeast:
-        print 'To few points found, there might have been not enough pairs of matching points'
+        print('To few points found, there might have been not enough pairs of matching points')
         return
 
-    print 'begin Ransac'
+    print('begin Ransac')
     for i in range(numberRestarts):
         matchedPoints, additionalCandidatesS, additionalCandidatesD, indicesSCollection, indicesDCollection, trafo = performRansac(sc,dc,dims,pointsNeeded, numberIterations, distanceTolerated)
         maximalMatchedPoints = np.max(matchedPoints)
-        print maximalMatchedPoints
+        print(maximalMatchedPoints)
         bestIndices = []
         if maximalMatchedPoints<=pointsNeeded:
             pointsNeeded -=1
@@ -228,7 +224,7 @@ def doRansac(s,d,dims):
                     bestIndices.append(indicesWithMaximalAlignment[k])
                     
             if len(bestIndices) == 0:
-                print 'Start Iteration again (%i/%i), reason: minimum < maximum but shearing' %(i, numberRestarts)
+                print('Start Iteration again (%i/%i), reason: minimum < maximum but shearing' %(i, numberRestarts))
             else:
                 break
         else:
@@ -239,7 +235,7 @@ def doRansac(s,d,dims):
                     break
 #             if exitRans:
 #                 break
-            print 'Start Iteration again (%i/%i), reason: too few points found' %(i, numberRestarts)
+            print('Start Iteration again (%i/%i), reason: too few points found' %(i, numberRestarts))
     
     rmsList = []
     trafoList = []
@@ -250,7 +246,7 @@ def doRansac(s,d,dims):
         rss = np.sum((tt-d[additionalCandidatesD[i]])**2)
         rms = np.sqrt(rss/len(additionalCandidatesD[i]))
         rmsList.append(rms)
-        print rms, rss
+        print(rms, rss)
     bestIdx = bestIndices[np.where(rmsList == np.min(rmsList))[0][0]]
     bestIdxSelection = np.where(rmsList == np.min(rmsList))[0][0]
     return trafoList[bestIdxSelection],s[additionalCandidatesS[bestIdx]],d[additionalCandidatesD[bestIdx]]
@@ -313,7 +309,7 @@ def affineMatrix2DFromCorrespondingPoints(s, d, dims):
     #d = layer 0
     n = len(s)
     if len(s) < 3:
-        print "at least three points required"
+        print("at least three points required")
         return
 
     #dims = [0,0]
@@ -435,7 +431,7 @@ if __name__ == "__main__":
     landmarks1 = landmarks1[:,:2]
     landmarks2 = landmarks2[:,:2]
     trafo = affineMatrix2DFromCorrespondingPoints(landmarks2, landmarks1)
-    print "Transformation: \n", trafo
+    print("Transformation: \n", trafo)
 
     dims, cc1 = coords.readfile(file1)
     dims, cc2 = coords.readfile(file2)

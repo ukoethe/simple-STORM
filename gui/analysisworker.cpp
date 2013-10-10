@@ -1,4 +1,6 @@
 #include "analysisworker.h"
+#include <iostream>
+
 
 QtProgressFunctor::QtProgressFunctor(QObject *parent)
 : QObject(parent), ProgressFunctor(), m_stacksize(0), m_frame(0) {}
@@ -39,7 +41,12 @@ void QtProgressFunctor::setStackSize(int stacksize)
 
 void QtProgressFunctor::frameFinished(int frame)
 {
+	//std::cout<<"qt m_frame: "<<m_frame<<std::endl;
     ++m_frame;
+	if (m_frame>300) {
+		int a = 1;
+	//	std::cout<<a<<std::endl;
+	}
     emit progress(m_frame);
     emit frameCompleted(frame);
 }

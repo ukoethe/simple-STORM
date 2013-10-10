@@ -3,7 +3,7 @@ from scipy import integrate
 import time
 from matplotlib import pyplot
 import coords
-import vigra
+#import vigra
 import scipy.stats
 import math
 from scipy.stats import spearmanr
@@ -21,7 +21,7 @@ def coloc(dataR, dataG):
     #regions with low intensity are filterd out
 
     if dataR.shape != dataG.shape:
-        print 'images must have same shape'
+        print('images must have same shape')
         return 0
 
     tol=0.02
@@ -39,7 +39,7 @@ def coloc(dataR, dataG):
     dataB[...,0]=dataB[...,0]*maskG*maskR
     dataB=dataB*255/np.max(dataB)
     dataB = np.array(dataB, dtype=np.uint8)
-    print np.mean(dataB[...,0])
+    print(np.mean(dataB[...,0]))
 
 
     plot.matshow(dataB[...,0])
@@ -311,241 +311,6 @@ def getAngleHistogram(dataR, dataG, dims, factor=1):
     return 0
 
 
-#print calcContribution([0,255],gammas,1)
-
-def coordinateBasedColocalization(dataR, dataG):
-
-    originaldataR = np.array(dataR)
-    originaldataG = np.array(dataG)
-    maximumR = np.max(dataR)
-    dataR[:,:,2]=np.where(dataR[:,:,2]>=maximumR*0.1,255,0)
-
-    dataRnp = vigra.RGBImage(np.array(dataR, dtype = np.float32))
-    labelsR = np.zeros((dataR.shape[0], dataR.shape[1]))
-    labelsR = (vigra.analysis.labelImageWithBackground(dataRnp[...,2], 8,background_value=0))
-
-    maximumG = np.max(dataG)
-    dataG[:,:,1]=np.where(dataG[:,:,1]>=maximumG*0.1,255,0)
-
-    dataGnp = vigra.RGBImage(np.array(dataG, dtype = np.float32))
-    labelsG = np.zeros((dataR.shape[0], dataR.shape[1]))
-    labelsG = (vigra.analysis.labelImageWithBackground(dataGnp[...,1], 8,background_value=0))
-
-    '''pyplot.matshow(dataR[...,2],1)
-    pyplot.matshow(dataG[...,1],2)
-    pyplot.matshow(labelsR,3)
-    pyplot.matshow(labelsG,4)
-    pyplot.show()
-    '''
-
-    numberClassesR = np.max(labelsR)
-    numberClassesG = np.max(labelsG)
-
-    classesR = []
-    classesR.append([])
-    for i in range(1,numberClassesR + 1):
-        coordinatesOfCurrentClass = np.where(labelsR == i,1,0)
-        classesR.append(coordinatesOfCurrentClass)
-
-    classesG = []
-    classesG.append([])
-    for i in range(1,numberClassesG + 1):
-        coordinatesOfCurrentClass = np.where(labelsG == i,1,0)
-        classesG.append(coordinatesOfCurrentClass)
-
-
-    DAMatrix = np.zeros(dataR.shape)
-    DBMatrix = np.zeros(dataR.shape)
-
-    radius = 10
-
-    for i in range(radius,dataR.shape[0]-radius):
-        for j in range(radius,dataR.shape[1]-radius):
-            print i,j
-            actuallClass = labelsR[i,j]
-            if actuallClass != 0:
-                Naa = 0
-                for x in range(i-radius,i+radius):
-                    for y in range(j-radius, j+radius):
-                        if (x-i)**2+(y-j)**2<=radius**2:
-                            Naa = Naa + classesR[actuallClass][x,y]
-
-                if Naa!=0:
-                    Rmax=0
-                    coords = np.where(classesR[actuallClass] == 1)
-                    for n in range(len(coords[0])):
-                        tempMax = np.sqrt((coords[0][n]-i)**2+(coords[1][n]-j)**2)
-                        if tempMax>Rmax:
-                            Rmax=tempMax
-
-                    Naamax = 0
-                    Rmax = int(Rmax)
-                    for x in range(i-Rmax,i+Rmax):
-                        for y in range(j-radius, j+radius):
-                            if (x-i)**2+(y-j)**2<=radius**2:
-                                Naamax = Naamax + classesR[actuallClass][x,y]
-
-
-                    #######Achtung sollte alle classen durchlaufen!!!!
-                    Rminb = int(100)
-                    coords = np.where(classesG[actuallClass] == 1)
-                    for n in range(len(coords[0])):
-                        tempMin = np.sqrt((coords[0][n]-i)**2+(coords[1][n]-j)**2)
-                        if tempMin<Rminb:
-                            Rminb=tempMin
-                    if Rminb<2:
-                        print i,j
-
-
-                    DAMatrix[i,j,2] = Naa / (np.pi*radius**2)* np.pi*Rmax**2/Naamax*np.exp(-Rminb)
-                else:
-                    DAMatrix[i,j,2] = 0
-
-
-                Nab = 0
-
-                for x in range(i-radius,i+radius):
-                    for y in range(j-radius, j+radius):
-                        if (x-i)**2+(y-j)**2<=radius**2:
-                            for k in range(1,numberClassesG+1):
-                                Nab = Nab + classesG[k][x,y]
-
-
-                if Nab!=0:                              #if there is no class B in the radius this block is skipped
-                    Rmax=0
-                    coords = np.where(classesG[actuallClass] == 1)
-                    for n in Samsung-Galaxy-Noterange(len(coords[0])):
-                        tempMax = np.sqrt((coords[0][n]-i)**2+(coords[1][n]-j)**2)
-                        if tempMax>Rmax:
-                            Rmax=tempMax
-
-                    Rmaxb=Rmax
-
-                    Nabmax = 0
-                    Rmax=int(Rmax)
-                    for x in range(i-Rmax,i+Rmax):
-                        for y in range(j-radius, j+radius):
-                            if (x-i)**2+(y-j)**2<=radius**2:
-                                for k in range(1,numberClassesG+1):
-                                    Nabmax = Nabmax + classesG[k][x,y]
-                    DBMatrix[i,j,1] = Nab / (np.pi*radius**2)* np.pi*Rmax**2/Nabmax
-                else:
-                    DBMatrix[i,j,1] = 0   #if there is no class B in the radius
-
-                dataR[:,:,2]=np.where(dataR[:,:,2]>=maximumR*0.1,255,0)
-            else:
-                DAMatrix[i,j,2] = 0
-                DBMatrix[i,j,1] = 0
-
-
-    dataR=np.where(dataR<0,0,dataR)
-    dataG=np.where(dataG<0,0,dataG)
-
-    dataR=DAMatrix*255./np.max(DAMatrix)
-    dataG=DBMatrix*255./np.max(DBMatrix)
-
-    dataRm = np.array(dataR[...,2],dtype=np.float32)
-    dataRm = np.array(vigra.gaussianSmoothing(dataRm, 3),dtype=np.uint8)
-    dataGm = np.array(dataG[...,1],dtype=np.float32)
-    dataGm = np.array(vigra.gaussianSmoothing(dataGm, 3),dtype=np.uint8)
-    print dataRm.max()
-    dataRG = dataR[:,:,2] * dataG[:,:,1]
-    dataRG = np.array(dataRG,dtype=np.float32)
-    dataRGm = np.array(vigra.gaussianSmoothing(dataRG, 3),dtype=np.uint8)
-
-    dataRwichtung = np.where(dataR[:,:,2]>np.max(dataR)/10.,dataR[:,:,2],0)
-    dataGwichtung = np.where(dataG[:,:,1]>np.max(dataG)/10.,dataG[:,:,1],0)
-
-    dataB = np.zeros((dataR.shape))
-    dataB[:,:,0]=(dataRGm-dataRm*dataGm)*dataRwichtung*dataGwichtung
-
-
-    dataB = dataB *255./np.max(dataB)
-
-    dataB = np.array(dataB, dtype=np.uint8)
-    dataR=originaldataR+ dataB
-    dataR = np.array(dataR,dtype=np.uint8)
-    dataG = np.array(originaldataG,dtype=np.uint8)
-    #return dataB, np.zeros(originaldataR.shape)
-    return dataR, dataG
-
-
-def coordinateBasedColocalization2(dataR, dataG):
-    print dataR.shape
-    dim0, dim1,_ = dataR.shape
-    ch1 = Image.fromarray(dataR).getdata()
-    ch2 = Image.fromarray(dataG).getdata()
-    ch1objects = []
-    ch2objects = []
-
-    for y in xrange(dim1):
-        index = y * dim0
-        for x in xrange(dim0):
-            if ch1[index + x] > 25:
-                ch1objects.append((x,y))
-                if ch2[index + x] > 25:
-                    ch2objects.append((x,y))
-    C = []
-    for A in ch1objects:
-        ra = []
-        ramax = 0
-        rb = []
-        rbmax = 0
-        for cA in ch1objects:
-            if (A == cA):
-                continue
-            cra = math.sqrt((cA[0] - A[0])**2 + (cA[1] - A[1])**2)
-            ra.append(cra)
-            if (cra > ramax):
-                ramax = cra
-        for cB in ch2objects:
-            crb = math.sqrt((cB[0] - A[0])**2 + (cB[1] - A[1])**2)
-            rb.append(crb)
-            if (crb > rbmax):
-                rbmax = crb
-        ramax=round(ramax)
-        rbmax=round(rbmax)
-        ra = np.histogram(ra, bins=ramax, range=(0, ramax))[0]
-        rb = np.histogram(rb, bins=rbmax, range=(0, rbmax))[0]
-
-        # make cumulative histograms
-        for i in xrange(1, len(ra)):
-            ra[i] = ra[i - 1] + ra[i]
-        for i in xrange(1, len(rb)):
-            rb[i] = rb[i - 1] + rb[i]
-        if len(ra) > len(rb):
-            n = len(rb) - 1
-            rb.resize(len(ra))
-            for i in xrange(n + 1, len(ra)):
-                rb[i] = rb[n]
-        elif len(rb) > len(ra):
-            n = len(ra) - 1
-            ra.resize(len(rb))
-            for i in xrange(n + 1, len(rb)):
-                ra[i] = ra[n]
-
-        E = 0
-        while rb[E] == 0:
-            E += 1
-        E += 1
-        Rmax = max(len(ra) - 1, len(rb) - 1) + 1
-        Da = [float(ra[r]) / float(ra[-1]) * float(Rmax**2) / float((r + 1)**2) for r in xrange(len(ra))]
-        Db = [float(rb[r]) / float(rb[-1]) * float(Rmax**2) / float((r + 1)**2) for r in xrange(len(rb))]
-
-        S = spearmanr(Da, Db)[0]
-        C.append(S * math.exp(-E / Rmax))
-
-    res = np.zeros([dim1, dim0])
-    for i in xrange(len(ch1objects)):
-        res[ch1objects[i][1], ch1objects[i][0]] = C[i]
-        #print "x=%d, y=%d, C=%f" % (ch1objects[i][0], ch1objects[i][1], C[i])
-    plot.matshow(res)
-    plot.colorbar()
-    plot.show()
-    plot.hist(C)
-    plot.show()
-
-
 def CBC_ROI2(tree, loc, locs, r, R):
     idxR = set(tree.query_ball_point(loc[:2],R))
     idxr = set(tree.query_ball_point(loc[:2],r))
@@ -584,7 +349,7 @@ def CBC(locsAo,locsBo, dims, factor, pixelsize = 100):
     treeB = spatial.cKDTree(locsB[:,:2],10)
 
     for i in range (0,(len(locsA))):
-        print i, len(locsA)
+        print(i, len(locsA))
         # selection
 
         loc=locsA[i,:]
@@ -625,7 +390,7 @@ def CBC(locsAo,locsBo, dims, factor, pixelsize = 100):
 
     dataB = np.zeros([dims[1]*factor, dims[0]*factor,4])
     for i in range(len(listcorr)):
-        print i
+
         if listcorr[i]>0:
             try: 
                 dataB[int(factor * locsA[i,1]/pixelsize),int(factor * locsA[i,0]/pixelsize),0] = listcorr[i]*255
@@ -638,7 +403,7 @@ def CBC(locsAo,locsBo, dims, factor, pixelsize = 100):
                 tmp = 1
     dataB = np.array(dataB, dtype=np.uint8)
 
-    print "Total time for colocalization detection:",time.time() - st
+    print("Total time for colocalization detection:",time.time() - st)
     plot.matshow(dataB[...,0])
     plot.show()
 

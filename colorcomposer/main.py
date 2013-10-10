@@ -226,7 +226,7 @@ class MyColorcomposerApp(QtCore.QObject):
         for i, np_img in enumerate(self.m_npimages):
             if self.m_uncertaintyToggled:
                 qimg_i = QtGui.QImage(self.m_errorAppliednpimages[i],self.m_errorAppliednpimages[i].shape[1],self.m_errorAppliednpimages[i].shape[0],QtGui.QImage.Format_RGB32)
-                print self.m_uncertaintyToggled
+                print(self.m_uncertaintyToggled)
             else:
                 qimg_i = QtGui.QImage(np_img,np_img.shape[1],np_img.shape[0],QtGui.QImage.Format_RGB32)
             painter.drawImage(0,0,qimg_i)
@@ -236,14 +236,15 @@ class MyColorcomposerApp(QtCore.QObject):
     def showTransformation_Matrix(self):
         for i in range(1,len(self.m_npimages)):
             mat,trafo =  self.transformcontroller.getTransform(i)
-            print "Transformation matrix transforming layer %i on layer 0" % (i)
-            print trafo
+            print("Transformation matrix transforming layer %i on layer 0" % (i))
+            print(trafo)
 
     def autoMarkBeads(self):
-        for i in xrange(self.ui.fileWidget.count()):
+        for i in range(self.ui.fileWidget.count()):
             listItem = self.ui.fileWidget.item(i)
-            filename = listItem.data(QtCore.Qt.DisplayRole).toString()
-
+            #filename = listItem.data(QtCore.Qt.DisplayRole).toString()
+            filename = listItem.data(QtCore.Qt.DisplayRole)
+            
             beadPositions = beadLocalisation.detectBeadsFromFile(filename,self.cutoff,self.maxDistance,self.maxVariance)
             for b in beadPositions:
                 color = QtGui.QColor.fromRgbF(*self.m_colors[i])
@@ -256,7 +257,8 @@ class MyColorcomposerApp(QtCore.QObject):
 
     def getCircledBead(self, layer):					#returns the bead (layer=0 for red, layer=1 for green) in the rectangular selected by single mouseclick
         listItem = self.ui.fileWidget.item(layer)
-        filename = listItem.data(QtCore.Qt.DisplayRole).toString()
+        #filename = listItem.data(QtCore.Qt.DisplayRole).toString()
+        filename = listItem.data(QtCore.Qt.DisplayRole)
         dims, cc = coords.readfile(filename)
         rect=CursorGraphicsScene.getCursorPosition(self.scene)
         maxDist=CursorGraphicsScene.cursorRadius(self.scene)
@@ -264,14 +266,14 @@ class MyColorcomposerApp(QtCore.QObject):
         candidate = coords.cropROI(cc, roi)[:,:4]
 
         if len(candidate) < self.cutoff*dims[2]:
-            print 'Number of points below percentage of occurrency 2'
+            print('Number of points below percentage of occurrency 2')
             bead='false'
         else:
             mm,stddev,intensitiy = beadLocalisation.beadVariance(candidate)
             color = QtGui.QColor.fromRgbF(*self.m_colors[layer])
             bead = BeadCircle(mm[0],mm[1],color,layer)
         if len(candidate) > dims[2]:
-            print ' WARNING: Number of points below percentage of occurrency because len(candidate) =%d > dims[2] = %d'%(len(candidate),dims[2])
+            print(' WARNING: Number of points below percentage of occurrency because len(candidate) =%d > dims[2] = %d'%(len(candidate),dims[2]))
 
         return bead
 
@@ -299,7 +301,7 @@ class MyColorcomposerApp(QtCore.QObject):
     def autoDetectBeads_triggered(self):
         self.main_window.statusBar().showMessage('auto detection in process')
         app.processEvents()
-        print "auto-detecting beads..."
+        print("auto-detecting beads...")
         self.autoMarkBeads()
         self.main_window.statusBar().showMessage('auto detection finished')
         app.processEvents()
@@ -341,7 +343,7 @@ class MyColorcomposerApp(QtCore.QObject):
                                                         #GraphicsObject of the class BeadCircle
                     obj.toGraphicsObject().setBeadActive()
                 except AttributeError:
-                    print ' AttributeError'
+                    print('AttributeError')
             app.processEvents()
             enough_beads = True
             for i in range(len(self.m_npimages)):
@@ -351,9 +353,9 @@ class MyColorcomposerApp(QtCore.QObject):
             if enough_beads:
                 self.doTransformationButton_clicked()
             else:
-                print 'more beads needed'
+                print('more beads needed')
         else:
-            print 'more images needed'
+            print('more images needed')
 
         self.main_window.statusBar().showMessage('Beads aligned')
 
@@ -402,7 +404,7 @@ class MyColorcomposerApp(QtCore.QObject):
                     self.scene.removeItem(obj)
                     self.counter_beads[lay] = self.counter_beads[lay] - 1
             except AttributeError:
-                print ' '
+                print(' ')
 
     def displayStats(self, x, y, radius):
         number = "number:   "
@@ -465,11 +467,11 @@ class MyColorcomposerApp(QtCore.QObject):
                 del painter
                 del self.heatmap
         else:
-            print "Colocalisation has to be calculated first."
+            print("Colocalisation has to be calculated first.")
 
     def exportTransformedCoordinates_triggered(self):
         '''export coordinate file list of tranformed points for all layers'''
-        for i in xrange(1,self.ui.fileWidget.count()):
+        for i in range(1,self.ui.fileWidget.count()):
             listItem = self.ui.fileWidget.item(i)
             filename = listItem.data(QtCore.Qt.DisplayRole).toString()
             name = QtCore.QFileInfo(filename).fileName() # without path
@@ -478,7 +480,7 @@ class MyColorcomposerApp(QtCore.QObject):
                 newfilename += ".txt" # add default extension
             dimensions, points = coords.readfile(filename)
             p_transformed = self.transformcontroller.doTransform(points[:,0:2], i)
-            print self.m_dims[0][3]
+            print(self.m_dims[0][3])
             points[:,0:2] = p_transformed
             coords.writefile(newfilename, dimensions[0:2], points, self.m_dims[0])
 

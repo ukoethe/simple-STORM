@@ -13,6 +13,8 @@
 #include <QFileInfo>
 #include <QDir>
 
+
+
 ResultWidget::ResultWidget(QWidget *parent)
 : QWidget(parent), m_ui(new Ui::ResultWidget()), m_functor(0), m_worker(0), m_coordinatesSaved(false), m_reconstructionSaved(false), m_autoZoom(true), m_minZoom(10), m_maxZoom(500), m_zoomStep(10), m_zoomPageStep(5 * m_zoomStep)
 {
@@ -78,7 +80,7 @@ void ResultWidget::start(const GuiParams &params)
     connect(m_worker, SIGNAL(finished()), this, SLOT(workerFinished()));
     connect(m_ui->preview, SIGNAL(detections(const QString&)), m_ui->lbl_detections, SLOT(setText(const QString&)));
     m_ui->bottomLayout->removeItem(m_ui->spcr);
-    m_worker->setPriority(QThread::LowPriority);
+    //m_worker->setPriority(QThread::LowPriority);
     connect(m_ui->preview, SIGNAL(initialized()), m_worker, SLOT(start()));
     m_ui->progressBar->setRange(0, 0);
     m_ui->preview->setParams(&params);
@@ -151,17 +153,23 @@ void ResultWidget::workerFinished()
 
 void ResultWidget::saveClicked()
 {
+	std::cout<<"begin Resultwidget::saveClicked"<<std::endl;
     QStringList filters;
     filters.append("Coordinate file and reconstructed image (*.txt *.tif *.tiff)");
     filters.append("Reconstructed image (*.tif *.tiff)");
     filters.append("Coordinate file (*.txt)");
     QString selectedFilter;
+	std::cout<<"Resultwidget::saveClicked line 160"<<std::endl;
     QString file = QFileDialog::getSaveFileName(this, "Save as", QFileInfo(fileSaveDialogDirectory, QFileInfo(QString::fromStdString(m_params.getCoordsFile())).fileName()).absoluteFilePath(), filters.join(";;"), &selectedFilter);
     QFileInfo info(file);
     fileSaveDialogDirectory = info.absolutePath();
+	std::cout<<"Resultwidget::saveClicked line 164"<<std::endl;
     if (selectedFilter == filters[0]) {
+		std::cout<<"Resultwidget::saveClicked line 166"<<std::endl;
         m_ui->preview->saveImage(info.absolutePath() + '/' + info.baseName() + "_result.tif", info.absolutePath() + '/' + info.baseName() + "_resultHighContrast.tif");
+		std::cout<<"Resultwidget::saveClicked line 168"<<std::endl;
         saveCoordinates(info.absolutePath() + '/' + info.baseName() + ".txt");
+		std::cout<<"Resultwidget::saveClicked line 170"<<std::endl;
         m_coordinatesSaved = m_reconstructionSaved = true;
     } else if (selectedFilter == filters[1]){
         m_ui->preview->saveImage(file, file);
@@ -171,10 +179,12 @@ void ResultWidget::saveClicked()
         saveCoordinates(file);
         m_coordinatesSaved = true;
     }
+		std::cout<<"end Resultwidget::saveClicked"<<std::endl;
 }
 
 void ResultWidget::saveCoordinates(const QString &file)
 {
+	std::cout<<"Resultwidget::saveCoordinates"<<std::endl;
     std::ofstream out(QDir::toNativeSeparators(file).toStdString());
     saveCoordsFile(m_params, out, m_result);
     out.close();

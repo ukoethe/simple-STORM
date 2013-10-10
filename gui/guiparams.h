@@ -12,8 +12,10 @@ public:
     void setAdvancedSettingsEnabled(bool);
     float getReconstructionResolution() const;
     void setReconstructionResolution(float);
-
+	float getReconstructionResolutionDefaults() const;
     virtual void save() const;
+	bool getReconstructionResolutionDefaultsSet() const;
+	bool getReconstructionResolutionFromSettingsFile() const;
 
 protected:
     virtual void loadSettings(bool);
@@ -21,7 +23,9 @@ protected:
 private:
     bool m_advancedSettingsEnabled;
     float m_reconstructionResolution;
-
+	float m_reconstructionResolutionDefaults;
+	bool m_reconstructionResolutionDefaultsSet;
+	bool m_reconstructionResolutionFromSettingsFile;
     static const std::string s_section;
 };
 

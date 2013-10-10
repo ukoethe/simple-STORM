@@ -20,34 +20,41 @@ def readfile(filename):
         dims = data['dims']
         dimensions = dims
         coords = data['coords']
-        print "I read the cached file instead of parsing a .txt file"
+        print("I read the cached file instead of parsing a .txt file")
         return dims, coords
     except IOError: # file could not be read
         pass
-
+    
+    #coords = np.loadtxt(filename, skiprows = 1,delimiter=' ', dtype = float)
+    
+    #csvfile = csv.reader(filename, delimiter=' ')
     # read csv coordinates list
-    csvfile = open(filename, "rb")
-    dialect = csv.Sniffer().sniff(csvfile.read(4096),delimiters=",; ")
-    print "delim: '%s'" % dialect.delimiter
-    csvfile.seek(0)
-    reader = csv.reader(csvfile, dialect)
+    #csvfile = (open(filename, "r"))
+    #dialect = csv.Sniffer().sniff(csvfile.read(4096),delimiters=',; ')
+    #print("delim: '%s'" % dialect.delimiter)
+    #csvfile.seek(0)
+    #reader = csv.reader(csvfile, dialect)
+    reader = open(filename, 'r')
 
     # read dimensions
-    dimline = reader.next()
-    dimline = [float(i) for i in dimline] #convert to float
-    coords = []
-    try:
-        for row in reader:
-            coords.append(row)
-    except csv.Error, e:
-        sys.exit('file %s, line %d: %s' % (filename, reader.line_num, e))
+    dimline = next(reader)#dimline = reader.next()
+    print(dimline)
+    dimline = [float(i) for i in dimline.split()] #convert to float
+    
+    coords = np.loadtxt(filename, skiprows=1, delimiter = ' ', dtype = float)
+    #coords = []
+    #try:
+    #    for row in reader:
+    #        coords.append(row)
+    #except e:
+    #    sys.exit('file %s, line %d: %s' % (filename, reader.line_num, e))
 
     npcoords = np.asarray(coords, dtype='float') #numpy-array
     npdims = np.asarray(dimline[0:7]) #0: x, 1:y, 2:stacksize, 3:pixelnmratio, 4:factor, 5: PSF width, 6: prefactor
     npcoords[:,:2]/= npdims[3]
     psfWidth = dimline[5]
-    #prefactor = npdims[6]
     if npcoords.shape[1] < 6:
+        prefactor = npdims[6]
         npcoords = np.hstack([npcoords, 1/npcoords[:,1:2]**2*np.sqrt(2)/2*np.pi*psfWidth**4*(2+1/prefactor**2+prefactor**2)**2+1/12.])
 
     dimensions = npdims
@@ -67,8 +74,8 @@ def writefile(filename, shape, coords, dims):
     coordsVisible = cropROI(coords, (0, shape2[0]-1, 0, shape2[1]-1)) # drop points outside visible area
     coordsVisible[:,:2]*=dims[3]
     if len(coordsVisible) != len(coords):
-        print "%i out of %i coordinates are outside of the field of view (dropping)" % \
-                (len(coords)-len(coordsVisible), len(coords))
+        print("%i out of %i coordinates are outside of the field of view (dropping)" % \
+                (len(coords)-len(coordsVisible), len(coords)))
     csvwriter.writerow(shape2)
     csvwriter.writerows(coordsVisible)
     fp.close()
@@ -102,13 +109,13 @@ def coords2Image(dimension, coords, factor=8, applyError = False):
     im = np.zeros((dimension[1]*factor, dimension[0]*factor))
     cc = np.array(coords[:,:2]*factor, dtype=int) # integer indices
     roiwidth = 3
-    for i in xrange(len(coords)):
+    for i in range(len(coords)):
         intensity = coords[i,3]
         if applyError:
-            print i, len(coords)
+            print(i, len(coords))
             for x in range(-roiwidth,roiwidth + 1):
                 for y in range(-roiwidth, roiwidth +1):
-                    print coords[i,5]
+                    print(coords[i,5])
                     im[cc[i,1]+x, cc[i,0]+y] += gauss2D(x,0,y,0,coords[i,5]) * intensity
         else:
             im[cc[i,1],cc[i,0]] += intensity
@@ -117,9 +124,9 @@ def coords2Image(dimension, coords, factor=8, applyError = False):
     mmx = scipy.stats.scoreatpercentile(im[np.where(im>0)].flat, 90.)
     if mmx > 0:
         im[im>mmx] = mmx # crop maximum at above percentile
-    print np.max(im)
-    print mmx
-    print np.mean(im)
+    print(np.max(im))
+    print(mmx)
+    print(np.mean(im))
     return im
 
 def Image2coords(image, color):

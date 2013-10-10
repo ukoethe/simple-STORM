@@ -45,6 +45,8 @@
 
 #define STORMPARAMS_N 3 // could eventually be a template parameter later on
 
+typedef std::basic_string<TCHAR> tstring;
+
 namespace rude {
 class Config;
 }
@@ -74,15 +76,18 @@ public:
     void printUsage() const;
     void printVersion() const;
     int getFactor() const;
+	int getFactorDefaults() const;
     void setFactor(int);
     bool getFactorSaved() const;
     int getRoilen() const;
     void setRoilen(int);
     bool getRoilenSaved() const;
     float getPixelSize() const;
+	float getPixelSizeDefaults() const;
     void setPixelSize(float);
     bool getPixelSizeSaved() const;
     unsigned int getSkellamFrames() const;
+	unsigned int getSkellamFramesDefaults() const;
     void setSkellamFrames(unsigned int);
     bool getSkellamFramesSaved() const;
     unsigned int getXYChunkSize() const;
@@ -102,10 +107,13 @@ public:
     void setCoordsFile(const std::string&);
     const std::string& getSettingsFile() const;
     void setSettingsFile(const std::string&, bool reload = false);
+	void setSettingsFileDefaults();
     const std::string& getFrameRange() const;
     void setFrameRange(const std::string&);
     bool getFrameRangeSaved() const;
     float getAlpha() const;
+	bool getAlphaSaved() const;
+	float getAlphaDefaults() const;
     void setAlpha(float);
     double getMaskThreshold() const;
     bool getDoAsymmetryCheck() const;
@@ -127,6 +135,16 @@ public:
     void setVerbose(bool);
     void setPrefactorSigma(double);
     double getPrefactorSigma() const;
+	tstring getDefaultsFileFilename();
+	bool getFactorDefaultsSet() const;
+	bool getPixelSizeDefaultsSet() const;
+	bool getSkellamFramesDefaultsSet() const;
+	bool getAlphaDefaultsSet() const;
+	
+	bool getFactorFromSettingsFile() const;
+	bool getPixelSizeFromSettingsFile() const;
+	bool getSkellamFramesFromSettingsFile() const;
+	bool getAlphaFromSettingsFile() const;
 
     const Shape & shape() const;
     vigra::MultiArrayIndex shape(const int dim) const;
@@ -145,6 +163,7 @@ public:
 protected:
     mutable rude::Config *m_config;
     virtual void loadSettings(bool);
+	rude::Config *m_configDefaults;
 
 private:
     int parseProgramOptions(int argc, char **argv);
@@ -155,12 +174,15 @@ private:
     Shape m_shape;
     FileType m_type;
     int m_factor;
+	int m_factorDefaults;
     bool m_factorSaved;
     int m_roilen;
     bool m_roilenSaved;
     float m_pixelsize;
+	float m_pixelsizeDefaults;
     bool m_pixelsizeSaved;
     int m_skellamFrames;
+	int m_skellamFramesDefaults;
     bool m_skellamFramesSaved;
     int m_xyChunkSize;
     bool m_xyChunkSizeSaved;
@@ -170,6 +192,8 @@ private:
     bool m_chunksInMemorySaved;
     bool m_framesSaved;
     float m_alpha;
+	float m_alphaDefaults;
+	bool m_alphaSaved;
     double m_thresholdMask;
     float m_asymmetryThreshold;
     bool m_doAsymmetryCheck;
@@ -183,11 +207,20 @@ private:
     bool m_ignoreSkellamFramesSaved;
     bool m_verbose;
     double m_prefactorSigma;
+	bool m_factorDefaultsSet;
+	bool m_pixelsizeDefaultsSet;
+	bool m_skellamFramesDefaultsSet;
+	bool m_alphaDefaultsSet;
 
+	bool m_factorFromSettingsFile;
+	bool m_pixelSizeFromSettingsFile;
+	bool m_skellamFramesFromSettingsFile;
+	bool m_alphaFromSettingsFile;
     std::string m_infile;
     std::string m_outfile;
     std::string m_coordsfile;
     std::string m_settingsfile;
+	std::string m_settingsfileDefaults;
     std::string m_frames;
 
     std::set<std::string> m_acceptedFileTypes;

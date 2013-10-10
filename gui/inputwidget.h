@@ -5,6 +5,8 @@
 
 #include <QWidget>
 
+class OptionWidget;
+
 namespace Ui
 {
 class InputWidget;
@@ -19,18 +21,21 @@ Q_OBJECT
 public:
     InputWidget(QWidget *parent = 0);
     ~InputWidget();
-
+	void enableInput(bool);
+	GuiParams m_params;
+	OptionWidget *opt;
+	Ui::InputWidget *m_ui;
+	
 Q_SIGNALS:
     void run(const GuiParams&);
 
 private:
     void setFieldsFromDefaults();
-    void enableInput(bool);
-
-    Ui::InputWidget *m_ui;
+    
+	
+    
     Ui::AdvancedSettingsGroupBox *m_uiAdvancedSettings;
     Ui::BackgroundLevelGroupBox *m_uiBackgroundLevel;
-    GuiParams m_params;
 
 private Q_SLOTS:
     void inputFileButtonClicked();
@@ -39,6 +44,7 @@ private Q_SLOTS:
     void settingsFileEdited(const QString&);
     void advancedSettingsToggled(bool);
     void doAsymmetryCheckToggled(bool);
+	void optionsClicked();
     void runClicked();
     void factorEdited();
     void pixelSizeEdited();

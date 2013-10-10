@@ -2,11 +2,16 @@
 #include "ui_inputwidget.h"
 #include "ui_advancedsettingsgroupbox.h"
 #include "ui_backgroundlevelgroupbox.h"
+#include "ui_optionwidget.h"
+#include "ui_inputwidget.h"
 #include "globals.h"
+#include "optionwidget.h"
 
 #include <QGroupBox>
 #include <QFileDialog>
 #include <iostream>
+
+
 
 InputWidget::InputWidget(QWidget *parent)
 : QWidget(parent), m_ui(new Ui::InputWidget()), m_uiAdvancedSettings(new Ui::AdvancedSettingsGroupBox()), m_uiBackgroundLevel(new Ui::BackgroundLevelGroupBox())
@@ -30,6 +35,7 @@ InputWidget::InputWidget(QWidget *parent)
 #else
     m_ui->btn_run->setIcon(QIcon(":/system-run.svgz"));
 #endif
+
     connect(m_ui->btn_inputFile, SIGNAL(clicked()), this, SLOT(inputFileButtonClicked()));
     connect(m_ui->btn_settingsFile, SIGNAL(clicked()), this, SLOT(settingsFileButtonClicked()));
     connect(m_ui->lne_inputFile, SIGNAL(textEdited(const QString&)), this, SLOT(inputFileEdited(const QString&)));
@@ -39,10 +45,11 @@ InputWidget::InputWidget(QWidget *parent)
     advancedSettingsToggled(m_ui->chk_advancedSettings->isChecked());
     connect(m_ui->spn_factor, SIGNAL(editingFinished()), this, SLOT(factorEdited()));
     connect(m_ui->spn_pixelSize, SIGNAL(editingFinished()), this, SLOT(pixelSizeEdited()));
-    connect(m_ui->spn_reconstructionRes, SIGNAL(editingFinished()), this, SLOT(reconstructionResolutionEdited()));
+    //connect(m_ui->spn_reconstructionRes, SIGNAL(editingFinished()), this, SLOT(reconstructionResolutionEdited()));
+	connect(m_ui->btn_options, SIGNAL(clicked()), this, SLOT(optionsClicked()));
     connect(m_uiAdvancedSettings->chk_doAsymmetryCheck, SIGNAL(toggled(bool)), this, SLOT(doAsymmetryCheckToggled(bool)));
     doAsymmetryCheckToggled(m_uiAdvancedSettings->chk_doAsymmetryCheck->isChecked());
-    enableInput(false);
+	enableInput(false);
 }
 
 InputWidget::~InputWidget()
@@ -66,12 +73,21 @@ void InputWidget::inputFileButtonClicked()
     }
 }
 
+void InputWidget::optionsClicked()
+{
+	opt = new OptionWidget(this);
+    opt->show();
+    opt->raise();
+    opt->activateWindow();
+}
+
 void InputWidget::settingsFileButtonClicked()
 {
     QString file = QFileDialog::getOpenFileName(this, "Select settings file", fileOpenDialogDirectory, "INI-style text files (*.txt *.ini)");
     if (!file.isEmpty()) {
         fileOpenDialogDirectory = QFileInfo(file).absoluteDir().absolutePath();
         m_ui->lne_inputFile->setText(file);
+		m_params.setSettingsFileDefaults();
         m_params.setSettingsFile(file.toStdString());
         m_ui->lne_settingsFile->setText(file);
         setFieldsFromDefaults();
@@ -95,7 +111,8 @@ void InputWidget::inputFileEdited(const QString &file)
 }
 
 void InputWidget::settingsFileEdited(const QString &file) {
-    m_params.setSettingsFile(file.toStdString());
+    m_params.setSettingsFileDefaults();
+	m_params.setSettingsFile(file.toStdString());
     setFieldsFromDefaults();
 }
 
@@ -159,12 +176,12 @@ void InputWidget::runClicked()
     std::cout<<"getSlopeSaved:"<<m_params.getSlopeSaved()<<std::endl;
     if (!(m_params.getSlopeSaved() && m_params.getInterceptSaved())) {
         m_params.setSkellamFrames(m_ui->spn_skellamFrames->value());
-        std::cout<<"IgnoreSkellamFrames:"<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
+        //std::cout<<"IgnoreSkellamFrames:"<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
     }
     else
         m_params.setIgnoreSkellamFramesSaved(true);
     m_params.doSanityChecks();
-    std::cout<<"IgnoreSkellamFrames:"<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
+    //std::cout<<"IgnoreSkellamFrames:"<<m_params.getIgnoreSkellamFramesSaved()<<std::endl;
     emit run(m_params);
 }
 
@@ -175,6 +192,29 @@ void InputWidget::setFieldsFromDefaults()
     m_ui->spn_reconstructionRes->setValue(m_params.getReconstructionResolution());
     m_ui->spn_skellamFrames->setValue(m_params.getSkellamFrames());
     m_ui->spn_alpha->setValue(m_params.getAlpha()*100);
+	//if defaults are found the hard coded default values will be overwritten
+	if (m_params.getFactorDefaultsSet())
+		m_ui->spn_factor->setValue(m_params.getFactorDefaults());
+    if (m_params.getPixelSizeDefaultsSet())
+		m_ui->spn_pixelSize->setValue(m_params.getPixelSizeDefaults());
+    if (m_params.getReconstructionResolutionDefaultsSet())
+		m_ui->spn_reconstructionRes->setValue(m_params.getReconstructionResolutionDefaults());
+    if (m_params.getSkellamFramesDefaultsSet())
+		m_ui->spn_skellamFrames->setValue(m_params.getSkellamFramesDefaults());
+    if (m_params.getAlphaDefaultsSet())
+		m_ui->spn_alpha->setValue(m_params.getAlphaDefaults()*100);
+	//if a settingsfile exists the default values will be overwritten with the parameters from the settings file
+	if (m_params.getFactorFromSettingsFile())
+		m_ui->spn_factor->setValue(m_params.getFactor());
+    if (m_params.getPixelSizeFromSettingsFile())
+		m_ui->spn_pixelSize->setValue(m_params.getPixelSize());
+    if (m_params.getReconstructionResolutionFromSettingsFile())
+		m_ui->spn_reconstructionRes->setValue(m_params.getReconstructionResolution());
+    if (m_params.getSkellamFramesFromSettingsFile())
+		m_ui->spn_skellamFrames->setValue(m_params.getSkellamFrames());
+    if (m_params.getAlphaFromSettingsFile())
+		m_ui->spn_alpha->setValue(m_params.getAlpha()*100);
+
 
     m_ui->chk_advancedSettings->setChecked(m_params.getAdvancedSettingsEnabled());
 
@@ -182,7 +222,6 @@ void InputWidget::setFieldsFromDefaults()
     m_uiAdvancedSettings->spn_xyChunkSize->setValue(m_params.getXYChunkSize());
     m_uiAdvancedSettings->spn_tChunkSize->setValue(m_params.getTChunkSize());
     m_uiAdvancedSettings->spn_chunksInMemory->setValue(m_params.getChunksInMemory());
-
 
     if (m_params.getSlopeSaved())
         m_ui->spn_gain->setValue(m_params.getSlope());
@@ -216,14 +255,31 @@ void InputWidget::enableInput(bool enable)
 
 void InputWidget::factorEdited()
 {
-    if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < m_ui->spn_pixelSize->value())
-        m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
+		try
+	{
+		m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
+	}
+	catch (int e)
+	{
+		std::cout<<e<<std::endl;
+	}
+    //if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < m_ui->spn_pixelSize->value())
+    //    m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
 }
 
 void InputWidget::pixelSizeEdited()
 {
-    if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < m_ui->spn_pixelSize->value())
-        m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
+	//std::cout<<"pixelSizeEdited()"<<std::endl;
+	try
+	{
+		m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
+	}
+	catch (int e)
+	{
+		std::cout<<e<<std::endl;
+	}
+    //if (m_ui->spn_reconstructionRes->value() * m_ui->spn_factor->value() < m_ui->spn_pixelSize->value())
+    //   m_ui->spn_reconstructionRes->setValue(m_ui->spn_pixelSize->value() / m_ui->spn_factor->value());
 }
 
 void InputWidget::reconstructionResolutionEdited()

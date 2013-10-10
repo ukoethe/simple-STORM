@@ -4,7 +4,7 @@ import os.path
 from scipy import signal
 
 def getQimage(dims, cc, color=(1.,1.,0.), factor = 4):
-    print dims
+    print(dims)
     img = coords.coords2Image(dims, cc, factor, True)
     colorimg = np.zeros((img.shape[0],img.shape[1],4),dtype=np.uint8)
     mx = np.max(img)
@@ -15,7 +15,7 @@ def getQimage(dims, cc, color=(1.,1.,0.), factor = 4):
     return colorimg
 
 def loadImage(filename, color=(1.,1.,0.)):
-    print "reading file %s" % filename
+    print("reading file %s" % filename)
     
     dims, cc = coords.readfile(filename)
     factor = dims[4]
@@ -61,8 +61,8 @@ def smooth_image_according_to_heatmatrix(img, heatmatrix, factor):
 				'''for k0 in range(-filter_width, filter_width+1):
 					for k1 in range(-filter_width, filter_width+1):
 						res_img[i+k0,j+k1,1] = res_img[i+k0,j+k1,1] + Gauss2d[k0 + filter_width, k1 + filter_width] * img[i,j,1]'''
-	print np.mean(res_img[...,1])
-	print 'counter alt', counter
+	print(np.mean(res_img[...,1]))
+	print('counter alt', counter)
 	return res_img
 
 def smooth_image_according_to_heatmatrix_new(img, heatmatrix, factor):

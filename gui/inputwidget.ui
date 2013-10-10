@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>487</width>
-    <height>438</height>
+    <width>401</width>
+    <height>496</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -65,14 +65,7 @@
      </item>
     </layout>
    </item>
-   <item row="2" column="1">
-    <widget class="QCheckBox" name="chk_advancedSettings">
-     <property name="text">
-      <string>Show Advanced Settings</string>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="0" colspan="2">
+   <item row="7" column="0" colspan="2">
     <widget class="QGroupBox" name="grp_general">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
@@ -259,10 +252,10 @@
      </layout>
     </widget>
    </item>
-   <item row="4" column="0" colspan="2">
+   <item row="8" column="0" colspan="2">
     <widget class="QStackedWidget" name="stck_advancedSettings"/>
    </item>
-   <item row="5" column="0" colspan="2">
+   <item row="9" column="0" colspan="2">
     <widget class="QGroupBox" name="grp_data">
      <property name="title">
       <string>Data Parameters</string>
@@ -361,7 +354,7 @@
      </layout>
     </widget>
    </item>
-   <item row="6" column="0">
+   <item row="10" column="0">
     <widget class="QPushButton" name="btn_run">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -373,6 +366,43 @@
       <string>&amp;Run</string>
      </property>
     </widget>
+   </item>
+   <item row="2" column="1">
+    <layout class="QHBoxLayout" name="horizontalLayout_3">
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QCheckBox" name="chk_advancedSettings">
+       <property name="text">
+        <string>Show Advanced Settings</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_options">
+       <property name="text">
+        <string>Set Default Settings</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>

@@ -32,6 +32,7 @@ set(SRCS
     previewscrollarea.cpp
     filenamelineedit.cpp
     guiparams.cpp
+    optionwidget.cpp
 )
 
 SET(UIS
@@ -39,6 +40,7 @@ SET(UIS
     backgroundlevelgroupbox.ui
     advancedsettingsgroupbox.ui
     resultwidget.ui
+	optionwidget.ui
 )
 
 qt4_add_resources(ICONS_RCC icons/icons.qrc)
@@ -58,7 +60,9 @@ target_link_libraries(${GUI_EXECUTABLE} ${QT_LIBRARIES} wienerstorm vigraimpex)
 
 IF(OPENMP_FOUND)
     set_target_properties(${GUI_EXECUTABLE} PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
-    set_target_properties(${GUI_EXECUTABLE} PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
+    IF(NOT MSVC)
+        set_target_properties(${GUI_EXECUTABLE} PROPERTIES LINK_FLAGS ${OpenMP_CXX_FLAGS})
+    ENDIF(NOT MSVC)
     add_definitions(-DOPENMP_FOUND)
 ENDIF(OPENMP_FOUND)
 
@@ -109,12 +113,13 @@ include(BundleUtilities)
 fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/${BIN_INSTALL_DIR}/${GUI_EXECUTABLE}${CMAKE_EXECUTABLE_SUFFIX}\" \"\${QTPLUGINS}\" \"${CMAKE_LIBRARY_PATH};${CMAKE_SYSTEM_LIBRARY_PATH}\")
 if (APPLE)
     file(WRITE \"\${CMAKE_INSTALL_PREFIX}/${BIN_INSTALL_DIR}/qt.conf\"
-\"[Paths]
-Plugins = .
-\")
-endif (\${CMAKE_INSTALL_PREFIX} MATCHES \".*_CPack_Packages.*\")
+    \"[Paths]
+    Plugins = .
+    \")
+endif(APPLE)
 ")
 endif(WIN32 OR APPLE)
+#endif (\${CMAKE_INSTALL_PREFIX} MATCHES \".*_CPack_Packages.*\")
 
 set(CPACK_PACKAGE_INSTALL_DIRECTORY simpleSTORM)
 set(CPACK_PACKAGE_EXECUTABLES

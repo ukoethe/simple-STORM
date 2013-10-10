@@ -624,6 +624,7 @@ void drawCoordsToImage(const std::set<C>& coords, Image& res) {
 
 template <class C>
 int saveCoordsFile(const DataParams &params, std::ofstream &cfile, const std::vector<std::set<C> >& coords) {
+	std::cout<<"begin saveCoordsFile"<<std::endl;
     int numSpots = 0;
     std::set<Coord<float> >::iterator it2;
     cfile << params.shape(0) << " " << params.shape(1) << " " << params.shape(2) << " "<< params.getPixelSize()<< " " <<params.getFactor()<< " " << params.getSigma()<< " " <<params.getPrefactorSigma()<< std::endl;
@@ -665,8 +666,10 @@ void findMinMaxPercentile(Image& im, double minPerc, double& minVal, double maxP
 template<class T>
 void findMinMaxPercentileMA(MultiArray<2, T>& im, double minPerc, double& minVal, double maxPerc, double& maxVal) {
     std::vector<T> v;
-    for(int y=0; y<im.height(); y++) {
-        for(int x=0; x<im.width(); x++) {
+	std::cout<<im.height()<<" "<<im.width()<<std::endl;
+    for(int y=0; y<im.width(); y++) {
+        for(int x=0; x<im.height(); x++) {
+			//std::cout<<im(y,x)<<"x: "<<x<<" y: "<<y<<" xmax: "<<im.width()<<" ymax: "<<im.height()<<std::endl;
             if(im(y,x)>0)
 			{
 				//std::cout<<"x: "<<x<<" y: "<<y<<" val: "<<im(y,x)<<std::endl;
@@ -960,6 +963,7 @@ void processChunk(const DataParams &params, MultiArray<3, T> &srcImage,
 //         char name[1000];
 //         sprintf(name, "/home/herrmannsdoerfer/tmpOutput/frameData/frame%d.tif", middleChunkFrame+f);
 //         vigra::exportImage(srcImageRange(currSrc), name);
+		//std::cout<<"functor currframe = "<<currframe<<std::endl;
         functor(params, currSrc, currframe + f);
         progressFunc.frameFinished(currframe + f);
     }
@@ -1101,8 +1105,8 @@ double fitPSF2D(MultiArray<2, double>&, double&);
 
 template <class T>
 void getPSFwidth(const DataParams &params, MultiArrayView<2, T>& in, std::vector<T> &PSFwidths, int roiwidth, int nbrRoisPerFrame, int &rois, int currframe) {
-vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
-                               [](double p){return std::pow((p+3./8.)/2.,2)-3./8.;}); //inverse Anscombe transform to avoid spread of PSF
+//vigra::transformMultiArray(srcMultiArrayRange(in), destMultiArray(in),
+//                               [](double p){return std::pow((p/2),2)-3./8.;}); //inverse Anscombe transform to avoid spread of PSF
 	int w = params.shape(0), h = params.shape(1);
 	
 	BasicImage<T> img(w,h);
@@ -1349,10 +1353,18 @@ void wienerStormSingleFrame(const DataParams &params, const MultiArrayView<2, T>
     SetPushAccessor<Coord<T>, T, typename BasicImage<T>::const_traverser> maxima_acc(maxima_coords, im_xxl.upperLeft(), factor, mask);
     //upscale filtered image regions with spline interpolation
     std::set<Coord<float> >::iterator it2;
+	
+	
+/*	int counter2 = 0;
+	for (it2 = maxima_candidates_vect.begin(); it2!= maxima_candidates_vect.end(); it2++)
+	{
+		counter2++;
+	}
+	std::cout<<"Frame: "<<framenumber<< " Anz. Maxima: "<< counter2<<std::endl;*/
 
     for(it2=maxima_candidates_vect.begin(); it2 != maxima_candidates_vect.end(); it2++) {
             Coord<float> c = *it2;
-            if(unfiltered(c.x,c.y)<1 || mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 3 or maxima not covered by the mask
+            if(unfiltered(c.x,c.y)<1 || mask(c.x,c.y) == 0.0) { // skip very low signals with SNR lower 1 or maxima not covered by the mask
                 continue;
             }
             Diff2D roi_ul (c.x-mylen2, c.y-mylen2);

@@ -1,5 +1,5 @@
 import numpy as np
-import vigra
+#import vigra
 import coords as coord2im
 import sys
 import time
@@ -26,7 +26,7 @@ def getCandidates(dims,cc,frames):
 		if addNewPoint:
 			candidates.append(cc[counter])
 		addNewPoint = True
-	print len(cc), len(candidates)
+	print(len(cc), len(candidates))
 	return np.array(candidates)
 
 def dist(a, b):
@@ -73,7 +73,7 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 	# sort beads in 'bins'
 	intensities = cc[:,3]
 	#~ allCandidates = cc[intensities > 2*np.mean(intensities)] # only high intensities
-	print dims[2]
+	print(dims[2])
 	initialCandidates = cc[cc[:,2]<50]#getCandidates(dims,cc, np.min([50, dims[2]]))
 	#initialCandidates = allCandidates[allCandidates[:,2]<100] # from frame 0 to 49
 	counter=0
@@ -103,13 +103,13 @@ def detectBeads(dims, cc, cutoff,maxDist=2, maxStdDev=1.3):
 			continue
 		mm,stddev,intensitiy = beadVariance(candidate)
 		if stddev < maxStdDev:
- 			print "mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate)
+			print("mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate))
 			scatterplotData.append( (intensity, stddev))
 			meanData.append(mm)
 		else:
-			print "IGNORED (variance too large): mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate)
-	print singleConsidered, "single detections considered."
-	print skipped, "initial candidates skipped."
+			print("IGNORED (variance too large): mean: ", mm, "variance of dist: ", stddev, "@intensity: ", intensity, "#", len(candidate))
+	print(singleConsidered, "single detections considered.")
+	print(skipped, "initial candidates skipped.")
 
 	meanData = deleteSimilarBeads(meanData, maxDist, cc)
 
@@ -147,21 +147,21 @@ def detectBeadsFromFile(filename, cutoff,  maxDist=2,maxStdDev=1.1):
 	import time
 	start = time.time()
 	beadMeans, beadScatter = detectBeads(dims, cc, cutoff,maxDist, maxStdDev)
-	print "calculated in %f seconds" % (time.time()-start)
+	print("calculated in %f seconds" % (time.time()-start))
 	return beadMeans
 
 if __name__ == "__main__":
 	if len(sys.argv != 2):
-		print "Usage: %s coordsfile.txt" % sys.argv[0]
+		print("Usage: %s coordsfile.txt" % sys.argv[0])
 		sys.exit(1)
 	filename = sys.argv[1]
 	dims, cc = coord2im.readfile(filename)
 	beadMeans, beadScatter = detectBeads(dims, cc)
 
-	print "number of beads: ", len(beadMeans)
+	print("number of beads: ", len(beadMeans))
 	#~ print singleConsidered, "single detections considered."
 	#~ print skipped, "beads skipped."
-	print "mean variance: %f" % (np.mean(beadScatter, axis=0)[1])
+	print("mean variance: %f" % (np.mean(beadScatter, axis=0)[1]))
 
 	#plot:
 	import matplotlib.pyplot as plt
