@@ -45,7 +45,9 @@
 
 #define STORMPARAMS_N 3 // could eventually be a template parameter later on
 
-typedef std::basic_string<TCHAR> tstring;
+#ifdef WIN32
+	typedef std::basic_string<TCHAR> tstring;
+#endif
 
 namespace rude {
 class Config;
@@ -135,7 +137,11 @@ public:
     void setVerbose(bool);
     void setPrefactorSigma(double);
     double getPrefactorSigma() const;
+#ifdef WIN32
 	tstring getDefaultsFileFilename();
+#else
+	std::string getDefaultsFileFilename();
+#endif
 	bool getFactorDefaultsSet() const;
 	bool getPixelSizeDefaultsSet() const;
 	bool getSkellamFramesDefaultsSet() const;

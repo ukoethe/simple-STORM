@@ -1073,19 +1073,21 @@ void StormParams::loadSettings(bool)
 	else
 		m_alphaDefaultsSet = false;
 }
-
-tstring StormParams::getDefaultsFileFilename()
-{
-	#ifdef WIN32
+#ifdef WIN32
+	tstring StormParams::getDefaultsFileFilename()
 	{
+		
 		char szPath[MAX_PATH];
 		SHGetFolderPath(NULL,CSIDL_APPDATA,0,NULL,szPath);
 		tstring a(szPath);
 		return a+"\\SimpleSTORMsettings.txt";
 	}
-	#endif
-	char c[FILENAME_MAX];
-	GetCurrentDir(c, sizeof(c));
-	tstring a(c);
-	return a+"/SimpleSTORMsettings.txt";
-}
+#else
+	std::string StormParams::getDefaultsFileFilename()
+	{
+		char c[FILENAME_MAX];
+		GetCurrentDir(c, sizeof(c));
+		std::string a(c);
+		return a+"/SimpleSTORMsettings.txt";
+	}
+#endif

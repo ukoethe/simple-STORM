@@ -85,42 +85,21 @@ void OptionWidget::AdjustReconstructionResolution()
 	}
 }
 
-tstring OptionWidget::defaultDirectory()
-{
-	#ifdef WIN32
+
+#ifdef WIN32
+	tstring OptionWidget::defaultDirectory()
 	{
 		char szPath[MAX_PATH];
 		SHGetFolderPath(NULL,CSIDL_APPDATA,0,NULL,szPath);
 		tstring a(szPath);
 		return a;
 	}
-	#endif
-	char c[FILENAME_MAX];
-	GetCurrentDir(c, sizeof(c));
-	return c;
-}
-
-std::string TCharToString(LPCTSTR t)
-{
-	// Handy for converting TCHAR to std::string (char)
-	// If the conversion fails, an empty string is returned.
-	std::string str;
-	#ifdef UNICODE
-		// calculate the size of the char string required
-		// Note: If wcstombs encounters a wide character it cannot convert
-		//       to a multibyte character, it returns –1.
-		int len = 1 + wcstombs(0, t, 0);
-		if (0 == len) return str;
-
-		char* c = new char[len];
-		if (NULL == c) throw std::bad_alloc();
-		c[0] = '\0';
-
-		wcstombs(c, t, len);
-		str = c;
-		delete []c;
-		#else
-		str = t;
-	#endif
-	return str;
-}
+#else
+	std::string OptionWidget::defaultDirectory()
+	{
+		char c[FILENAME_MAX];
+		GetCurrentDir(c, sizeof(c));
+		std::string d(c);
+		return d;
+	}
+#endif

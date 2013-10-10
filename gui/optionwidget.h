@@ -4,8 +4,9 @@
 #include <QDialog>
 #include "inputwidget.h"
 
-typedef std::basic_string<TCHAR> tstring;
-
+#ifdef WIN32
+	typedef std::basic_string<TCHAR> tstring;
+#endif
 namespace rude{
 	class Config;
 }
@@ -27,7 +28,11 @@ private:
 	
     Ui::OptionWidget *ui;
 	rude::Config *m_config;
+#ifdef WIN32
 	tstring defaultDirectory();
+#else
+	std::string defaultDirectory();
+#endif
 private Q_SLOTS:
 	void SaveButtonClicked();
 	void CloseWindow();
